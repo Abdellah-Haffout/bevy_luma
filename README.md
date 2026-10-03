@@ -86,6 +86,31 @@
 
 ---
 
+> 📘 **New to Luma? Check out the [Developer Handbook & Practical Guide](docs/GUIDE.md)** for copy-paste recipes (modals, navbars, 3-column grids), cheat sheets, and troubleshooting tips so you never get stuck!
+
+---
+
+## 🧭 The 5-Minute Mental Model
+
+Luma is designed to feel natural and predictable. Every interface follows three simple building blocks:
+
+```
+[Camera2d or Camera3d]
+       │
+[URootUi] ─── The Canvas (Screen HUD, Virtual Resolution, or 3D World Space)
+       │
+    [UNode] ─── The Box (Sizing, Flexbox/Grid, Rounded Corners, Borders, Shadows)
+       │
+    ├── [UText]  ─── Typography (Latin, Arabic, Serif) and Lucide Icons
+    └── [UNode]  ─── Child containers, buttons, cards, scroll views...
+```
+
+1. **Always spawn a Camera** (`Camera2d` for screens, `Camera3d` for in-world UI).
+2. **Every tree starts with a Root** (`URootUi::screen()` or `URootUi::world_3d()`).
+3. **Nodes flow naturally** via standard Flexbox or CSS Grid.
+
+---
+
 ## 🚀 Quick Start
 
 Add `bevy_luma` to your `Cargo.toml`:
