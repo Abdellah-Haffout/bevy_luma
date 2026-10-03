@@ -1,0 +1,305 @@
+pub(super) mod bidi;
+pub(super) mod bounds;
+pub(super) mod invalidation;
+mod measurement;
+#[cfg(test)]
+mod tests;
+mod truncation;
+
+use crate::layout::geometry::{USides, UVal};
+#[cfg(test)]
+use crate::layout::layout_system::URootUi;
+use crate::layout::query::{ComputedSize, IntrinsicSize};
+#[cfg(test)]
+use crate::layout::univis_node::ULayout;
+use crate::layout::univis_node::UNode;
+use crate::schedule::UiWorkState;
+#[cfg(test)]
+use crate::schedule::{UiSettlementSchedule, UnivisPostUpdateSet};
+use bevy::asset::{AssetEvent, Assets};
+use bevy::ecs::relationship::Relationship;
+use bevy::prelude::*;
+use bevy::text::{
+    ComputedTextBlock, FontCx, LayoutCx, LetterSpacing, LineBreak, LineHeight, TextBounds,
+    TextFont, TextLayout, TextPipeline,
+};
+use std::collections::{HashMap, HashSet};
+use unicode_bidi::BidiInfo;
+use unicode_segmentation::UnicodeSegmentation;
+
+use self::bounds::{
+    clamp_outer_size_to_bounds, desired_text_label_intrinsic_size, label_measure_bounds,
+    measured_text_outer_size, parent_label_bounds, parent_label_bounds_from_ids,
+};
+#[cfg(test)]
+use self::invalidation::mark_text_label_layout_dirty;
+use self::invalidation::{
+    next_text_label_layout_cache, parent_bounds_changed,
+    reset_text_label_layout_cache_preserving_bounds,
+};
+use self::measurement::{
+    TextMeasureStage, label_text_font, label_text_layout, log_text_measure_error,
+    measure_layout_for_label, measure_layout_for_text, resolve_final_measured_text,
+};
+use super::model::{
+    UTextLabel, UTextLabelLayoutCache, UTextOverflow, UTextTruncateSide, UTextWrapMode,
+};
+
+pub fn measure_text_label_layout(
+    mut font_events: MessageReader<AssetEvent<Font>>,
+    fonts: Res<Assets<Font>>,
+    mut text_pipeline: ResMut<TextPipeline>,
+    mut font_cx: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+    parents_query: Query<&ChildOf>,
+    parent_query: Query<(&UNode, &ComputedSize)>,
+    mut query: Query<(
+        Entity,
+        Ref<UTextLabel>,
+        Ref<UNode>,
+        Ref<ComputedSize>,
+        &mut ComputedTextBlock,
+        &mut UTextLabelLayoutCache,
+    )>,
+) {
+    let mut changed_fonts = HashSet::new();
+    for event in font_events.read() {
+        match *event {
+            AssetEvent::Added { id }
+            | AssetEvent::Modified { id }
+            | AssetEvent::LoadedWithDependencies { id }
+            | AssetEvent::Removed { id }
+            | AssetEvent::Unused { id } => {
+                changed_fonts.insert(id);
+            }
+        }
+    }
+
+    for (entity, label, node, computed_size, mut computed, mut cache) in query.iter_mut() {
+        let font_changed = changed_fonts.contains(&label.font.id())
+            || label.spans.iter().any(|s| {
+                s.font
+                    .as_ref()
+                    .map_or(false, |f| changed_fonts.contains(&f.id()))
+            });
+        let parent_bounds =
+            parent_label_bounds(entity, &label, &node, &parents_query, &parent_query);
+        let bounds_changed = parent_bounds_changed(&cache, parent_bounds);
+
+        if !(label.is_changed()
+            || node.is_changed()
+            || computed_size.is_changed()
+            || cache.dirty
+            || bounds_changed
+            || font_changed)
+        {
+            continue;
+        }
+
+        let text_font = label_text_font(&label);
+        let text_layout = label_text_layout(&label);
+        let text_color = label.color;
+        let bounds = label_measure_bounds(&label, &node, Some(&computed_size), parent_bounds);
+
+        match measure_layout_for_label(
+            entity,
+            &label,
+            TextMeasureStage::FullText,
+            &text_font,
+            &text_layout,
+            text_color,
+            bounds,
+            &fonts,
+            &mut text_pipeline,
+            &mut computed,
+            &mut font_cx,
+            &mut layout_cx,
+        ) {
+            Ok(measured) => {
+                let Ok((final_text, final_measured, overflowed)) = resolve_final_measured_text(
+                    entity,
+                    &label,
+                    &text_font,
+                    &text_layout,
+                    text_color,
+                    bounds,
+                    &fonts,
+                    &mut text_pipeline,
+                    &mut computed,
+                    &mut font_cx,
+                    &mut layout_cx,
+                    measured,
+                ) else {
+                    reset_text_label_layout_cache_preserving_bounds(&mut cache, parent_bounds);
+                    continue;
+                };
+
+                let next_cache = next_text_label_layout_cache(
+                    final_text,
+                    final_measured,
+                    parent_bounds,
+                    overflowed,
+                );
+                if *cache != next_cache {
+                    *cache = next_cache;
+                }
+            }
+            Err(error) => {
+                log_text_measure_error(error);
+                if cache.measured_size == Vec2::ZERO {
+                    reset_text_label_layout_cache_preserving_bounds(&mut cache, parent_bounds);
+                }
+            }
+        }
+    }
+}
+
+pub fn fit_node_to_text_size(
+    parents_query: Query<&ChildOf>,
+    work_state: Option<Res<UiWorkState>>,
+    mut adjusted_counts: Local<HashMap<Entity, (u64, u8)>>,
+    mut params: ParamSet<(
+        Query<(&UNode, &ComputedSize)>,
+        Query<(Entity, &UTextLabel, &mut UNode, &UTextLabelLayoutCache)>,
+    )>,
+) {
+    let autosize_snapshot: Vec<_> = {
+        let labels = params.p1();
+        labels
+            .iter()
+            .filter_map(|(entity, label, node, _)| {
+                label.autosize.then_some((
+                    entity,
+                    parents_query.get(entity).ok().map(|parent| parent.get()),
+                    label.overflow,
+                    label.is_wrapping(),
+                    node.margin,
+                ))
+            })
+            .collect()
+    };
+
+    if autosize_snapshot.is_empty() {
+        return;
+    }
+
+    let current_gen = work_state.as_ref().map_or(0, |w| w.current_generation());
+    if adjusted_counts.len() > 256 {
+        adjusted_counts.retain(|_, (generation, _)| *generation == current_gen);
+    }
+
+    for (entity, parent_entity, overflow, is_wrapping, margin) in autosize_snapshot {
+        let entry = adjusted_counts.entry(entity).or_insert((current_gen, 0));
+        if entry.0 != current_gen {
+            entry.0 = current_gen;
+            entry.1 = 0;
+        }
+        if entry.1 >= 2 {
+            continue;
+        }
+
+        let parent_bounds = {
+            let parent_bounds_query = params.p0();
+            parent_label_bounds_from_ids(
+                parent_entity,
+                overflow,
+                is_wrapping,
+                margin,
+                &parent_bounds_query,
+            )
+        };
+
+        let mut labels = params.p1();
+        let Ok((_, _, mut node, layout_cache)) = labels.get_mut(entity) else {
+            continue;
+        };
+
+        let outer_size = measured_text_outer_size(&node, layout_cache);
+        let clamped_outer_size = clamp_outer_size_to_bounds(outer_size, parent_bounds);
+        let target_width = (clamped_outer_size.x * 2.0).round() / 2.0;
+        let target_height = (clamped_outer_size.y * 2.0).round() / 2.0;
+
+        let current_w = match node.width {
+            UVal::Px(value) => value,
+            _ => -1.0,
+        };
+        let current_h = match node.height {
+            UVal::Px(value) => value,
+            _ => -1.0,
+        };
+
+        const TEXT_AUTOSIZE_EPSILON: f32 = 0.5;
+        let mut changed = false;
+
+        // When text wraps to parent, DO NOT shrink the node's width to the measured line width.
+        // Shrinking the width causes oscillation loops and breaks responsive flex layouts.
+        if !is_wrapping {
+            if !node.width.uses_intrinsic_measurement()
+                && (current_w - target_width).abs() > TEXT_AUTOSIZE_EPSILON
+            {
+                node.width = UVal::Px(target_width);
+                changed = true;
+            }
+        } else if let Some(parent_w) = parent_bounds.width {
+            if let UVal::Px(w) = node.width {
+                if w > parent_w + TEXT_AUTOSIZE_EPSILON {
+                    node.width = UVal::Px(parent_w);
+                    changed = true;
+                }
+            }
+        }
+
+        if !node.height.uses_intrinsic_measurement()
+            && (current_h - target_height).abs() > TEXT_AUTOSIZE_EPSILON
+        {
+            node.height = UVal::Px(target_height);
+            changed = true;
+        }
+        if changed {
+            entry.1 += 1;
+        }
+    }
+}
+
+pub fn sync_text_label_intrinsic_size(
+    parents_query: Query<&ChildOf>,
+    parent_bounds_query: Query<(&UNode, &ComputedSize)>,
+    mut query: Query<
+        (
+            Entity,
+            &UNode,
+            &UTextLabel,
+            &UTextLabelLayoutCache,
+            &mut IntrinsicSize,
+        ),
+        Or<(
+            Added<UTextLabel>,
+            Changed<UTextLabel>,
+            Changed<UNode>,
+            Changed<UTextLabelLayoutCache>,
+        )>,
+    >,
+) {
+    for (entity, node, label, layout_cache, mut intrinsic) in query.iter_mut() {
+        if layout_cache.dirty {
+            continue;
+        }
+
+        let mut target = desired_text_label_intrinsic_size(label, node, layout_cache, *intrinsic);
+        if label.autosize {
+            let parent_bounds =
+                parent_label_bounds(entity, label, node, &parents_query, &parent_bounds_query);
+            let clamped_outer_size =
+                clamp_outer_size_to_bounds(Vec2::new(target.width, target.height), parent_bounds);
+            target.width = clamped_outer_size.x;
+            if !label.is_wrapping() || label.overflow != UTextOverflow::Visible {
+                target.height = clamped_outer_size.y;
+            }
+        }
+        if (intrinsic.width - target.width).abs() > 0.1
+            || (intrinsic.height - target.height).abs() > 0.1
+        {
+            *intrinsic = target;
+        }
+    }
+}

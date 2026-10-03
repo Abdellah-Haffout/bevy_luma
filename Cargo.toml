@@ -1,0 +1,126 @@
+[package]
+name = "bevy_luma"
+version = "0.1.0"
+edition = "2024"
+description = "A high-performance, SDF-based hybrid world-space UI framework for the Bevy game engine."
+authors = ["abdellah-haffout <abdellahhaffout9@gmail.com>"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/univiseditor/bevy_luma"
+homepage = "https://github.com/univiseditor/bevy_luma"
+keywords = ["bevy", "ui", "sdf", "gamedev", "hud"]
+categories = ["game-development", "gui", "rendering"]
+include = [
+    "/Cargo.toml",
+    "/LICENSE",
+    "/README.md",
+    "/src/**",
+    "/crates/**",
+    "/examples/**",
+    "/assets/**",
+]
+
+[workspace]
+members = [
+    ".",
+    "crates/luma_layout",
+    "crates/luma_engine",
+    "crates/luma_style",
+    "crates/luma_interaction",
+]
+resolver = "3"
+
+[workspace.dependencies]
+bevy = { version = "0.19.0", default-features = false, features = [
+    "default_app",
+    "std",
+    "android-native-activity",
+    "bevy_gilrs",
+    "bevy_winit",
+    "default_font",
+    "multi_threaded",
+    "webgl2",
+    "x11",
+    "wayland",
+    "sysinfo_plugin",
+    "common_api",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_post_process",
+    "tonemapping_luts",
+    "bevy_sprite",
+    "bevy_sprite_render",
+    "bevy_gizmos_render",
+    "bevy_pbr",
+    "bevy_picking",
+    "mesh_picking",
+    "zstd_rust",
+    "keyboard",
+    "mouse",
+    "bevy_scene",
+] }
+parley = { version = "0.9.0", default-features = false, features = ["std"] }
+swash = { version = "0.2" }
+
+[features]
+default = []
+example_bloom = ["bevy/bevy_post_process"]
+
+[dependencies]
+bevy = { workspace = true }
+luma_engine = { path = "crates/luma_engine", version = "0.1.0" }
+luma_layout = { path = "crates/luma_layout", version = "0.1.0" }
+luma_style = { path = "crates/luma_style", version = "0.1.0" }
+luma_interaction = { path = "crates/luma_interaction", version = "0.1.0" }
+
+[[example]]
+name = "luma_flex_dashboard"
+path = "examples/luma_flex_dashboard.rs"
+
+[[example]]
+name = "luma_grid_ecommerce"
+path = "examples/luma_grid_ecommerce.rs"
+
+[[example]]
+name = "luma_stack_music_player"
+path = "examples/luma_stack_music_player.rs"
+
+[[example]]
+name = "luma_visual_creative_studio"
+path = "examples/luma_visual_creative_studio.rs"
+
+[[example]]
+name = "luma_interaction_banking"
+path = "examples/luma_interaction_banking.rs"
+
+[[example]]
+name = "luma_form_profile"
+path = "examples/luma_form_profile.rs"
+
+[[example]]
+name = "luma_scroll_social_feed"
+path = "examples/luma_scroll_social_feed.rs"
+
+[[example]]
+name = "luma_focus_game_menu"
+path = "examples/luma_focus_game_menu.rs"
+
+[[example]]
+name = "luma_spring_faq_accordion"
+path = "examples/luma_spring_faq_accordion.rs"
+
+[[example]]
+name = "luma_world_3d_gallery"
+path = "examples/luma_world_3d_gallery.rs"
+
+[[example]]
+name = "luma_fantasy_rpg_hud"
+path = "examples/luma_fantasy_rpg_hud.rs"
+
+[[example]]
+name = "luma_editorial_typography"
+path = "examples/luma_editorial_typography.rs"
+
+[[example]]
+name = "luma_rich_typography"
+path = "examples/luma_rich_typography.rs"

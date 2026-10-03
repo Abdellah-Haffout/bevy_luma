@@ -1,0 +1,12 @@
+[package]
+name = "luma_interaction"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Interaction, spatial focus, and picking backend for Luma."
+repository = "https://github.com/univiseditor/bevy_luma"
+homepage = "https://github.com/univiseditor/bevy_luma"
+
+[dependencies]
+bevy = { workspace = true }
+luma_engine = { path = "../luma_engine", version = "0.1.0" }

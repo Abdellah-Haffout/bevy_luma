@@ -1,0 +1,78 @@
+//! Layout and root systems for Univis UI.
+//!
+//! This module contains:
+//!
+//! - [`crate::layout::layout_system`] for [`crate::layout::layout_system::URootUi`]
+//!   and root resolution.
+//! - [`crate::layout::univis_node`] for node, layout, and local positioning components.
+//! - [`crate::layout::geometry`] for logical UI units and spacing helpers.
+//! - [`crate::layout::render`] for mesh/material synchronization.
+//!
+//! Most users reach this module through [`crate::prelude`] or
+//! [`crate::layout::prelude`].
+
+#[doc(hidden)]
+pub mod algorithms;
+#[doc(hidden)]
+pub mod components;
+#[doc(hidden)]
+pub mod core;
+/// Logical UI units, spacing helpers, and box-side utilities.
+pub mod geometry;
+/// Grid track sizing and repetition definitions.
+pub mod grid;
+/// Image-backed node helpers.
+pub mod image;
+/// Public requests for external layout invalidation.
+pub mod invalidation;
+/// The public root model and root-resolution systems.
+pub mod layout_system;
+/// Physically based material overrides for `World3d` content.
+pub mod pbr;
+#[doc(hidden)]
+pub mod pipeline;
+mod plugin;
+/// Optional profiling and layout diagnostics helpers.
+pub mod profiling;
+/// Read-only query-facing types for resolved layout and root state.
+pub mod query;
+mod registration;
+/// Mesh/material synchronization and render-facing types.
+pub mod render;
+/// Scroll container and content types for smooth viewport scrolling.
+pub mod scroll;
+mod settlement_loop;
+#[doc(hidden)]
+pub mod solver_types;
+#[cfg(test)]
+mod tests;
+/// Text measurement and SDF rendering types.
+pub mod text;
+/// Smooth spring layout transitions.
+pub mod transition;
+/// Core node, layout, and local positioning components.
+pub mod univis_node;
+/// Advanced visual styling: gradients, shadows, and holographic glows.
+pub mod visual;
+
+pub use self::plugin::UnivisLayoutPlugin;
+pub type LumaLayoutPlugin = UnivisLayoutPlugin;
+
+/// Common imports for authoring layout trees and roots directly from the engine crate.
+pub mod prelude {
+    pub use crate::layout::{LumaLayoutPlugin, UnivisLayoutPlugin};
+    pub use crate::layout::geometry::{UCornerRadius, USides, UVal};
+    pub use crate::layout::image::UImage;
+    pub use crate::layout::invalidation::{UiInvalidateRequestQueue, UiLayoutInvalidation};
+    pub use crate::layout::layout_system::{
+        URootUi, UVirtualScaleMode, UiCameraRef, UiCanvasSize, UiRootSettlementState, UiSpace,
+    };
+    pub use crate::layout::pbr::UPbr;
+    pub use crate::layout::scroll::*;
+    pub use crate::layout::text::{
+        UText, UTextLabel, UTextOverflow, UTextTruncateSide, UTextWrapMode,
+    };
+    pub use crate::layout::transition::*;
+    pub use crate::layout::univis_node::*;
+    pub use crate::layout::visual::*;
+}
