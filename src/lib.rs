@@ -6,7 +6,7 @@
 //! - Seamless 2D Screen and 3D In-World spatial UI with interactive picking and focus navigation.
 //! - Embedded typography with multi-script font fallback (Latin, Arabic, etc.) and Lucide icons.
 //!
-//! Import [`prelude::*`] to start building responsive UI in Bevy.
+//! Import [`prelude`] to start building responsive UI in Bevy.
 
 use bevy::prelude::*;
 use luma_engine::LumaEnginePlugin;
