@@ -74,6 +74,26 @@ luma_style = { path = "crates/luma_style", version = "0.1.0" }
 luma_interaction = { path = "crates/luma_interaction", version = "0.1.0" }
 
 [[example]]
+name = "button"
+path = "examples/button.rs"
+
+[[example]]
+name = "modal"
+path = "examples/modal.rs"
+
+[[example]]
+name = "counter"
+path = "examples/counter.rs"
+
+[[example]]
+name = "grid"
+path = "examples/grid.rs"
+
+[[example]]
+name = "world_3d"
+path = "examples/world_3d.rs"
+
+[[example]]
 name = "luma_flex_dashboard"
 path = "examples/luma_flex_dashboard.rs"
 
