@@ -77,7 +77,7 @@ Luma is designed to feel natural and predictable. Every interface follows three 
 
 ---
 
-## Quick Start (with BSN)
+## Quick Start
 
 Add `bevy_luma` to your `Cargo.toml`:
 
@@ -87,7 +87,7 @@ bevy = "0.19"
 bevy_luma = "0.1.0"
 ```
 
-### Interactive Button Example
+### 1. Minimal Setup
 
 ```rust
 use bevy::prelude::*;
@@ -97,25 +97,66 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(LumaPlugin)
-        .add_systems(Startup, setup_ui)
+        .add_systems(Startup, setup)
         .run();
 }
 
-fn setup_ui(mut commands: Commands, theme: Res<Theme>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
-    commands.spawn_scene(main_ui_scene(&theme));
+    commands.spawn_scene(my_ui());
 }
+```
 
-fn main_ui_scene(theme: &Theme) -> impl Scene {
-    let font = theme.text.font.inter_regular.clone();
-    let icon_font = theme.icon.font.clone();
+---
 
+## Practical BSN Examples
+
+### Interactive Button (Hover Feedback & Click Observer)
+
+```rust
+fn action_button() -> impl Scene {
+    bsn! {
+        UNode {
+            width: UVal::Px(160.0),
+            height: UVal::Px(44.0),
+            background_color: Color::srgb(0.20, 0.40, 0.85),
+            border_radius: UCornerRadius::all(8.0),
+        }
+        UInteraction::default()
+        UInteractionColors {
+            normal: Color::srgb(0.20, 0.40, 0.85),
+            hovered: Color::srgb(0.28, 0.50, 0.95),
+            pressed: Color::srgb(0.14, 0.25, 0.55),
+        }
+        ULayout {
+            display: UDisplay::Flex,
+            justify_content: UJustifyContent::Center,
+            align_items: UAlignItems::Center,
+        }
+        Children [
+            (UText {
+                text: { "Click Me".to_string() },
+                font_size: 15.0,
+                color: Color::WHITE,
+            })
+        ]
+        on(|_event: On<Pointer<Click>>| {
+            info!("Button clicked!");
+        })
+    }
+}
+```
+
+### Centered Modal Dialog Card
+
+```rust
+fn modal_dialog() -> impl Scene {
     bsn! {
         URootUi::screen()
         UNode {
             width: UVal::Percent(1.0),
             height: UVal::Percent(1.0),
-            background_color: Color::srgb(0.08, 0.09, 0.12),
+            background_color: Color::srgba(0.0, 0.0, 0.0, 0.60),
         }
         ULayout {
             display: UDisplay::Flex,
@@ -125,48 +166,78 @@ fn main_ui_scene(theme: &Theme) -> impl Scene {
         Children [
             (
                 UNode {
-                    width: UVal::Px(180.0),
-                    height: UVal::Px(48.0),
-                    background_color: Color::srgb(0.20, 0.35, 0.75),
-                    border_radius: UCornerRadius::all(10.0),
-                    padding: USides::axes(16.0, 8.0),
+                    width: UVal::Px(380.0),
+                    background_color: Color::srgb(0.12, 0.14, 0.20),
+                    border_radius: UCornerRadius::all(16.0),
+                    padding: USides::all(24.0),
                 }
                 UBorder {
-                    color: Color::srgb(0.35, 0.50, 0.90),
+                    color: Color::srgb(0.25, 0.30, 0.45),
                     width: 1.0,
-                    radius: UCornerRadius::all(10.0),
-                }
-                UInteraction::default()
-                UInteractionColors {
-                    normal: Color::srgb(0.20, 0.35, 0.75),
-                    hovered: Color::srgb(0.28, 0.45, 0.90),
-                    pressed: Color::srgb(0.14, 0.25, 0.55),
+                    radius: UCornerRadius::all(16.0),
                 }
                 ULayout {
                     display: UDisplay::Flex,
-                    flex_direction: UFlexDirection::Row,
-                    justify_content: UJustifyContent::Center,
-                    align_items: UAlignItems::Center,
-                    gap: 8.0,
+                    flex_direction: UFlexDirection::Column,
+                    gap: 12.0,
                 }
                 Children [
-                    (UText {
-                        text: { Icon::PLAY.to_string() },
-                        font_size: 16.0,
-                        font: { icon_font },
-                        color: Color::WHITE,
-                    }),
-                    (UText {
-                        text: { "Click Me".to_string() },
-                        font_size: 15.0,
-                        font: { font },
-                        color: Color::WHITE,
-                    })
+                    (UText { text: { "Confirm Action".to_string() }, font_size: 18.0, color: Color::WHITE }),
+                    (UText { text: { "Are you sure you want to proceed?".to_string() }, font_size: 14.0, color: Color::srgb(0.7, 0.75, 0.85) }),
                 ]
-                on(|_event: On<Pointer<Click>>| {
-                    info!("Button clicked!");
-                })
             )
+        ]
+    }
+}
+```
+
+### Responsive 3-Column CSS Grid
+
+```rust
+fn dashboard_grid() -> impl Scene {
+    bsn! {
+        UNode {
+            width: UVal::Percent(1.0),
+        }
+        ULayout {
+            display: UDisplay::Grid,
+            grid_template_columns: vec![
+                UTrackSize::Fr(1.0),
+                UTrackSize::Fr(1.0),
+                UTrackSize::Fr(1.0),
+            ],
+            gap: 16.0,
+        }
+        Children [
+            (grid_item("Analytics")),
+            (grid_item("Storage")),
+            (grid_item("Security")),
+        ]
+    }
+}
+```
+
+### In-World 3D Spatial UI Panel
+
+```rust
+fn world_space_panel() -> impl Scene {
+    bsn! {
+        URootUi::world_3d(Vec2::new(400.0, 240.0))
+        Transform::from_xyz(0.0, 1.5, -2.0)
+        UNode {
+            width: UVal::Px(400.0),
+            height: UVal::Px(240.0),
+            background_color: Color::srgba(0.08, 0.12, 0.20, 0.90),
+            border_radius: UCornerRadius::all(16.0),
+            padding: USides::all(20.0),
+        }
+        UBorder {
+            color: Color::srgb(0.2, 0.7, 1.0),
+            width: 2.0,
+            radius: UCornerRadius::all(16.0),
+        }
+        Children [
+            (UText { text: { "Diegetic Terminal".to_string() }, font_size: 20.0, color: Color::WHITE })
         ]
     }
 }
