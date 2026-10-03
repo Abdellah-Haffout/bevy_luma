@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Theme, embedded typography, vector icons, gradients, and shadows for Luma."
-repository = "https://github.com/univiseditor/bevy_luma"
-homepage = "https://github.com/univiseditor/bevy_luma"
+repository = "https://github.com/Abdellah-Haffout/bevy_luma"
+homepage = "https://github.com/Abdellah-Haffout/bevy_luma"
 
 [dependencies]
 bevy = { workspace = true }

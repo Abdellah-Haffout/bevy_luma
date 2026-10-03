@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Pure, standalone, high-performance layout engine supporting CSS Grid, Flexbox, and Radial layouts for Luma."
-repository = "https://github.com/univiseditor/bevy_luma"
-homepage = "https://github.com/univiseditor/bevy_luma"
+repository = "https://github.com/Abdellah-Haffout/bevy_luma"
+homepage = "https://github.com/Abdellah-Haffout/bevy_luma"
 
 [features]
 default = ["std"]
