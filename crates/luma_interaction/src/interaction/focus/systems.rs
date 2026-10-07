@@ -18,9 +18,12 @@ use super::{
 /// Cleanup system verifying that the currently focused entity remains valid and enabled.
 pub fn focus_cleanup_system(
     mut commands: Commands,
-    mut focus_state: ResMut<UFocusState>,
+    mut focus_state: Option<ResMut<UFocusState>>,
     query: Query<(&UFocusable, Option<&ULayout>, Option<&Visibility>)>,
 ) {
+    let Some(ref mut focus_state) = focus_state else {
+        return;
+    };
     if let Some(focused) = focus_state.focused {
         if let Ok((focusable, layout_opt, vis_opt)) = query.get(focused) {
             let is_visible = vis_opt.is_none_or(|v| *v != Visibility::Hidden)
@@ -28,7 +31,7 @@ pub fn focus_cleanup_system(
 
             if !focusable.enabled || !is_visible {
                 let modality = focus_state.modality;
-                set_focus(&mut commands, &mut focus_state, None, modality);
+                set_focus(&mut commands, focus_state, None, modality);
             }
         } else {
             focus_state.focused = None;
@@ -42,8 +45,8 @@ pub fn focus_keyboard_navigation_system(
     mut commands: Commands,
     keyboard_input_opt: Option<Res<ButtonInput<KeyCode>>>,
     time_opt: Option<Res<Time>>,
-    settings: Res<UFocusNavigationSettings>,
-    mut focus_state: ResMut<UFocusState>,
+    settings: Option<Res<UFocusNavigationSettings>>,
+    focus_state: Option<ResMut<UFocusState>>,
     focusable_query: Query<(
         Entity,
         &UFocusable,
@@ -53,7 +56,9 @@ pub fn focus_keyboard_navigation_system(
         Option<&Visibility>,
     )>,
 ) {
-    let Some(keyboard) = keyboard_input_opt else {
+    let (Some(keyboard), Some(settings), Some(ref mut focus_state)) =
+        (keyboard_input_opt, settings, focus_state)
+    else {
         return;
     };
     let delta = time_opt
@@ -100,7 +105,7 @@ pub fn focus_keyboard_navigation_system(
         if let Some(target) = find_next_tab_candidate(focus_state.focused, backward, &candidates) {
             set_focus(
                 &mut commands,
-                &mut focus_state,
+                focus_state,
                 Some(target),
                 FocusModality::Keyboard,
             );
@@ -177,7 +182,7 @@ pub fn focus_keyboard_navigation_system(
 
     execute_spatial_navigation(
         &mut commands,
-        &mut focus_state,
+        focus_state,
         direction,
         FocusModality::Keyboard,
         settings.wrap_around,
@@ -189,8 +194,8 @@ pub fn focus_keyboard_navigation_system(
 pub fn focus_gamepad_navigation_system(
     mut commands: Commands,
     time_opt: Option<Res<Time>>,
-    settings: Res<UFocusNavigationSettings>,
-    mut focus_state: ResMut<UFocusState>,
+    settings: Option<Res<UFocusNavigationSettings>>,
+    focus_state: Option<ResMut<UFocusState>>,
     gamepads: Query<&Gamepad>,
     focusable_query: Query<(
         Entity,
@@ -201,6 +206,9 @@ pub fn focus_gamepad_navigation_system(
         Option<&Visibility>,
     )>,
 ) {
+    let (Some(settings), Some(ref mut focus_state)) = (settings, focus_state) else {
+        return;
+    };
     let delta = time_opt
         .as_ref()
         .map_or(Duration::from_millis(16), |t| t.delta());
@@ -314,7 +322,7 @@ pub fn focus_gamepad_navigation_system(
         if should_navigate {
             execute_spatial_navigation(
                 &mut commands,
-                &mut focus_state,
+                focus_state,
                 direction,
                 FocusModality::Gamepad,
                 settings.wrap_around,

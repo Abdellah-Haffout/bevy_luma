@@ -16,8 +16,11 @@ pub fn univis_picking_backend(
     parents_query: Query<&ChildOf>,
     clipper_query: Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
     mut profiler: Option<ResMut<LayoutProfiler>>,
-    mut output: MessageWriter<PointerHits>,
+    output: Option<MessageWriter<PointerHits>>,
 ) {
+    let Some(mut output) = output else {
+        return;
+    };
     emit_pointer_hits(
         &pointers,
         &cameras,

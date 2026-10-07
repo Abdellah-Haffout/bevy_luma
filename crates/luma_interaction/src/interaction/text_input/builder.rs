@@ -133,7 +133,7 @@ pub fn spawn_text_input(commands: &mut Commands, input: UTextInput) -> Entity {
     };
 
     if let Ok(mut cmd) = commands.get_entity(parent) {
-        cmd.insert(caret);
+        cmd.try_insert(caret);
     }
 
     parent

@@ -38,7 +38,7 @@ pub fn update_layout_hierarchy(
         let total = paint_order.len().max(1) as f32;
         for (index, entity) in paint_order.into_iter().enumerate() {
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.insert(UiLocalStacking {
+                cmd.try_insert(UiLocalStacking {
                     normalized: index as f32 / total,
                 });
             }
@@ -58,7 +58,7 @@ fn traverse_and_mark(
     paint_order: &mut Vec<Entity>,
 ) -> usize {
     if let Ok(mut cmd) = commands.get_entity(entity) {
-        cmd.insert(LayoutDepth(depth));
+        cmd.try_insert(LayoutDepth(depth));
     }
     paint_order.push(entity);
 
@@ -356,7 +356,7 @@ fn sync_cached_context_for_entity(
     else {
         if cached.is_some() {
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.remove::<CachedUiContext>();
+                cmd.try_remove::<CachedUiContext>();
             }
         }
         return;
@@ -364,7 +364,7 @@ fn sync_cached_context_for_entity(
 
     if cached != Some(updated) {
         if let Ok(mut cmd) = commands.get_entity(entity) {
-            cmd.insert(updated);
+            cmd.try_insert(updated);
         }
     }
 }
@@ -384,12 +384,12 @@ fn sync_picking_context_for_entity(
     match updated {
         Some(updated) if cached != Some(updated) => {
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.insert(updated);
+                cmd.try_insert(updated);
             }
         }
         None if cached.is_some() => {
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.remove::<UiPickingContext>();
+                cmd.try_remove::<UiPickingContext>();
             }
         }
         _ => {}

@@ -293,7 +293,7 @@ pub fn set_focus(
 
     if let Some(prev_entity) = previous {
         if let Ok(mut cmd) = commands.get_entity(prev_entity) {
-            cmd.remove::<UFocused>();
+            cmd.try_remove::<UFocused>();
             cmd.trigger(|entity| FocusLost { entity });
         }
         focus_state.last_focused = Some(prev_entity);
@@ -304,7 +304,7 @@ pub fn set_focus(
 
     if let Some(new_entity) = target {
         if let Ok(mut cmd) = commands.get_entity(new_entity) {
-            cmd.insert(UFocused);
+            cmd.try_insert(UFocused);
             cmd.trigger(|entity| FocusGained { entity });
         }
     }

@@ -73,6 +73,9 @@ luma_layout = { path = "crates/luma_layout", version = "0.1.0" }
 luma_style = { path = "crates/luma_style", version = "0.1.0" }
 luma_interaction = { path = "crates/luma_interaction", version = "0.1.0" }
 
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+
 [[example]]
 name = "button"
 path = "examples/button.rs"
@@ -144,3 +147,7 @@ path = "examples/luma_editorial_typography.rs"
 [[example]]
 name = "luma_rich_typography"
 path = "examples/luma_rich_typography.rs"
+
+[[example]]
+name = "image"
+path = "examples/image.rs"

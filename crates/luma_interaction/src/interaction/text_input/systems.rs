@@ -2,6 +2,7 @@
 
 use bevy::input::ButtonState;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};
+use bevy::picking::pointer::PointerButton;
 use bevy::prelude::*;
 use luma_engine::layout::{
     geometry::{ComputedSize, UVal},
@@ -26,11 +27,16 @@ use crate::interaction::focus::{FocusLost, FocusModality, UFocusState, UFocusabl
 /// Keyboard processing system driving active text input fields.
 pub fn text_input_keyboard_system(
     mut commands: Commands,
-    focus_state: Res<UFocusState>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut keyboard_events: MessageReader<KeyboardInput>,
+    focus_state: Option<Res<UFocusState>>,
+    keyboard: Option<Res<ButtonInput<KeyCode>>>,
+    keyboard_events: Option<MessageReader<KeyboardInput>>,
     mut query: Query<(Entity, &mut UTextInput, &mut UTextInputCaret, &UFocusable)>,
 ) {
+    let (Some(focus_state), Some(keyboard), Some(mut keyboard_events)) =
+        (focus_state, keyboard, keyboard_events)
+    else {
+        return;
+    };
     let Some(focused_entity) = focus_state.focused else {
         return;
     };
@@ -151,10 +157,13 @@ pub fn text_input_keyboard_system(
 
 /// Blinks the caret cursor on active focused inputs.
 pub fn text_input_caret_blink_system(
-    time: Res<Time>,
-    focus_state: Res<UFocusState>,
+    time: Option<Res<Time>>,
+    focus_state: Option<Res<UFocusState>>,
     mut carets: Query<(Entity, &mut UTextInputCaret)>,
 ) {
+    let (Some(time), Some(focus_state)) = (time, focus_state) else {
+        return;
+    };
     for (entity, mut caret) in carets.iter_mut() {
         if focus_state.focused == Some(entity) {
             caret.timer.tick(time.delta());
@@ -169,7 +178,7 @@ pub fn text_input_caret_blink_system(
 
 /// Synchronizes the visual child text label, caret, and selection highlight with the [`UTextInput`] state.
 pub fn text_input_sync_visual_system(
-    focus_state: Res<UFocusState>,
+    focus_state: Option<Res<UFocusState>>,
     inputs: Query<(Entity, &UTextInput, &UTextInputCaret)>,
     mut label_query: Query<(&mut UTextLabel, Option<&UTextLabelLayoutCache>)>,
     mut caret_query: Query<(&mut UNode, &mut USelf, &mut Visibility), With<UTextInputCaretMarker>>,
@@ -182,7 +191,7 @@ pub fn text_input_sync_visual_system(
     >,
 ) {
     for (entity, input, caret) in inputs.iter() {
-        let is_focused = focus_state.focused == Some(entity);
+        let is_focused = focus_state.as_ref().is_some_and(|f| f.focused == Some(entity));
 
         // 1. Update text label
         let mut measured_width = 0.0;
@@ -330,10 +339,10 @@ fn hit_test_cursor(
 /// or double-click to select word.
 pub fn on_text_input_pointer_press(
     trigger: On<Pointer<Press>>,
-    time: Res<Time>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    time: Option<Res<Time>>,
+    keyboard: Option<Res<ButtonInput<KeyCode>>>,
     mut commands: Commands,
-    mut focus_state: ResMut<UFocusState>,
+    mut focus_state: Option<ResMut<UFocusState>>,
     mut query: Query<(
         Entity,
         &mut UTextInput,
@@ -344,6 +353,9 @@ pub fn on_text_input_pointer_press(
     )>,
     label_query: Query<&UTextLabelLayoutCache>,
 ) {
+    if trigger.event().button != PointerButton::Primary {
+        return;
+    }
     let entity = trigger.entity;
     let Ok((_, mut input, mut caret, focusable, gt, computed)) = query.get_mut(entity) else {
         return;
@@ -353,12 +365,14 @@ pub fn on_text_input_pointer_press(
         return;
     }
 
-    set_focus(
-        &mut commands,
-        &mut focus_state,
-        Some(entity),
-        FocusModality::Pointer,
-    );
+    if let Some(ref mut focus_state) = focus_state {
+        set_focus(
+            &mut commands,
+            focus_state,
+            Some(entity),
+            FocusModality::Pointer,
+        );
+    }
 
     let measured_width = caret
         .text_entity
@@ -368,16 +382,17 @@ pub fn on_text_input_pointer_press(
     let hit_world = trigger.event().hit.position.unwrap_or(gt.translation());
     let new_cursor = hit_test_cursor(hit_world, gt, computed, &input, measured_width);
 
-    let now = time.elapsed_secs_f64();
+    let now = time.as_ref().map_or(0.0, |t| t.elapsed_secs_f64());
     let is_double_click =
         (now - caret.last_click_secs) < 0.35 && (now - caret.last_click_secs) > 0.0;
     caret.last_click_secs = now;
 
+    let is_shift = keyboard.as_ref().is_some_and(|k| k.pressed(KeyCode::ShiftLeft) || k.pressed(KeyCode::ShiftRight));
     if is_double_click {
         input.cursor_position = new_cursor;
         select_word_at_cursor(&mut input);
         caret.drag_anchor = None;
-    } else if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+    } else if is_shift {
         let anchor = input
             .selection
             .map(|(s, _)| s)
@@ -470,19 +485,24 @@ pub fn on_text_input_pointer_release(
 pub fn on_text_input_pointer_click(
     trigger: On<Pointer<Click>>,
     mut commands: Commands,
-    mut focus_state: ResMut<UFocusState>,
+    mut focus_state: Option<ResMut<UFocusState>>,
     mut query: Query<(&mut UTextInput, &mut UTextInputCaret, &UFocusable)>,
 ) {
+    if trigger.event().button != PointerButton::Primary {
+        return;
+    }
     let entity = trigger.entity;
     if let Ok((_, mut caret, focusable)) = query.get_mut(entity)
         && focusable.enabled
     {
-        set_focus(
-            &mut commands,
-            &mut focus_state,
-            Some(entity),
-            FocusModality::Pointer,
-        );
+        if let Some(ref mut focus_state) = focus_state {
+            set_focus(
+                &mut commands,
+                focus_state,
+                Some(entity),
+                FocusModality::Pointer,
+            );
+        }
         caret.reset_blink();
     }
 }

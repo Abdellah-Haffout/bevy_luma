@@ -46,8 +46,8 @@ use super::model::{
 };
 
 pub fn measure_text_label_layout(
-    mut font_events: MessageReader<AssetEvent<Font>>,
-    fonts: Res<Assets<Font>>,
+    font_events: Option<MessageReader<AssetEvent<Font>>>,
+    fonts: Option<Res<Assets<Font>>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
@@ -62,15 +62,21 @@ pub fn measure_text_label_layout(
         &mut UTextLabelLayoutCache,
     )>,
 ) {
+    let Some(fonts) = fonts else {
+        return;
+    };
+
     let mut changed_fonts = HashSet::new();
-    for event in font_events.read() {
-        match *event {
-            AssetEvent::Added { id }
-            | AssetEvent::Modified { id }
-            | AssetEvent::LoadedWithDependencies { id }
-            | AssetEvent::Removed { id }
-            | AssetEvent::Unused { id } => {
-                changed_fonts.insert(id);
+    if let Some(mut events) = font_events {
+        for event in events.read() {
+            match *event {
+                AssetEvent::Added { id }
+                | AssetEvent::Modified { id }
+                | AssetEvent::LoadedWithDependencies { id }
+                | AssetEvent::Removed { id }
+                | AssetEvent::Unused { id } => {
+                    changed_fonts.insert(id);
+                }
             }
         }
     }

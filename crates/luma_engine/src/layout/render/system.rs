@@ -119,10 +119,16 @@ pub fn update_materials_optimized(
     root_query: Query<&ResolvedRootUi>,
 
     // Render resources
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials_2d: ResMut<Assets<UNodeMaterial>>,
-    mut materials_3d: ResMut<Assets<UNodeMaterial3d>>,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials_2d: Option<ResMut<Assets<UNodeMaterial>>>,
+    materials_3d: Option<ResMut<Assets<UNodeMaterial3d>>>,
 ) {
+    let (Some(mut meshes), Some(mut materials_2d), Some(mut materials_3d)) =
+        (meshes, materials_2d, materials_3d)
+    else {
+        return;
+    };
+
     let start = std::time::Instant::now();
     let use_cached_ui_context = rollout
         .as_ref()
@@ -246,7 +252,7 @@ fn sync_entity_material(
     {
         if handles_opt.is_some() {
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.remove::<(Mesh2d, MeshMaterial2d<UNodeMaterial>, MaterialHandles)>();
+                cmd.try_remove::<(Mesh2d, MeshMaterial2d<UNodeMaterial>, MaterialHandles)>();
             }
         }
         return;
@@ -483,7 +489,7 @@ fn sync_entity_material(
                     inner_glow_params,
                 ));
                 if let Ok(mut cmd) = commands.get_entity(entity) {
-                    cmd.insert(MaterialHandles {
+                    cmd.try_insert(MaterialHandles {
                         material_2d: None,
                         material_3d: Some(new_mat.clone()),
                     });
@@ -493,8 +499,8 @@ fn sync_entity_material(
             };
 
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.insert((Mesh3d(mesh), MeshMaterial3d(material_handle)))
-                    .remove::<(Mesh2d, MeshMaterial2d<UNodeMaterial>)>();
+                cmd.try_insert((Mesh3d(mesh), MeshMaterial3d(material_handle)))
+                    .try_remove::<(Mesh2d, MeshMaterial2d<UNodeMaterial>)>();
             }
         }
         ResolvedRenderMode::Flat2d => {
@@ -610,7 +616,7 @@ fn sync_entity_material(
                     inner_glow_params,
                 ));
                 if let Ok(mut cmd) = commands.get_entity(entity) {
-                    cmd.insert(MaterialHandles {
+                    cmd.try_insert(MaterialHandles {
                         material_2d: Some(new_mat.clone()),
                         material_3d: None,
                     });
@@ -620,8 +626,8 @@ fn sync_entity_material(
             };
 
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.insert((Mesh2d(mesh), MeshMaterial2d(material_handle)))
-                    .remove::<(Mesh3d, MeshMaterial3d<UNodeMaterial3d>)>();
+                cmd.try_insert((Mesh2d(mesh), MeshMaterial2d(material_handle)))
+                    .try_remove::<(Mesh3d, MeshMaterial3d<UNodeMaterial3d>)>();
             }
         }
     }

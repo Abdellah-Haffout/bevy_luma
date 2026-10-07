@@ -20,7 +20,7 @@ pub fn post_settle_picking_backend(
     mut validation_state: ResMut<PickingValidationState>,
     mut sync_state: ResMut<PickingSyncState>,
     mut profiler: Option<ResMut<LayoutProfiler>>,
-    mut output: MessageWriter<PointerHits>,
+    output: Option<MessageWriter<PointerHits>>,
 ) {
     let picking_runtime = picking_runtime
         .as_ref()
@@ -79,7 +79,9 @@ pub fn post_settle_picking_backend(
     }
 
     if picking_runtime.post_settle_picking_enabled() {
-        write_pointer_hits(&current_hits, &mut output);
+        if let Some(mut output) = output {
+            write_pointer_hits(&current_hits, &mut output);
+        }
     }
 
     sync_state.settled_ui_generation = current_ui_generation;

@@ -1,5 +1,6 @@
 //! Visual focus states and default observers for Univis focus navigation.
 
+use bevy::picking::pointer::PointerButton;
 use bevy::prelude::*;
 use luma_engine::layout::{
     transition::UTransitionState,
@@ -196,7 +197,7 @@ pub fn on_focus_gained_visual(
             let color = visual.focused_border_color.unwrap_or(Color::WHITE);
             let width = visual.focused_border_width.unwrap_or(2.0);
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.insert(UBorder {
+                cmd.try_insert(UBorder {
                     color,
                     width,
                     ..Default::default()
@@ -284,7 +285,7 @@ pub fn on_focus_lost_visual(
         } else if border_opt.is_some() {
             // Remove border if it was added only for focus
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.remove::<UBorder>();
+                cmd.try_remove::<UBorder>();
             }
         }
 
@@ -302,19 +303,24 @@ pub fn on_focus_lost_visual(
 pub fn on_pointer_focus_click(
     trigger: On<Pointer<Click>>,
     mut commands: Commands,
-    mut focus_state: ResMut<UFocusState>,
+    mut focus_state: Option<ResMut<UFocusState>>,
     query: Query<&UFocusable>,
 ) {
+    if trigger.event().button != PointerButton::Primary {
+        return;
+    }
     let entity = trigger.entity;
     if let Ok(focusable) = query.get(entity)
         && focusable.enabled
     {
-        set_focus(
-            &mut commands,
-            &mut focus_state,
-            Some(entity),
-            FocusModality::Pointer,
-        );
+        if let Some(ref mut focus_state) = focus_state {
+            set_focus(
+                &mut commands,
+                focus_state,
+                Some(entity),
+                FocusModality::Pointer,
+            );
+        }
     }
 }
 

@@ -128,11 +128,11 @@ impl Material for UTextLabelSdfMaterial3d {
 pub(super) fn sync_text_label_meshes(
     mut commands: Commands,
     mut atlas_cache: ResMut<UTextLabelAtlasCache>,
-    mut images: ResMut<Assets<Image>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<UTextLabelSdfMaterial>>,
-    mut materials_3d: ResMut<Assets<UTextLabelSdfMaterial3d>>,
+    images: Option<ResMut<Assets<Image>>>,
+    texture_atlases: Option<ResMut<Assets<TextureAtlasLayout>>>,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<UTextLabelSdfMaterial>>>,
+    materials_3d: Option<ResMut<Assets<UTextLabelSdfMaterial3d>>>,
     mut _font_cx: ResMut<FontCx>,
     mut scale_cx: ResMut<ScaleCx>,
     label_query: Query<
@@ -169,6 +169,17 @@ pub(super) fn sync_text_label_meshes(
         With<TextChildMarker>,
     >,
 ) {
+    let (
+        Some(mut images),
+        Some(mut texture_atlases),
+        Some(mut meshes),
+        Some(mut materials),
+        Some(mut materials_3d),
+    ) = (images, texture_atlases, meshes, materials, materials_3d)
+    else {
+        return;
+    };
+
     for (
         entity,
         label,
@@ -485,7 +496,7 @@ pub(super) fn sync_text_label_meshes(
                         }
                     }
                     if let Ok(mut cmd) = commands.get_entity(child_entity) {
-                        cmd.insert(TextRenderPageMarker { texture_id });
+                        cmd.try_insert(TextRenderPageMarker { texture_id });
                     }
                 }
                 None => {
@@ -522,7 +533,7 @@ pub(super) fn sync_text_label_meshes(
 
         for (_, (stale_child, _, _, _)) in existing_children {
             if let Ok(mut cmd) = commands.get_entity(stale_child) {
-                cmd.despawn();
+                cmd.try_despawn();
             }
         }
     }

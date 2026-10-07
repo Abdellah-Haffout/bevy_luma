@@ -178,7 +178,7 @@ pub fn init_scroll_containers(
     for (entity, clip) in query.iter() {
         if clip.is_none_or(|c| !c.enabled) {
             if let Ok(mut cmd) = commands.get_entity(entity) {
-                cmd.insert(UClip { enabled: true });
+                cmd.try_insert(UClip { enabled: true });
             }
         }
     }
@@ -198,7 +198,7 @@ pub fn auto_init_scroll_content(
                 continue;
             };
             if let Ok(mut cmd) = commands.get_entity(first_child) {
-                cmd.insert(UScrollContent::default());
+                cmd.try_insert(UScrollContent::default());
             }
         }
     }
