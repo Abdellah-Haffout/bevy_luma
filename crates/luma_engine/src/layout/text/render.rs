@@ -484,42 +484,46 @@ pub(super) fn sync_text_label_meshes(
                             }
                         }
                     }
-                    commands
-                        .entity(child_entity)
-                        .insert(TextRenderPageMarker { texture_id });
+                    if let Ok(mut cmd) = commands.get_entity(child_entity) {
+                        cmd.insert(TextRenderPageMarker { texture_id });
+                    }
                 }
                 None => {
-                    commands.entity(entity).with_children(|parent| {
-                        let mut child_cmd = parent.spawn((
-                            TextRenderPageMarker { texture_id },
-                            TextChildMarker,
-                            Transform::default(),
-                            Visibility::Inherited,
-                        ));
-                        if is_3d {
-                            child_cmd.insert((
-                                Mesh3d(meshes.add(mesh)),
-                                MeshMaterial3d(
-                                    materials_3d
-                                        .add(build_text_material_3d(&label, batch.texture.clone())),
-                                ),
+                    if let Ok(mut cmd) = commands.get_entity(entity) {
+                        cmd.with_children(|parent| {
+                            let mut child_cmd = parent.spawn((
+                                TextRenderPageMarker { texture_id },
+                                TextChildMarker,
+                                Transform::default(),
+                                Visibility::Inherited,
                             ));
-                        } else {
-                            child_cmd.insert((
-                                Mesh2d(meshes.add(mesh)),
-                                MeshMaterial2d(
-                                    materials
-                                        .add(build_text_material(&label, batch.texture.clone())),
-                                ),
-                            ));
-                        }
-                    });
+                            if is_3d {
+                                child_cmd.insert((
+                                    Mesh3d(meshes.add(mesh)),
+                                    MeshMaterial3d(
+                                        materials_3d
+                                            .add(build_text_material_3d(&label, batch.texture.clone())),
+                                    ),
+                                ));
+                            } else {
+                                child_cmd.insert((
+                                    Mesh2d(meshes.add(mesh)),
+                                    MeshMaterial2d(
+                                        materials
+                                            .add(build_text_material(&label, batch.texture.clone())),
+                                    ),
+                                ));
+                            }
+                        });
+                    }
                 }
             }
         }
 
         for (_, (stale_child, _, _, _)) in existing_children {
-            commands.entity(stale_child).despawn();
+            if let Ok(mut cmd) = commands.get_entity(stale_child) {
+                cmd.despawn();
+            }
         }
     }
 }

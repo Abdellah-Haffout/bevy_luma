@@ -292,10 +292,10 @@ pub fn set_focus(
     }
 
     if let Some(prev_entity) = previous {
-        commands.entity(prev_entity).remove::<UFocused>();
-        commands
-            .entity(prev_entity)
-            .trigger(|entity| FocusLost { entity });
+        if let Ok(mut cmd) = commands.get_entity(prev_entity) {
+            cmd.remove::<UFocused>();
+            cmd.trigger(|entity| FocusLost { entity });
+        }
         focus_state.last_focused = Some(prev_entity);
     }
 
@@ -303,10 +303,10 @@ pub fn set_focus(
     focus_state.modality = modality;
 
     if let Some(new_entity) = target {
-        commands.entity(new_entity).insert(UFocused);
-        commands
-            .entity(new_entity)
-            .trigger(|entity| FocusGained { entity });
+        if let Ok(mut cmd) = commands.get_entity(new_entity) {
+            cmd.insert(UFocused);
+            cmd.trigger(|entity| FocusGained { entity });
+        }
     }
 }
 

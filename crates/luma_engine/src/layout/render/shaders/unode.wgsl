@@ -253,8 +253,6 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     final_color = mix(final_color, material.border_color, border_mask);
     final_color = mix(final_color, body_color, body_mask);
-    final_color.a = final_color.a * alpha_clip;
-
     if (final_color.a < 0.001) {
         discard;
     }

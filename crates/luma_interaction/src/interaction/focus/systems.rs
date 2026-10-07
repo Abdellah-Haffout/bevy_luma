@@ -67,9 +67,9 @@ pub fn focus_keyboard_navigation_system(
             || keyboard.just_pressed(KeyCode::Space))
         && let Some(focused) = focus_state.focused
     {
-        commands
-            .entity(focused)
-            .trigger(|entity| UFocusActivate { entity });
+        if let Ok(mut cmd) = commands.get_entity(focused) {
+            cmd.trigger(|entity| UFocusActivate { entity });
+        }
     }
 
     if settings.activation
@@ -78,9 +78,9 @@ pub fn focus_keyboard_navigation_system(
             || keyboard.just_released(KeyCode::Space))
         && let Some(focused) = focus_state.focused
     {
-        commands
-            .entity(focused)
-            .trigger(|entity| UFocusDeactivate { entity });
+        if let Ok(mut cmd) = commands.get_entity(focused) {
+            cmd.trigger(|entity| UFocusDeactivate { entity });
+        }
     }
 
     // 2. Tab Navigation
@@ -211,18 +211,18 @@ pub fn focus_gamepad_navigation_system(
             && gamepad.just_pressed(GamepadButton::South)
             && let Some(focused) = focus_state.focused
         {
-            commands
-                .entity(focused)
-                .trigger(|entity| UFocusActivate { entity });
+            if let Ok(mut cmd) = commands.get_entity(focused) {
+                cmd.trigger(|entity| UFocusActivate { entity });
+            }
         }
 
         if settings.activation
             && gamepad.just_released(GamepadButton::South)
             && let Some(focused) = focus_state.focused
         {
-            commands
-                .entity(focused)
-                .trigger(|entity| UFocusDeactivate { entity });
+            if let Ok(mut cmd) = commands.get_entity(focused) {
+                cmd.trigger(|entity| UFocusDeactivate { entity });
+            }
         }
 
         if !settings.spatial_navigation {

@@ -72,10 +72,14 @@ fn sync_cached_ui3d_for_entity(
 
     match (should_have_ui3d, has_ui3d) {
         (true, false) => {
-            commands.entity(entity).insert(UI3d);
+            if let Ok(mut cmd) = commands.get_entity(entity) {
+                cmd.insert(UI3d);
+            }
         }
         (false, true) => {
-            commands.entity(entity).remove::<UI3d>();
+            if let Ok(mut cmd) = commands.get_entity(entity) {
+                cmd.remove::<UI3d>();
+            }
         }
         _ => {}
     }

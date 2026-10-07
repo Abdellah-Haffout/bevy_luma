@@ -144,7 +144,9 @@ pub fn init_transition_states(
     query: Query<Entity, (With<UTransition>, Without<UTransitionState>)>,
 ) {
     for entity in query.iter() {
-        commands.entity(entity).insert(UTransitionState::default());
+        if let Ok(mut cmd) = commands.get_entity(entity) {
+            cmd.insert(UTransitionState::default());
+        }
     }
 }
 

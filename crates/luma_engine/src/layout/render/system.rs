@@ -245,9 +245,9 @@ fn sync_entity_material(
         && inner_glow_opt.is_none()
     {
         if handles_opt.is_some() {
-            commands
-                .entity(entity)
-                .remove::<(Mesh2d, MeshMaterial2d<UNodeMaterial>, MaterialHandles)>();
+            if let Ok(mut cmd) = commands.get_entity(entity) {
+                cmd.remove::<(Mesh2d, MeshMaterial2d<UNodeMaterial>, MaterialHandles)>();
+            }
         }
         return;
     }
@@ -482,18 +482,20 @@ fn sync_entity_material(
                     inner_glow_color.to_vec4(),
                     inner_glow_params,
                 ));
-                commands.entity(entity).insert(MaterialHandles {
-                    material_2d: None,
-                    material_3d: Some(new_mat.clone()),
-                });
+                if let Ok(mut cmd) = commands.get_entity(entity) {
+                    cmd.insert(MaterialHandles {
+                        material_2d: None,
+                        material_3d: Some(new_mat.clone()),
+                    });
+                }
                 pool.created_count += 1;
                 new_mat
             };
 
-            commands
-                .entity(entity)
-                .insert((Mesh3d(mesh), MeshMaterial3d(material_handle)))
-                .remove::<(Mesh2d, MeshMaterial2d<UNodeMaterial>)>();
+            if let Ok(mut cmd) = commands.get_entity(entity) {
+                cmd.insert((Mesh3d(mesh), MeshMaterial3d(material_handle)))
+                    .remove::<(Mesh2d, MeshMaterial2d<UNodeMaterial>)>();
+            }
         }
         ResolvedRenderMode::Flat2d => {
             let material_handle = if let Some(mut handles) = handles_opt {
@@ -607,18 +609,20 @@ fn sync_entity_material(
                     inner_glow_color,
                     inner_glow_params,
                 ));
-                commands.entity(entity).insert(MaterialHandles {
-                    material_2d: Some(new_mat.clone()),
-                    material_3d: None,
-                });
+                if let Ok(mut cmd) = commands.get_entity(entity) {
+                    cmd.insert(MaterialHandles {
+                        material_2d: Some(new_mat.clone()),
+                        material_3d: None,
+                    });
+                }
                 pool.created_count += 1;
                 new_mat
             };
 
-            commands
-                .entity(entity)
-                .insert((Mesh2d(mesh), MeshMaterial2d(material_handle)))
-                .remove::<(Mesh3d, MeshMaterial3d<UNodeMaterial3d>)>();
+            if let Ok(mut cmd) = commands.get_entity(entity) {
+                cmd.insert((Mesh2d(mesh), MeshMaterial2d(material_handle)))
+                    .remove::<(Mesh3d, MeshMaterial3d<UNodeMaterial3d>)>();
+            }
         }
     }
 }

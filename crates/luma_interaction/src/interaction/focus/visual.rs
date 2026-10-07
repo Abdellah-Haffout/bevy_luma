@@ -195,11 +195,13 @@ pub fn on_focus_gained_visual(
         } else if visual.focused_border_color.is_some() || visual.focused_border_width.is_some() {
             let color = visual.focused_border_color.unwrap_or(Color::WHITE);
             let width = visual.focused_border_width.unwrap_or(2.0);
-            commands.entity(entity).insert(UBorder {
-                color,
-                width,
-                ..Default::default()
-            });
+            if let Ok(mut cmd) = commands.get_entity(entity) {
+                cmd.insert(UBorder {
+                    color,
+                    width,
+                    ..Default::default()
+                });
+            }
         }
 
         // Apply spring scale
@@ -281,7 +283,9 @@ pub fn on_focus_lost_visual(
             }
         } else if border_opt.is_some() {
             // Remove border if it was added only for focus
-            commands.entity(entity).remove::<UBorder>();
+            if let Ok(mut cmd) = commands.get_entity(entity) {
+                cmd.remove::<UBorder>();
+            }
         }
 
         // 4. Restore scale
