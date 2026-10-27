@@ -40,7 +40,9 @@ pub(super) fn intersect_ray_with_node_plane(
 ) -> Option<(Vec3, Vec2, Vec3, f32)> {
     let plane_origin = global_transform.translation();
     let z_axis = global_transform.affine().matrix3.z_axis;
-    let plane_normal = Dir3::new(z_axis.into()).map(|d| d.as_vec3()).unwrap_or(Vec3::Z);
+    let plane_normal = Dir3::new(z_axis.into())
+        .map(|d| d.as_vec3())
+        .unwrap_or(Vec3::Z);
     let denominator = ray.direction.dot(plane_normal);
 
     if denominator.abs() <= f32::EPSILON {

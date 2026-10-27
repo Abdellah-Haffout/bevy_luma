@@ -241,11 +241,11 @@ impl URootUi {
 }
 
 pub(crate) const LEGACY_WORLD_ROOT_UNITS_PER_UI_UNIT: f32 = 1.0;
-pub(super) const SCREEN_ROOT_CAPSULE_BAND_WIDTH: f32 = 0.004;
+pub(super) const SCREEN_ROOT_CAPSULE_BAND_WIDTH: f32 = 1.0;
 pub(super) const WORLD_ROOT_CAPSULE_BAND_UI_UNITS: f32 = 0.04;
 pub(super) const ROOT_CAPSULE_MIN_BAND_WIDTH: f32 = 1.0e-6;
 pub(super) const ROOT_CAPSULE_GAP_FACTOR: f32 = 0.05;
-pub(super) const ROOT_CAPSULE_MIN_GAP: f32 = 1.0e-6;
+pub(super) const ROOT_CAPSULE_MIN_GAP: f32 = 0.05;
 pub(crate) const ROOT_CAPSULE_LOCAL_LAYER_DIVISOR: f32 = 2048.0;
 pub(super) const ROOT_LOCAL_DEPTH_MAX: usize = 64;
 pub(super) const ROOT_LOCAL_ORDER_CLAMP: i32 = 32;

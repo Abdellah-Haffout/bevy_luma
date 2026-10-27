@@ -246,7 +246,8 @@ pub fn on_focus_lost_visual(
         // 1. Restore background color ONLY if this focus visual modified it!
         if visual.focused_background_color.is_some() {
             if let Some(ref mut node) = node_opt {
-                if let (Some(colors), Some(interaction)) = (colors_opt, interaction_opt.as_deref()) {
+                if let (Some(colors), Some(interaction)) = (colors_opt, interaction_opt.as_deref())
+                {
                     node.background_color = match *interaction {
                         UInteraction::Hovered => colors.hovered,
                         UInteraction::Pressed | UInteraction::Clicked => colors.pressed,
@@ -266,7 +267,9 @@ pub fn on_focus_lost_visual(
                 if let (Some(ref mut node), Some(colors)) = (node_opt.as_deref_mut(), colors_opt) {
                     node.background_color = colors.normal;
                 }
-                if let (Some(scale), Some(ref mut state)) = (scale_opt, transition_opt.as_deref_mut()) {
+                if let (Some(scale), Some(ref mut state)) =
+                    (scale_opt, transition_opt.as_deref_mut())
+                {
                     state.target_scale = Vec2::splat(scale.normal);
                 }
             }
@@ -301,7 +304,7 @@ pub fn on_focus_lost_visual(
 
 /// Observer setting focus when clicking directly on a focusable node.
 pub fn on_pointer_focus_click(
-    trigger: On<Pointer<Click>>,
+    trigger: On<PointerClick>,
     mut commands: Commands,
     mut focus_state: Option<ResMut<UFocusState>>,
     query: Query<&UFocusable>,
@@ -428,7 +431,10 @@ mod tests {
 
         // 2. Widget modifies background color while focused (e.g. toggle, checkbox, selection)
         let toggled_bg = Color::srgb(0.8, 0.2, 0.1);
-        app.world_mut().get_mut::<UNode>(entity).unwrap().background_color = toggled_bg;
+        app.world_mut()
+            .get_mut::<UNode>(entity)
+            .unwrap()
+            .background_color = toggled_bg;
 
         // 3. Lose focus (focus moves to another widget)
         app.world_mut()

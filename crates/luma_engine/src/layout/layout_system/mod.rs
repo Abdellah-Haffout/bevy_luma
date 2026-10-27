@@ -511,6 +511,78 @@ mod tests {
     }
 
     #[test]
+    fn resolve_root_stacking_prioritizes_z_index_over_spawn_order() {
+        use crate::prelude::UZIndex;
+
+        let mut app = App::new();
+        app.init_resource::<RootSpawnRankCounter>();
+        app.add_systems(
+            Update,
+            (assign_root_spawn_ranks, resolve_root_stacking).chain(),
+        );
+
+        let older_high_z = app
+            .world_mut()
+            .spawn((
+                URootUi::screen(),
+                UZIndex::Global(10),
+                ResolvedRootUi {
+                    root_entity: Entity::PLACEHOLDER,
+                    space: UiSpace::Screen,
+                    canvas: UiCanvasSize::Viewport,
+                    canvas_size: Vec2::new(800.0, 600.0),
+                    camera_entity: Some(Entity::PLACEHOLDER),
+                    meters_per_unit: URootUi::DEFAULT_METERS_PER_UNIT,
+                    resolution_scale: URootUi::DEFAULT_RESOLUTION_SCALE,
+                },
+            ))
+            .id();
+        let newer_low_z = app
+            .world_mut()
+            .spawn((
+                URootUi::screen(),
+                UZIndex::Global(0),
+                ResolvedRootUi {
+                    root_entity: Entity::PLACEHOLDER,
+                    space: UiSpace::Screen,
+                    canvas: UiCanvasSize::Viewport,
+                    canvas_size: Vec2::new(800.0, 600.0),
+                    camera_entity: Some(Entity::PLACEHOLDER),
+                    meters_per_unit: URootUi::DEFAULT_METERS_PER_UNIT,
+                    resolution_scale: URootUi::DEFAULT_RESOLUTION_SCALE,
+                },
+            ))
+            .id();
+
+        app.world_mut()
+            .entity_mut(older_high_z)
+            .get_mut::<ResolvedRootUi>()
+            .expect("older screen root should have resolved ui")
+            .root_entity = older_high_z;
+        app.world_mut()
+            .entity_mut(newer_low_z)
+            .get_mut::<ResolvedRootUi>()
+            .expect("newer screen root should have resolved ui")
+            .root_entity = newer_low_z;
+
+        app.update();
+
+        let older_stack = *app
+            .world()
+            .entity(older_high_z)
+            .get::<ResolvedRootStack>()
+            .expect("older screen root should have a stack");
+        let newer_stack = *app
+            .world()
+            .entity(newer_low_z)
+            .get::<ResolvedRootStack>()
+            .expect("newer screen root should have a stack");
+
+        // older_high_z has z_index 10, so it must be placed above newer_low_z (z_index 0)
+        assert!(older_stack.capsule_band_base > newer_stack.capsule_ceiling());
+    }
+
+    #[test]
     fn resolve_root_camera_auto_reports_missing_single_and_ambiguous_states() {
         let mut app = App::new();
 

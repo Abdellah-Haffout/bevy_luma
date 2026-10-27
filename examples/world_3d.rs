@@ -56,48 +56,48 @@ fn world_panel_scene(theme: &Theme) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (UText {
+            UText {
                 text: { "3D In-World Terminal".to_string() },
                 font_size: 24.0,
                 font: { font.clone() },
                 color: Color::WHITE,
-            }),
-            (UText {
+            }
+            --
+            UText {
                 text: { "This panel exists physically in 3D world space.\nIdentical layout and SDF shaders work seamlessly in 3D.".to_string() },
                 font_size: 14.0,
                 font: { font.clone() },
                 color: Color::srgb(0.65, 0.80, 0.95),
-            }),
-            (
-                UNode {
-                    width: UVal::Px(160.0),
-                    height: UVal::Px(44.0),
-                    background_color: Color::srgb(0.15, 0.55, 0.85),
-                    border_radius: UCornerRadius::all(8.0),
+            }
+            --
+            UNode {
+                width: UVal::Px(160.0),
+                height: UVal::Px(44.0),
+                background_color: Color::srgb(0.15, 0.55, 0.85),
+                border_radius: UCornerRadius::all(8.0),
+            }
+            UInteraction::default()
+            UInteractionColors {
+                normal: Color::srgb(0.15, 0.55, 0.85),
+                hovered: Color::srgb(0.25, 0.65, 0.98),
+                pressed: Color::srgb(0.10, 0.40, 0.70),
+            }
+            ULayout {
+                display: UDisplay::Flex,
+                justify_content: UJustifyContent::Center,
+                align_items: UAlignItems::Center,
+            }
+            Children [
+                UText {
+                    text: { "Interact".to_string() },
+                    font_size: 15.0,
+                    font,
+                    color: Color::WHITE,
                 }
-                UInteraction::default()
-                UInteractionColors {
-                    normal: Color::srgb(0.15, 0.55, 0.85),
-                    hovered: Color::srgb(0.25, 0.65, 0.98),
-                    pressed: Color::srgb(0.10, 0.40, 0.70),
-                }
-                ULayout {
-                    display: UDisplay::Flex,
-                    justify_content: UJustifyContent::Center,
-                    align_items: UAlignItems::Center,
-                }
-                Children [
-                    (UText {
-                        text: { "Interact".to_string() },
-                        font_size: 15.0,
-                        font,
-                        color: Color::WHITE,
-                    })
-                ]
-                on(|_event: On<Pointer<Click>>| {
-                    info!("3D Terminal button clicked in world space!");
-                })
-            )
+            ]
+            on(|_event: On<PointerClick>| {
+                info!("3D Terminal button clicked in world space!");
+            })
         ]
     }
 }

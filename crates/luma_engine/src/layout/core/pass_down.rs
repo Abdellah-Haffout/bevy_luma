@@ -272,9 +272,31 @@ pub fn downward_solve_pass_safe(
                 &root_stack_query,
             );
 
-            if let Ok((_, _, _, _, _, _, _, _, mut computed, mut transform, mut vis_opt, _, _)) =
-                nodes.get_mut(entity)
+            let mut parent_target_z = 0.0;
+            if let Ok((
+                _,
+                _,
+                _,
+                layout_depth,
+                _,
+                uself,
+                _,
+                local_stacking,
+                mut computed,
+                mut transform,
+                mut vis_opt,
+                _,
+                _,
+            )) = nodes.get_mut(entity)
             {
+                if depth > 0 {
+                    #[allow(deprecated)]
+                    let order = uself.map(|value| value.order).unwrap_or(0);
+                    parent_target_z = local_stacking.map_or_else(
+                        || root_stack.local_depth_offset(layout_depth.0, order),
+                        |stack| root_stack.local_depth_offset_for_fraction(stack.normalized),
+                    );
+                }
                 if (computed.width - final_size.x).abs() > LAYOUT_WRITE_EPSILON {
                     computed.width = final_size.x;
                 }
@@ -297,6 +319,7 @@ pub fn downward_solve_pass_safe(
                 solve_generation,
                 world_scale,
                 root_stack,
+                parent_target_z,
                 use_incremental_solve,
                 &mut cache,
                 &mut nodes,
@@ -493,6 +516,7 @@ fn apply_results_to_children(
     solve_generation: u64,
     world_scale: f32,
     root_stack: ResolvedRootStack,
+    parent_target_z: f32,
     use_incremental_solve: bool,
     cache: &mut LayoutCache,
     nodes_query: &mut Query<(
@@ -549,10 +573,11 @@ fn apply_results_to_children(
 
             #[allow(deprecated)]
             let order = uself.map(|value| value.order).unwrap_or(0);
-            let next_z = local_stacking.map_or_else(
+            let child_target_z = local_stacking.map_or_else(
                 || root_stack.local_depth_offset(layout_depth.0, order),
                 |stack| root_stack.local_depth_offset_for_fraction(stack.normalized),
             );
+            let next_z = (child_target_z - parent_target_z).max(0.0001);
 
             let scroll_content_opt = scroll_contents.get_mut(solved.entity).ok();
             let scrollbar_thumb_opt = scrollbar_thumbs.get_mut(solved.entity).ok();

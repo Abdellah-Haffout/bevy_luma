@@ -43,6 +43,7 @@ impl Plugin for UnivisRenderPlugin {
             .add_plugins(MaterialPlugin::<UNodeMaterial3d>::default())
             .register_type::<UI3d>()
             .register_type::<UPbr>()
+            .register_type::<clip_sync::UActiveClip>()
             .init_resource::<MaterialPool>()
             .init_resource::<MeshPool>()
             .add_systems(
@@ -56,6 +57,7 @@ impl Plugin for UnivisRenderPlugin {
                 (
                     update_materials_optimized,
                     clip_sync::sync_node_clipper_materials,
+                    clip_sync::sync_node_active_clips,
                 )
                     .chain()
                     .in_set(UnivisPostUpdateSet::RenderSync)

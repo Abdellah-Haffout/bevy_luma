@@ -41,6 +41,8 @@ mod registration;
 pub mod render;
 /// Scroll container and content types for smooth viewport scrolling.
 pub mod scroll;
+/// Expressive spring physics, staggered entrances, and micro-interaction motion.
+pub mod motion;
 mod settlement_loop;
 #[doc(hidden)]
 pub mod solver_types;
@@ -67,6 +69,7 @@ pub mod prelude {
     pub use crate::layout::layout_system::{
         URootUi, UVirtualScaleMode, UiCameraRef, UiCanvasSize, UiRootSettlementState, UiSpace,
     };
+    pub use crate::layout::motion::*;
     pub use crate::layout::pbr::UPbr;
     pub use crate::layout::scroll::*;
     pub use crate::layout::text::{

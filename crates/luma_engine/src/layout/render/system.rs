@@ -279,11 +279,19 @@ fn sync_entity_material(
         (LinearRgba::NONE, 0.0, 0.0)
     };
 
+    let effective_radius = if node.border_radius != UCornerRadius::default() {
+        node.border_radius
+    } else if let Some(b) = border && b.radius != UCornerRadius::default() {
+        b.radius
+    } else {
+        node.border_radius
+    };
+
     let radius = Vec4::new(
-        node.border_radius.top_right,
-        node.border_radius.bottom_right,
-        node.border_radius.top_left,
-        node.border_radius.bottom_left,
+        effective_radius.top_right,
+        effective_radius.bottom_right,
+        effective_radius.top_left,
+        effective_radius.bottom_left,
     ) * world_scale;
 
     let shape_mode = match node.shape_mode {

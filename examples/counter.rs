@@ -40,63 +40,56 @@ fn counter_scene(theme: &Theme) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
-                UNode {
-                    width: UVal::Px(320.0),
-                    background_color: Color::srgb(0.13, 0.15, 0.22),
-                    border_radius: UCornerRadius::all(16.0),
-                    padding: USides::all(24.0),
+            UNode {
+                width: UVal::Px(320.0),
+                background_color: Color::srgb(0.13, 0.15, 0.22),
+                border_radius: UCornerRadius::all(16.0),
+                padding: USides::all(24.0),
+            }
+            UBorder {
+                color: Color::srgb(0.25, 0.30, 0.45),
+                width: 1.0,
+                radius: UCornerRadius::all(16.0),
+            }
+            ULayout {
+                display: UDisplay::Flex,
+                flex_direction: UFlexDirection::Column,
+                align_items: UAlignItems::Center,
+                gap: 20.0,
+            }
+            Children [
+                UText {
+                    text: { "Luma Counter".to_string() },
+                    font_size: 18.0,
+                    font: { font.clone() },
+                    color: Color::srgb(0.65, 0.70, 0.85),
                 }
-                UBorder {
-                    color: Color::srgb(0.25, 0.30, 0.45),
-                    width: 1.0,
-                    radius: UCornerRadius::all(16.0),
+                --
+                CounterDisplay
+                UText {
+                    text: { "0".to_string() },
+                    font_size: 48.0,
+                    font: { font.clone() },
+                    color: Color::WHITE,
                 }
+                --
                 ULayout {
                     display: UDisplay::Flex,
-                    flex_direction: UFlexDirection::Column,
-                    align_items: UAlignItems::Center,
-                    gap: 20.0,
+                    flex_direction: UFlexDirection::Row,
+                    gap: 16.0,
                 }
                 Children [
-                    (UText {
-                        text: { "Luma Counter".to_string() },
-                        font_size: 18.0,
-                        font: { font.clone() },
-                        color: Color::srgb(0.65, 0.70, 0.85),
-                    }),
-                    (
-                        CounterDisplay
-                        UText {
-                            text: { "0".to_string() },
-                            font_size: 48.0,
-                            font: { font.clone() },
-                            color: Color::WHITE,
-                        }
-                    ),
-                    (
-                        ULayout {
-                            display: UDisplay::Flex,
-                            flex_direction: UFlexDirection::Row,
-                            gap: 16.0,
-                        }
-                        Children [
-                            (
-                                counter_btn("-", font.clone())
-                                on(|_event: On<Pointer<Click>>, mut counter: ResMut<Counter>| {
-                                    counter.0 -= 1;
-                                })
-                            ),
-                            (
-                                counter_btn("+", font.clone())
-                                on(|_event: On<Pointer<Click>>, mut counter: ResMut<Counter>| {
-                                    counter.0 += 1;
-                                })
-                            ),
-                        ]
-                    )
+                    @counter_btn("-", font.clone())
+                    on(|_event: On<PointerClick>, mut counter: ResMut<Counter>| {
+                        counter.0 -= 1;
+                    })
+                    --
+                    @counter_btn("+", font.clone())
+                    on(|_event: On<PointerClick>, mut counter: ResMut<Counter>| {
+                        counter.0 += 1;
+                    })
                 ]
-            )
+            ]
         ]
     }
 }
@@ -122,12 +115,12 @@ fn counter_btn(symbol: &str, font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (UText {
+            UText {
                 text: symbol,
                 font_size: 24.0,
                 font,
                 color: Color::WHITE,
-            })
+            }
         ]
     }
 }

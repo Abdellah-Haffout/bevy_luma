@@ -89,10 +89,10 @@ fn faq_portal_scene(theme: &Theme) -> impl Scene {
             gap: 14.0,
         }
         Children [
-            (faq_header_bar(icon_font.clone(), body_font.clone())),
-            (faq_search_and_categories_bar(icon_font.clone(), body_font.clone())),
-            (faq_accordion_container(icon_font.clone(), body_font.clone())),
-            (faq_footer_bar(body_font)),
+            @faq_header_bar(icon_font.clone(), body_font.clone())
+            @faq_search_and_categories_bar(icon_font.clone(), body_font.clone())
+            @faq_accordion_container(icon_font.clone(), body_font.clone())
+            @faq_footer_bar(body_font)
         ]
     }
 }
@@ -231,11 +231,11 @@ fn faq_search_and_categories_bar(icon_font: Handle<Font>, body_font: Handle<Font
                     gap: 8.0,
                 }
                 Children [
-                    (category_chip(body_font.clone(), "ALL QUESTIONS", true)),
-                    (category_chip(body_font.clone(), "CORE ARCHITECTURE", false)),
-                    (category_chip(body_font.clone(), "DECLARATIVE BSN", false)),
-                    (category_chip(body_font.clone(), "SDF SHADERS", false)),
-                    (category_chip(body_font.clone(), "SPRING PHYSICS", false)),
+                    @category_chip(body_font.clone(), "ALL QUESTIONS", true)
+                    @category_chip(body_font.clone(), "CORE ARCHITECTURE", false)
+                    @category_chip(body_font.clone(), "DECLARATIVE BSN", false)
+                    @category_chip(body_font.clone(), "SDF SHADERS", false)
+                    @category_chip(body_font.clone(), "SPRING PHYSICS", false)
                 ]
             ),
             // Right: Mock Search Input with Lucide Icon
@@ -335,7 +335,7 @@ fn faq_accordion_container(icon_font: Handle<Font>, body_font: Handle<Font>) -> 
         }
         Children [
             // Accordion Item 0 (Expanded by default)
-            (faq_accordion_item_expanded(
+            @faq_accordion_item_expanded(
                 icon_font.clone(),
                 body_font.clone(),
                 0,
@@ -344,10 +344,10 @@ fn faq_accordion_container(icon_font: Handle<Font>, body_font: Handle<Font>) -> 
                 Color::srgb(0.38, 0.35, 0.95),
                 "Luma UI uses a dual-buffer topological pass (pass-up for intrinsic measurement and pass-down for bounded positioning). All tree measurements are cached in flat Vec arenas without dynamic heap allocations during runtime frames, and automatic word-wrapping expands container height smoothly.",
                 "MeasurementCache::get_or_insert_entry() -> O(1) Flat Arena Indexing",
-            )),
+            )
 
             // Accordion Item 1
-            (faq_accordion_item_collapsed(
+            @faq_accordion_item_collapsed(
                 icon_font.clone(),
                 body_font.clone(),
                 1,
@@ -356,10 +356,10 @@ fn faq_accordion_container(icon_font: Handle<Font>, body_font: Handle<Font>) -> 
                 Color::srgb(0.15, 0.65, 0.45),
                 "Yes. The bsn! macro outputs standard Bevy Scene objects that can be spawned via commands.spawn(bsn! { ... }), composed into helper functions, or dynamically conditionally inserted into any active world or screen entity hierarchy.",
                 "commands.spawn_scene(my_declarative_widget(theme));",
-            )),
+            )
 
             // Accordion Item 2
-            (faq_accordion_item_collapsed(
+            @faq_accordion_item_collapsed(
                 icon_font.clone(),
                 body_font.clone(),
                 2,
@@ -368,10 +368,10 @@ fn faq_accordion_container(icon_font: Handle<Font>, body_font: Handle<Font>) -> 
                 Color::srgb(0.85, 0.4, 0.7),
                 "Signed Distance Fields enable infinitely sharp text scaling, single-pass real-time outline strokes (outline_width), and multi-colored inline spans in a single GPU draw call without requiring multi-pass blurring or separate border meshes.",
                 "let outline = text_label.with_outline(2.5, Color::srgb(0.9, 0.7, 0.2));",
-            )),
+            )
 
             // Accordion Item 3
-            (faq_accordion_item_collapsed(
+            @faq_accordion_item_collapsed(
                 icon_font,
                 body_font,
                 3,
@@ -380,7 +380,7 @@ fn faq_accordion_container(icon_font: Handle<Font>, body_font: Handle<Font>) -> 
                 Color::srgb(0.2, 0.7, 0.95),
                 "The UTransition component drives second-order spring dynamics (stiffness, damping, mass) that animate scale, opacity, or bounds changes smoothly upon user pointer clicks, hover states, and focus changes.",
                 "UTransition::bouncy(220.0, 0.75) // Spring physics on click",
-            )),
+            )
         ]
     }
 }
@@ -418,8 +418,8 @@ fn faq_accordion_item_expanded(
             gap: 10.0,
         }
         Children [
-            (accordion_header_row(icon_font.clone(), body_font.clone(), idx, question, tag, tag_color, Icon::CHEVRON_DOWN)),
-            (accordion_body_expanded(icon_font, body_font, idx, answer, code_block))
+            @accordion_header_row(icon_font.clone(), body_font.clone(), idx, question, tag, tag_color, Icon::CHEVRON_DOWN)
+            @accordion_body_expanded(icon_font, body_font, idx, answer, code_block)
         ]
     }
 }
@@ -457,8 +457,8 @@ fn faq_accordion_item_collapsed(
             gap: 10.0,
         }
         Children [
-            (accordion_header_row(icon_font.clone(), body_font.clone(), idx, question, tag, tag_color, Icon::CHEVRON_RIGHT)),
-            (accordion_body_collapsed(icon_font, body_font, idx, answer, code_block))
+            @accordion_header_row(icon_font.clone(), body_font.clone(), idx, question, tag, tag_color, Icon::CHEVRON_RIGHT)
+            @accordion_body_collapsed(icon_font, body_font, idx, answer, code_block)
         ]
     }
 }
@@ -551,7 +551,7 @@ fn accordion_header_row(
                 ]
             )
         ]
-        on(move |_event: On<Pointer<Click>>, mut state: ResMut<FaqPortalState>| {
+        on(move |_event: On<PointerClick>, mut state: ResMut<FaqPortalState>| {
             state.expanded_items[idx] = !state.expanded_items[idx];
             state.feedback_message = format!(
                 "Toggled FAQ topic #{} ({})",
@@ -630,15 +630,17 @@ fn accordion_body_expanded(
             gap: 10.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { answer.to_string() },
                 font_size: 12.0,
                 font: { body_font.clone() },
                 color: Color::srgb(0.85, 0.88, 0.94),
                 wrap_mode: UTextWrapMode::WrapToParent,
-            }),
-            (faq_code_box(icon_font.clone(), body_font.clone(), code_block)),
-            (accordion_feedback_row(icon_font, body_font))
+            }
+            --
+            @faq_code_box(icon_font.clone(), body_font.clone(), code_block)
+            --
+            @accordion_feedback_row(icon_font, body_font)
         ]
     }
 }
@@ -672,15 +674,17 @@ fn accordion_body_collapsed(
             gap: 10.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { answer.to_string() },
                 font_size: 12.0,
                 font: { body_font.clone() },
                 color: Color::srgb(0.85, 0.88, 0.94),
                 wrap_mode: UTextWrapMode::WrapToParent,
-            }),
-            (faq_code_box(icon_font.clone(), body_font.clone(), code_block)),
-            (accordion_feedback_row(icon_font, body_font))
+            }
+            --
+            @faq_code_box(icon_font.clone(), body_font.clone(), code_block)
+            --
+            @accordion_feedback_row(icon_font, body_font)
         ]
     }
 }
@@ -729,7 +733,7 @@ fn accordion_feedback_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
                         color: Color::srgb(0.3, 0.9, 0.6),
                     })
                 ]
-                on(|_event: On<Pointer<Click>>, mut state: ResMut<FaqPortalState>| {
+                on(|_event: On<PointerClick>, mut state: ResMut<FaqPortalState>| {
                     state.helpful_votes += 1;
                     state.feedback_message = format!("Thank you! Helpful score updated: {}", state.helpful_votes);
                     info!("{}", state.feedback_message);

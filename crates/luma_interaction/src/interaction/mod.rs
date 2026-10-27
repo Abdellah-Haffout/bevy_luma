@@ -68,6 +68,7 @@ impl Plugin for LumaInteractionPlugin {
                     focus::focus_cleanup_system,
                     focus::focus_keyboard_navigation_system,
                     focus::focus_gamepad_navigation_system,
+                    text_input::link_text_input_children_system,
                     text_input::text_input_keyboard_system,
                     text_input::text_input_caret_blink_system,
                     text_input::text_input_sync_visual_system,

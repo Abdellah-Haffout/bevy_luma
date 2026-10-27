@@ -11,11 +11,13 @@ use super::roots::{
 use super::screen_transform::compute_screen_root_transform;
 use super::{URootUi, UScreenRoot, UWorldRoot};
 use crate::internal_prelude::*;
+use crate::layout::univis_node::UZIndex;
 
 #[derive(Clone, Copy)]
 struct RootStackCandidate {
     entity: Entity,
     authored_root_z: f32,
+    z_index: i32,
     spawn_rank: u64,
     band_width: f32,
 }
@@ -54,6 +56,7 @@ pub(crate) fn resolve_root_stacking(
                 &Transform,
                 &RootSpawnRank,
                 &ResolvedRootStack,
+                Option<&UZIndex>,
             ),
             Or<(With<URootUi>, With<UScreenRoot>, With<UWorldRoot>)>,
         >,
@@ -62,14 +65,19 @@ pub(crate) fn resolve_root_stacking(
 ) {
     let mut groups: HashMap<(UiSpace, Option<Entity>), Vec<RootStackCandidate>> = HashMap::new();
 
-    for (entity, resolved, transform, spawn_rank, stack) in roots.p0().iter() {
+    for (entity, resolved, transform, spawn_rank, stack, zindex_opt) in roots.p0().iter() {
         let authored_root_z = capture_authored_root_z(transform.translation.z, stack);
+        let z_index = match zindex_opt {
+            Some(UZIndex::Global(z)) | Some(UZIndex::Local(z)) => *z,
+            _ => 0,
+        };
         groups
             .entry((resolved.space, resolved.camera_entity))
             .or_default()
             .push(RootStackCandidate {
                 entity,
                 authored_root_z,
+                z_index,
                 spawn_rank: spawn_rank.0,
                 band_width: root_capsule_band_width(resolved),
             });
@@ -79,8 +87,9 @@ pub(crate) fn resolve_root_stacking(
 
     for ((space, _camera), mut candidates) in groups {
         candidates.sort_by(|left, right| {
-            left.authored_root_z
-                .total_cmp(&right.authored_root_z)
+            left.z_index
+                .cmp(&right.z_index)
+                .then_with(|| left.authored_root_z.total_cmp(&right.authored_root_z))
                 .then_with(|| left.spawn_rank.cmp(&right.spawn_rank))
         });
 
@@ -91,10 +100,16 @@ pub(crate) fn resolve_root_stacking(
         for candidate in candidates {
             let floor = match space {
                 UiSpace::Screen => {
-                    if first {
-                        0.0
+                    let base = if candidate.authored_root_z > 0.0 {
+                        candidate.authored_root_z
                     } else {
-                        next_floor + root_capsule_gap(previous_band_width, candidate.band_width)
+                        0.0
+                    };
+                    if first {
+                        base
+                    } else {
+                        (next_floor + root_capsule_gap(previous_band_width, candidate.band_width))
+                            .max(base)
                     }
                 }
                 UiSpace::World2d | UiSpace::World3d => {

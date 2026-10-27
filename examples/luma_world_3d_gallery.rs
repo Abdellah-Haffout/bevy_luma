@@ -208,10 +208,13 @@ fn museum_kiosk_scene(
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (kiosk_header(icon_font.clone(), text_font.clone())),
-            (kiosk_artifact_body(icon_font.clone(), text_font.clone(), serif_font)),
-            (kiosk_audio_tour_bar(icon_font.clone(), text_font.clone())),
-            (kiosk_action_footer(icon_font, text_font)),
+            @kiosk_header(icon_font.clone(), text_font.clone())
+            --
+            @kiosk_artifact_body(icon_font.clone(), text_font.clone(), serif_font)
+            --
+            @kiosk_audio_tour_bar(icon_font.clone(), text_font.clone())
+            --
+            @kiosk_action_footer(icon_font, text_font)
         ]
     }
 }
@@ -385,10 +388,13 @@ fn kiosk_artifact_body(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (spec_pill("DIMENSIONS", "68 x 45 x 45 cm", text_font.clone())),
-                    (spec_pill("MEDIUM", "Gilt Cast Bronze", text_font.clone())),
-                    (spec_pill("WEIGHT", "42.5 kg", text_font.clone())),
-                    (spec_pill("PROVENANCE", "Lindholm Estate", text_font)),
+                    @spec_pill("DIMENSIONS", "68 x 45 x 45 cm", text_font.clone())
+                    --
+                    @spec_pill("MEDIUM", "Gilt Cast Bronze", text_font.clone())
+                    --
+                    @spec_pill("WEIGHT", "42.5 kg", text_font.clone())
+                    --
+                    @spec_pill("PROVENANCE", "Lindholm Estate", text_font)
                 ]
             )
         ]
@@ -486,7 +492,7 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
                                 }
                             )
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<ExhibitionKioskState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<ExhibitionKioskState>| {
                             state.audio_playing = !state.audio_playing;
                             state.status_notification = if state.audio_playing {
                                 "Playing: 'The Sculptural Balance of Lindholm' (Narrated by Dr. H. Vogel)".to_string()

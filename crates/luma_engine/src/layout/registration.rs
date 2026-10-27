@@ -9,7 +9,7 @@ use crate::schedule::{
 };
 
 use super::{
-    components, core, invalidation, layout_system, query, render, scroll, settlement_loop,
+    components, core, invalidation, layout_system, motion, query, render, scroll, settlement_loop,
     transition, univis_node, visual,
 };
 
@@ -56,7 +56,15 @@ pub(super) fn register_layout_types(app: &mut App) {
         .register_type::<scroll::UScrollbarTrack>()
         .register_type::<scroll::UScrollbarThumb>()
         .register_type::<scroll::UScrollbarFade>()
-        .register_type::<scroll::UScrollKineticDrag>();
+        .register_type::<scroll::UScrollKineticDrag>()
+        .register_type::<scroll::UVirtualList>()
+        .register_type::<scroll::UVirtualItem>()
+        .register_type::<scroll::UVirtualPool>()
+        .register_type::<scroll::UScrollCulling>()
+        .register_type::<render::clip_sync::UActiveClip>()
+        .register_type::<motion::UMotionEnter>()
+        .register_type::<motion::UMotionPunch>()
+        .register_type::<motion::UMotionColor>();
 }
 
 pub(super) fn install_layout_pipeline(app: &mut App) {
@@ -115,6 +123,12 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
         )
         .add_systems(
             UiSettlementSchedule,
+            ApplyDeferred
+                .after(UnivisPostUpdateSet::LayoutHierarchy)
+                .before(UnivisPostUpdateSet::LayoutMeasure),
+        )
+        .add_systems(
+            UiSettlementSchedule,
             (
                 core::pass_up::upward_measure_pass_cached,
                 layout_system::sync_fit_content_root_canvas_sizes,
@@ -132,6 +146,7 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
             PostUpdate,
             settlement_loop::run_ui_settlement_loop
                 .after(update_text2d_layout)
+                .after(bevy::camera::CameraUpdateSystems)
                 .before(AssetEventSystems),
         )
         .add_systems(
@@ -139,6 +154,9 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
             (
                 transition::init_transition_states,
                 transition::apply_layout_transitions,
+                motion::advance_motion_enter_system,
+                motion::advance_motion_punch_system,
+                motion::advance_motion_color_system,
             )
                 .chain()
                 .after(settlement_loop::run_ui_settlement_loop),
@@ -148,6 +166,7 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
             (
                 scroll::init_scroll_containers,
                 scroll::auto_init_scroll_content,
+                scroll::init_scroll_culling,
                 scroll::handle_mouse_wheel_scroll,
                 scroll::handle_scrollbar_drag,
                 scroll::handle_kinetic_drag,
@@ -158,9 +177,13 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
             PostUpdate,
             (
                 scroll::sync_scroll_extents,
+                scroll::sync_virtual_list_extents,
                 scroll::apply_scroll_transitions,
+                scroll::recycle_virtual_items,
                 scroll::sync_scrollbar_thumbs,
+                scroll::cull_scrolled_viewport_children,
                 render::clip_sync::sync_node_clipper_materials,
+                render::clip_sync::sync_node_active_clips,
             )
                 .chain()
                 .after(settlement_loop::run_ui_settlement_loop),

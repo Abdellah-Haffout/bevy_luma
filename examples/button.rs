@@ -33,50 +33,49 @@ fn button_scene(theme: &Theme) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
-                UNode {
-                    width: UVal::Px(180.0),
-                    height: UVal::Px(48.0),
-                    background_color: Color::srgb(0.2, 0.35, 0.75),
-                    border_radius: UCornerRadius::all(10.0),
-                    padding: USides::axes(16.0, 8.0),
+            UNode {
+                width: UVal::Px(180.0),
+                height: UVal::Px(48.0),
+                background_color: Color::srgb(0.2, 0.35, 0.75),
+                border_radius: UCornerRadius::all(10.0),
+                padding: USides::axes(16.0, 8.0),
+            }
+            UBorder {
+                color: Color::srgb(0.35, 0.5, 0.9),
+                width: 1.0,
+                radius: UCornerRadius::all(10.0),
+            }
+            UInteraction::default()
+            UInteractionColors {
+                normal: Color::srgb(0.2, 0.35, 0.75),
+                hovered: Color::srgb(0.28, 0.45, 0.9),
+                pressed: Color::srgb(0.14, 0.25, 0.55),
+            }
+            ULayout {
+                display: UDisplay::Flex,
+                flex_direction: UFlexDirection::Row,
+                justify_content: UJustifyContent::Center,
+                align_items: UAlignItems::Center,
+                gap: 8.0,
+            }
+            Children [
+                UText {
+                    text: { Icon::PLAY.to_string() },
+                    font_size: 16.0,
+                    font: { icon_font },
+                    color: Color::WHITE,
                 }
-                UBorder {
-                    color: Color::srgb(0.35, 0.5, 0.9),
-                    width: 1.0,
-                    radius: UCornerRadius::all(10.0),
+                --
+                UText {
+                    text: { "Click Me".to_string() },
+                    font_size: 15.0,
+                    font: { font },
+                    color: Color::WHITE,
                 }
-                UInteraction::default()
-                UInteractionColors {
-                    normal: Color::srgb(0.2, 0.35, 0.75),
-                    hovered: Color::srgb(0.28, 0.45, 0.9),
-                    pressed: Color::srgb(0.14, 0.25, 0.55),
-                }
-                ULayout {
-                    display: UDisplay::Flex,
-                    flex_direction: UFlexDirection::Row,
-                    justify_content: UJustifyContent::Center,
-                    align_items: UAlignItems::Center,
-                    gap: 8.0,
-                }
-                Children [
-                    (UText {
-                        text: { Icon::PLAY.to_string() },
-                        font_size: 16.0,
-                        font: { icon_font },
-                        color: Color::WHITE,
-                    }),
-                    (UText {
-                        text: { "Click Me".to_string() },
-                        font_size: 15.0,
-                        font: { font },
-                        color: Color::WHITE,
-                    })
-                ]
-                on(|_event: On<Pointer<Click>>| {
-                    info!("Button clicked!");
-                })
-            )
+            ]
+            on(|_event: On<PointerClick>| {
+                info!("Button clicked!");
+            })
         ]
     }
 }

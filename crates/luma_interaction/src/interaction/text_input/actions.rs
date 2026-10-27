@@ -237,6 +237,89 @@ pub fn delete_word_backward(input: &mut UTextInput) -> bool {
     true
 }
 
+/// Returns the currently selected substring, if any.
+pub fn selected_text(input: &UTextInput) -> Option<String> {
+    let (start, end) = selection_bounds(input)?;
+    input.value.get(start..end).map(str::to_owned)
+}
+
+/// Deletes the active selection, returning `true` if something was removed.
+pub fn delete_selection(input: &mut UTextInput) -> bool {
+    if let Some((start, end)) = selection_bounds(input) {
+        input.value.drain(start..end);
+        input.cursor_position = start;
+        input.selection = None;
+        true
+    } else {
+        false
+    }
+}
+
+fn word_left_target(value: &str, pos: usize) -> usize {
+    let prefix = &value[..pos];
+    let trimmed = prefix.trim_end_matches(char::is_whitespace);
+    trimmed.trim_end_matches(|c: char| !c.is_whitespace()).len()
+}
+
+fn word_right_target(value: &str, pos: usize) -> usize {
+    let rest = &value[pos..];
+    let after_word = rest.trim_start_matches(|c: char| !c.is_whitespace());
+    let after_space = after_word.trim_start_matches(char::is_whitespace);
+    value.len() - after_space.len()
+}
+
+/// Moves the cursor to the previous word start (Ctrl+Left), optionally extending the selection.
+pub fn move_word_left(input: &mut UTextInput, select: bool) {
+    clamp_cursor_to_boundary(input);
+    let anchor = input.selection.map_or(input.cursor_position, |(s, _)| s);
+    let target = word_left_target(&input.value, input.cursor_position);
+    input.cursor_position = target;
+    input.selection = (select && anchor != target).then_some((anchor, target));
+}
+
+/// Moves the cursor to the next word start (Ctrl+Right), optionally extending the selection.
+pub fn move_word_right(input: &mut UTextInput, select: bool) {
+    clamp_cursor_to_boundary(input);
+    let anchor = input.selection.map_or(input.cursor_position, |(s, _)| s);
+    let target = word_right_target(&input.value, input.cursor_position);
+    input.cursor_position = target;
+    input.selection = (select && anchor != target).then_some((anchor, target));
+}
+
+/// Deletes forward to the start of the next word (Ctrl+Delete), or the active selection.
+pub fn delete_word_forward(input: &mut UTextInput) -> bool {
+    if delete_selection(input) {
+        return true;
+    }
+    clamp_cursor_to_boundary(input);
+    let target = word_right_target(&input.value, input.cursor_position);
+    if target == input.cursor_position {
+        return false;
+    }
+    input.value.drain(input.cursor_position..target);
+    true
+}
+
+/// Horizontal offset (from the text start) of a byte offset, interpolated by character count
+/// across the measured text width. Works for multi-byte text and masked password display.
+pub fn char_offset_to_x(input: &UTextInput, byte_offset: usize, measured_width: f32) -> f32 {
+    let total_chars = input.value.chars().count();
+    if total_chars == 0 || byte_offset == 0 {
+        return 0.0;
+    }
+    let off = byte_offset.min(input.value.len());
+    let mut idx = off;
+    while idx > 0 && !input.value.is_char_boundary(idx) {
+        idx -= 1;
+    }
+    let chars_before = input.value[..idx].chars().count();
+    if measured_width > 0.0 {
+        measured_width * chars_before as f32 / total_chars as f32
+    } else {
+        chars_before as f32 * input.font_size * 0.55
+    }
+}
+
 /// Moves cursor left by one UTF-8 character, optionally expanding the selection range.
 pub fn move_cursor_left(input: &mut UTextInput, select: bool) {
     if !select && input.selection.is_some() {

@@ -15,11 +15,31 @@ pub(super) struct TextPageBatch {
     pub(super) quads: Vec<TextGlyphQuad>,
 }
 
+/// Minimum physical texels per glyph em to guarantee SDF quality for small text.
+const MIN_SDF_PHYSICAL_SIZE: f32 = 128.0;
+
 pub(super) fn resolved_render_scale(render_scale: f32) -> f32 {
     if render_scale.is_finite() && render_scale >= 1.0 {
         render_scale
     } else {
         1.0
+    }
+}
+
+/// Returns the render scale, ensuring the physical raster size meets a minimum
+/// threshold for good SDF quality. For small font sizes this may increase the
+/// effective render scale beyond the user-specified value.
+pub(super) fn resolved_render_scale_for_font(render_scale: f32, font_size: f32) -> f32 {
+    let base = resolved_render_scale(render_scale);
+    if font_size > 0.0 {
+        let physical = font_size * base;
+        if physical < MIN_SDF_PHYSICAL_SIZE {
+            (MIN_SDF_PHYSICAL_SIZE / font_size).max(base)
+        } else {
+            base
+        }
+    } else {
+        base
     }
 }
 

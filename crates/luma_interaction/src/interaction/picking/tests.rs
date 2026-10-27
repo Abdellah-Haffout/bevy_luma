@@ -4,7 +4,7 @@ use bevy::camera::{
 };
 use bevy::ecs::message::Messages;
 use bevy::ecs::system::SystemState;
-use bevy::picking::pointer::Location;
+use bevy::picking::pointer::{Location, PointerMap};
 use luma_engine::layout::UnivisLayoutPlugin;
 use luma_engine::layout::layout_system::{
     ResolvedRootStack, ResolvedRootUi, URootUi, UiCameraRef, UiCanvasSize, UiSpace,
@@ -94,6 +94,7 @@ fn spawn_camera(app: &mut App, perspective: bool, translation: Vec3) -> Entity {
 }
 
 fn spawn_pointer(app: &mut App, position: Vec2) {
+    app.init_resource::<PointerMap>();
     app.world_mut().spawn((
         PointerId::Mouse,
         PointerLocation::new(Location {
@@ -108,6 +109,7 @@ fn spawn_pointer(app: &mut App, position: Vec2) {
 
 fn run_picking_for_space(space: UiSpace, perspective: bool) -> Vec<PointerHits> {
     let mut app = App::new();
+    app.init_resource::<PointerMap>();
     app.add_message::<PointerHits>();
     app.add_systems(Update, univis_picking_backend);
 
@@ -436,6 +438,7 @@ fn is_clipped_by_ancestors_detects_points_outside_enabled_clipper() {
 #[test]
 fn picking_prefers_the_higher_root_capsule_over_a_deeper_child_in_a_lower_root() {
     let mut app = App::new();
+    app.init_resource::<PointerMap>();
     app.add_message::<PointerHits>();
     app.add_systems(Update, univis_picking_backend);
 

@@ -130,11 +130,13 @@ pub(super) fn measure_layout_for_text(
             std::iter::once((
                 entity,
                 0,
-                text,
-                text_font,
-                text_color,
-                LineHeight::default(),
-                LetterSpacing::default(),
+                TextElement::Text {
+                    text,
+                    font: text_font,
+                    color: text_color,
+                    line_height: LineHeight::default(),
+                    letter_spacing: LetterSpacing::default(),
+                },
             )),
             1.0,
             text_layout,
@@ -142,7 +144,7 @@ pub(super) fn measure_layout_for_text(
             font_system,
             layout_cx,
             Vec2::ZERO,
-            20.0,
+            RemSize(20.0),
         )
         .map_err(|_| TextMeasureError::new(entity, stage, text.chars().count()))?;
 
@@ -220,11 +222,13 @@ pub(super) fn measure_layout_for_label(
         (
             entity,
             idx,
-            span.text.as_str(),
-            &span_fonts[idx],
-            span.color.unwrap_or(label.color),
-            LineHeight::default(),
-            LetterSpacing::default(),
+            TextElement::Text {
+                text: span.text.as_str(),
+                font: &span_fonts[idx],
+                color: span.color.unwrap_or(label.color),
+                line_height: LineHeight::default(),
+                letter_spacing: LetterSpacing::default(),
+            },
         )
     });
 
@@ -239,7 +243,7 @@ pub(super) fn measure_layout_for_label(
             font_system,
             layout_cx,
             Vec2::ZERO,
-            20.0,
+            RemSize(20.0),
         )
         .map_err(|_| TextMeasureError::new(entity, stage, label.text.chars().count()))?;
 

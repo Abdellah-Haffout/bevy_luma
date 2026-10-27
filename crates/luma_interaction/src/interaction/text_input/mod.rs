@@ -12,20 +12,22 @@
 
 pub mod actions;
 pub mod builder;
+pub mod clipboard;
 mod systems;
 mod types;
 
 pub use actions::{
-    clear_selection, cursor_index_from_x_offset, delete_backward, delete_forward,
-    delete_word_backward, display_text, find_word_bounds, insert_text, is_char_allowed,
-    move_cursor_left, move_cursor_right, move_cursor_to_end, move_cursor_to_start, select_all,
-    select_word_at_cursor, selection_bounds,
+    char_offset_to_x, clear_selection, cursor_index_from_x_offset, delete_backward, delete_forward,
+    delete_word_backward, delete_word_forward, display_text, find_word_bounds, insert_text,
+    is_char_allowed, move_cursor_left, move_cursor_right, move_cursor_to_end, move_cursor_to_start,
+    move_word_left, move_word_right, select_all, select_word_at_cursor, selected_text,
+    selection_bounds,
 };
 pub use builder::spawn_text_input;
 pub use systems::{
-    on_text_input_focus_lost, on_text_input_pointer_click, on_text_input_pointer_drag,
-    on_text_input_pointer_press, on_text_input_pointer_release, text_input_caret_blink_system,
-    text_input_keyboard_system, text_input_sync_visual_system,
+    link_text_input_children_system, on_text_input_focus_lost, on_text_input_pointer_click,
+    on_text_input_pointer_drag, on_text_input_pointer_press, on_text_input_pointer_release,
+    text_input_caret_blink_system, text_input_keyboard_system, text_input_sync_visual_system,
 };
 pub use types::{
     TextInputFilter, TextInputMode, UTextInput, UTextInputCancelled, UTextInputCaret,

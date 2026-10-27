@@ -8,5 +8,6 @@ repository = "https://github.com/Abdellah-Haffout/bevy_luma"
 homepage = "https://github.com/Abdellah-Haffout/bevy_luma"
 
 [dependencies]
+arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
 bevy = { workspace = true }
 luma_engine = { path = "../luma_engine", version = "0.1.0" }

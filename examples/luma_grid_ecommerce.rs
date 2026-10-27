@@ -70,9 +70,9 @@ fn store_root_scene(theme: &Theme) -> impl Scene {
             gap: 16.0,
         }
         Children [
-            (store_header(icon_font.clone(), body_font.clone())),
-            (product_grid_bento(icon_font.clone(), body_font.clone())),
-            (store_footer(icon_font, body_font)),
+            @store_header(icon_font.clone(), body_font.clone())
+            @product_grid_bento(icon_font.clone(), body_font.clone())
+            @store_footer(icon_font, body_font)
         ]
     }
 }
@@ -235,11 +235,11 @@ fn product_grid_bento(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl 
             align_items: UAlignItems::Stretch,
         }
         Children [
-            (featured_hero_product(icon_font.clone(), body_font.clone())),
-            (product_card(icon_font.clone(), body_font.clone(), Icon::DROPLET, "MATTE CERAMIC VASE", "Hand-thrown sand stoneware with subtle ribbed organic finish.", "$110", Color::srgb(0.85, 0.6, 0.4))),
-            (product_card(icon_font.clone(), body_font.clone(), Icon::SUN, "BRASS ARC DESK LAMP", "Spun brass shade with woven warm fabric power cable.", "$310", Color::srgb(0.9, 0.75, 0.4))),
-            (product_card(icon_font.clone(), body_font.clone(), Icon::FEATHER, "MERINO WOOL BLANKET", "100% fine spun merino wool woven in charcoal herringbone.", "$185", Color::srgb(0.6, 0.7, 0.8))),
-            (product_card(icon_font, body_font, Icon::COFFEE, "SMOKED GLASS CARAFE", "Mouth-blown heat-resistant borosilicate glass with walnut stopper.", "$95", Color::srgb(0.5, 0.8, 0.75))),
+            @featured_hero_product(icon_font.clone(), body_font.clone())
+            @product_card(icon_font.clone(), body_font.clone(), Icon::DROPLET, "MATTE CERAMIC VASE", "Hand-thrown sand stoneware with subtle ribbed organic finish.", "$110", Color::srgb(0.85, 0.6, 0.4))
+            @product_card(icon_font.clone(), body_font.clone(), Icon::SUN, "BRASS ARC DESK LAMP", "Spun brass shade with woven warm fabric power cable.", "$310", Color::srgb(0.9, 0.75, 0.4))
+            @product_card(icon_font.clone(), body_font.clone(), Icon::FEATHER, "MERINO WOOL BLANKET", "100% fine spun merino wool woven in charcoal herringbone.", "$185", Color::srgb(0.6, 0.7, 0.8))
+            @product_card(icon_font, body_font, Icon::COFFEE, "SMOKED GLASS CARAFE", "Mouth-blown heat-resistant borosilicate glass with walnut stopper.", "$95", Color::srgb(0.5, 0.8, 0.75))
         ]
     }
 }
@@ -477,7 +477,7 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                                 color: Color::srgb(0.08, 0.08, 0.1),
                             })
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<CartState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<CartState>| {
                             state.item_count += 1;
                             state.cart_total += 890.0;
                             state.last_added = "Oak Lounge Chair".to_string();

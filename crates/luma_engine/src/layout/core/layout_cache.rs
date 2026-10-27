@@ -760,6 +760,7 @@ pub fn track_root_layout_changes(
                 .as_ref()
                 .map(|stack| stack.descendant_context_snapshot()),
         );
+        let mut measure_subtree = false;
         let mut solve_subtree = false;
         let mut render_subtree = false;
 
@@ -767,15 +768,23 @@ pub fn track_root_layout_changes(
             if let Some(previous_root) = previous_root {
                 if root_canvas_changed(previous_root, *root) {
                     cache.mark_solve_dirty_generation(entity, current_generation);
+                    cache.mark_measure_dirty(entity, current_generation);
+                    // A new canvas size (e.g. the real window size arriving after the
+                    // first frame) must re-measure, re-solve and re-render the whole tree.
+                    measure_subtree = true;
+                    solve_subtree = true;
+                    render_subtree = true;
                 }
 
                 if root_projection_context_changed(previous_root, *root) {
+                    measure_subtree = true;
                     solve_subtree = true;
                     render_subtree = true;
                 } else if root_render_context_changed(previous_root, *root) {
                     render_subtree = true;
                 }
             } else {
+                measure_subtree = true;
                 solve_subtree = true;
                 render_subtree = true;
             }
@@ -788,6 +797,14 @@ pub fn track_root_layout_changes(
             if previous_stack.is_none_or(|previous| previous != current_stack) {
                 solve_subtree = true;
             }
+        }
+
+        if measure_subtree {
+            cache.mark_measure_dirty_recursive(
+                entity,
+                current_generation,
+                &children_query,
+            );
         }
 
         if solve_subtree {

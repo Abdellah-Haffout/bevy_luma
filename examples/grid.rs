@@ -34,35 +34,39 @@ fn grid_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             // Page Header
-            (UText {
+            UText {
                 text: { "Responsive CSS Grid (3 Columns)".to_string() },
                 font_size: 22.0,
                 font: { font.clone() },
                 color: Color::WHITE,
-            }),
+            }
+            --
             // 3-Column Grid Container
-            (
-                UNode {
-                    width: UVal::Percent(1.0),
-                }
-                ULayout {
-                    display: UDisplay::Grid,
-                    grid_template_columns: vec![
-                        UTrackSize::Fr(1.0),
-                        UTrackSize::Fr(1.0),
-                        UTrackSize::Fr(1.0),
-                    ],
-                    gap: 16.0,
-                }
-                Children [
-                    (grid_card("Card 1", "SDF Engine", font.clone())),
-                    (grid_card("Card 2", "Flexbox & Grid", font.clone())),
-                    (grid_card("Card 3", "2D/3D Hybrid", font.clone())),
-                    (grid_card("Card 4", "Lucide Icons", font.clone())),
-                    (grid_card("Card 5", "Arabic RTL", font.clone())),
-                    (grid_card("Card 6", "Spatial Focus", font.clone())),
-                ]
-            )
+            UNode {
+                width: UVal::Percent(1.0),
+            }
+            ULayout {
+                display: UDisplay::Grid,
+                grid_template_columns: vec![
+                    UTrackSize::Fr(1.0),
+                    UTrackSize::Fr(1.0),
+                    UTrackSize::Fr(1.0),
+                ],
+                gap: 16.0,
+            }
+            Children [
+                @grid_card("Card 1", "SDF Engine", font.clone())
+                --
+                @grid_card("Card 2", "Flexbox & Grid", font.clone())
+                --
+                @grid_card("Card 3", "2D/3D Hybrid", font.clone())
+                --
+                @grid_card("Card 4", "Lucide Icons", font.clone())
+                --
+                @grid_card("Card 5", "Arabic RTL", font.clone())
+                --
+                @grid_card("Card 6", "Spatial Focus", font.clone())
+            ]
         ]
     }
 }
@@ -88,18 +92,19 @@ fn grid_card(title: &str, subtitle: &str, font: Handle<Font>) -> impl Scene {
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (UText {
+            UText {
                 text: title,
                 font_size: 16.0,
                 font: { font.clone() },
                 color: Color::WHITE,
-            }),
-            (UText {
+            }
+            --
+            UText {
                 text: subtitle,
                 font_size: 13.0,
                 font,
                 color: Color::srgb(0.55, 0.65, 0.80),
-            })
+            }
         ]
     }
 }

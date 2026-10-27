@@ -14,10 +14,10 @@ fn ecs_grid_container_solves_child_geometry_and_settles() {
 
     let mut grid_layout = ULayout::default();
     grid_layout.display = UDisplay::Grid;
-    grid_layout.container_ext.grid.template_columns =
+    grid_layout.grid_template_columns =
         vec![UTrackSize::Px(120.0), UTrackSize::Px(120.0)];
-    grid_layout.container_ext.grid.template_rows = vec![UTrackSize::Px(60.0)];
-    grid_layout.container_ext.box_align.column_gap = Some(15.0);
+    grid_layout.grid_template_rows = vec![UTrackSize::Px(60.0)];
+    grid_layout.column_gap = Some(15.0);
 
     let root = app
         .world_mut()

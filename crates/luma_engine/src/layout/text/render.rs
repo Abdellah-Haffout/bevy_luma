@@ -26,12 +26,12 @@ use self::atlas::{
 use self::clip_sync::{clip_quad_to_rect, label_content_clip_rect};
 use self::mesh::{
     TextGlyphQuad, TextPageBatch, build_text_material, build_text_material_3d,
-    build_text_page_mesh, resolved_render_scale, text_horizontal_offset,
+    build_text_page_mesh, resolved_render_scale_for_font, text_horizontal_offset,
 };
 use self::sdf::build_sdf_glyph_image;
 use super::model::{TextChildMarker, UTextLabel, UTextLabelLayoutCache, UTextOverflow};
 
-const DEFAULT_TEXT_EDGE_SOFTNESS: f32 = 0.75;
+const DEFAULT_TEXT_EDGE_SOFTNESS: f32 = 0.45;
 const TEXT_SDF_PADDING: u32 = 12;
 const TEXT_SDF_ATLAS_SIZE: u32 = 1024;
 const DISTANCE_FIELD_INF: f32 = 1.0e20;
@@ -76,7 +76,7 @@ impl Material2d for UTextLabelSdfMaterial {
     }
 
     fn depth_bias(&self) -> f32 {
-        0.5
+        0.0
     }
 }
 
@@ -222,7 +222,6 @@ pub(super) fn sync_text_label_meshes(
         }
 
         let text_size = layout_cache.measured_size;
-        let render_scale = resolved_render_scale(label.render_scale);
         let content_clip = label_content_clip_rect(&label, &node, &computed_size);
         let horizontal_offset = text_horizontal_offset(&label, &node, &computed_size, text_size);
 
@@ -259,7 +258,9 @@ pub(super) fn sync_text_label_meshes(
                         let coords = run.normalized_coords();
                         let variations_hash = FixedHasher.hash_one(coords);
 
-                        let font_size_physical = font_size * render_scale;
+                        let glyph_render_scale =
+                            resolved_render_scale_for_font(label.render_scale, font_size);
+                        let font_size_physical = font_size * glyph_render_scale;
 
                         let Some(font_ref) =
                             swash::FontRef::from_index(font.data.as_ref(), font.index as usize)
@@ -289,8 +290,8 @@ pub(super) fn sync_text_label_meshes(
 
                             let glyph_key = UTextLabelGlyphKey {
                                 glyph_id,
-                                x_bin_bits: (glyph.x * render_scale).to_bits(),
-                                y_bin_bits: (glyph.y * render_scale).to_bits(),
+                                x_bin_bits: 0,
+                                y_bin_bits: 0,
                             };
 
                             let atlas_pages =
@@ -416,15 +417,16 @@ pub(super) fn sync_text_label_meshes(
                             let glyph_rect = atlas_layout.textures[atlas_info.glyph_index];
                             let glyph_size_pixels =
                                 Vec2::new(glyph_rect.width() as f32, glyph_rect.height() as f32);
-                            let glyph_size = glyph_size_pixels / render_scale;
+                            let glyph_size = glyph_size_pixels / glyph_render_scale;
 
                             let position_x = (glyph_size_pixels.x * 0.5
                                 + atlas_info.offset.x as f32
-                                + glyph.x * render_scale)
-                                / render_scale;
-                            let position_y = (glyph.y * render_scale - atlas_info.offset.y as f32
+                                + glyph.x * glyph_render_scale)
+                                / glyph_render_scale;
+                            let position_y = (glyph.y * glyph_render_scale
+                                - atlas_info.offset.y as f32
                                 + glyph_size_pixels.y * 0.5)
-                                / render_scale;
+                                / glyph_render_scale;
 
                             let local_center = Vec2::new(
                                 horizontal_offset + position_x - text_size.x * 0.5,

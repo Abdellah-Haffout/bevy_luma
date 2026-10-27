@@ -84,9 +84,9 @@ fn game_menu_scene(theme: &Theme) -> impl Scene {
             gap: 16.0,
         }
         Children [
-            (game_top_header(icon_font.clone(), text_font.clone())),
-            (game_settings_split_body(icon_font.clone(), text_font.clone())),
-            (game_bottom_controller_bar(icon_font, text_font)),
+            @game_top_header(icon_font.clone(), text_font.clone())
+            @game_settings_split_body(icon_font.clone(), text_font.clone())
+            @game_bottom_controller_bar(icon_font, text_font)
         ]
     }
 }
@@ -230,8 +230,8 @@ fn game_settings_split_body(icon_font: Handle<Font>, text_font: Handle<Font>) ->
             gap: 16.0,
         }
         Children [
-            (game_category_sidebar(icon_font.clone(), text_font.clone())),
-            (game_controls_panel(icon_font, text_font)),
+            @game_category_sidebar(icon_font.clone(), text_font.clone())
+            @game_controls_panel(icon_font, text_font)
         ]
     }
 }
@@ -274,12 +274,12 @@ fn game_category_sidebar(icon_font: Handle<Font>, text_font: Handle<Font>) -> im
                         font: { text_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.62),
                     }),
-                    (menu_category_button(Icon::MONITOR, "DISPLAY & GRAPHICS", true, icon_font.clone(), text_font.clone())),
-                    (menu_category_button(Icon::VOLUME_2, "AUDIO & ACOUSTICS", false, icon_font.clone(), text_font.clone())),
-                    (menu_category_button(Icon::GAMEPAD_2, "CONTROLS & KEYBINDS", false, icon_font.clone(), text_font.clone())),
-                    (menu_category_button(Icon::CROSSHAIR, "GAMEPLAY & HUD", false, icon_font.clone(), text_font.clone())),
-                    (menu_category_button(Icon::EYE, "ACCESSIBILITY", false, icon_font.clone(), text_font.clone())),
-                    (menu_category_button(Icon::ACTIVITY, "BENCHMARK TEST", false, icon_font.clone(), text_font.clone())),
+                    @menu_category_button(Icon::MONITOR, "DISPLAY & GRAPHICS", true, icon_font.clone(), text_font.clone())
+                    @menu_category_button(Icon::VOLUME_2, "AUDIO & ACOUSTICS", false, icon_font.clone(), text_font.clone())
+                    @menu_category_button(Icon::GAMEPAD_2, "CONTROLS & KEYBINDS", false, icon_font.clone(), text_font.clone())
+                    @menu_category_button(Icon::CROSSHAIR, "GAMEPLAY & HUD", false, icon_font.clone(), text_font.clone())
+                    @menu_category_button(Icon::EYE, "ACCESSIBILITY", false, icon_font.clone(), text_font.clone())
+                    @menu_category_button(Icon::ACTIVITY, "BENCHMARK TEST", false, icon_font.clone(), text_font.clone())
                 ]
             ),
             // Hardware Spec Summary Card
@@ -500,7 +500,7 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                     ),
 
                     // Control Row 1: Resolution
-                    (control_row(
+                    @control_row(
                         "RENDER RESOLUTION",
                         "Target display buffer pixel dimensions",
                         bsn! {
@@ -511,16 +511,16 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                                 gap: 8.0,
                             }
                             Children [
-                                (option_chip("1080p (FHD)", false, icon_font.clone(), text_font.clone())),
-                                (option_chip("1440p (QHD)", true, icon_font.clone(), text_font.clone())),
-                                (option_chip("2160p (4K)", false, icon_font.clone(), text_font.clone())),
+                                @option_chip("1080p (FHD)", false, icon_font.clone(), text_font.clone())
+                                @option_chip("1440p (QHD)", true, icon_font.clone(), text_font.clone())
+                                @option_chip("2160p (4K)", false, icon_font.clone(), text_font.clone())
                             ]
                         },
                         text_font.clone(),
-                    )),
+                    )
 
                     // Control Row 2: Quality Preset
-                    (control_row(
+                    @control_row(
                         "GRAPHICS PRESET",
                         "Overall asset fidelity and shader complexity profile",
                         bsn! {
@@ -531,17 +531,17 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                                 gap: 8.0,
                             }
                             Children [
-                                (option_chip("LOW", false, icon_font.clone(), text_font.clone())),
-                                (option_chip("MEDIUM", false, icon_font.clone(), text_font.clone())),
-                                (option_chip("HIGH", false, icon_font.clone(), text_font.clone())),
-                                (option_chip("ULTRA", true, icon_font.clone(), text_font.clone())),
+                                @option_chip("LOW", false, icon_font.clone(), text_font.clone())
+                                @option_chip("MEDIUM", false, icon_font.clone(), text_font.clone())
+                                @option_chip("HIGH", false, icon_font.clone(), text_font.clone())
+                                @option_chip("ULTRA", true, icon_font.clone(), text_font.clone())
                             ]
                         },
                         text_font.clone(),
-                    )),
+                    )
 
                     // Control Row 3: Frame Rate
-                    (control_row(
+                    @control_row(
                         "FRAME RATE LIMIT",
                         "Maximum swapchain presentation frequency",
                         bsn! {
@@ -552,16 +552,16 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                                 gap: 8.0,
                             }
                             Children [
-                                (option_chip("60 FPS", false, icon_font.clone(), text_font.clone())),
-                                (option_chip("144 FPS", true, icon_font.clone(), text_font.clone())),
-                                (option_chip("UNLIMITED", false, icon_font.clone(), text_font.clone())),
+                                @option_chip("60 FPS", false, icon_font.clone(), text_font.clone())
+                                @option_chip("144 FPS", true, icon_font.clone(), text_font.clone())
+                                @option_chip("UNLIMITED", false, icon_font.clone(), text_font.clone())
                             ]
                         },
                         text_font.clone(),
-                    )),
+                    )
 
                     // Control Row 4: Ray-Tracing Toggle
-                    (toggle_control_row(
+                    @toggle_control_row(
                         Icon::ZAP,
                         "HARDWARE RAY TRACING",
                         "Real-time BVH reflections and global ambient occlusion",
@@ -569,10 +569,10 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                         true,
                         icon_font.clone(),
                         text_font.clone(),
-                    )),
+                    )
 
                     // Control Row 5: V-Sync Toggle
-                    (toggle_control_row(
+                    @toggle_control_row(
                         Icon::REFRESH_CW,
                         "VERTICAL SYNC (V-SYNC)",
                         "Synchronize frame swaps with display refresh to prevent tearing",
@@ -580,12 +580,12 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                         false,
                         icon_font.clone(),
                         text_font.clone(),
-                    )),
+                    )
                 ]
             ),
 
             // Bottom Action Buttons
-            (game_action_buttons_bar(icon_font, text_font))
+            @game_action_buttons_bar(icon_font, text_font)
         ]
     }
 }
@@ -629,7 +629,7 @@ fn control_row(title: &'static str, desc: &'static str, widget: impl Scene, text
                     })
                 ]
             ),
-            (widget)
+            @widget
         ]
     }
 }
@@ -661,7 +661,7 @@ fn option_chip(label: &'static str, selected: bool, icon_font: Handle<Font>, tex
             flex_direction: UFlexDirection::Row,
             justify_content: UJustifyContent::Center,
             align_items: UAlignItems::Center,
-            gap: { if selected { 4.0 } else { 0.0 } },
+            gap: { if selected { 4.0_f32 } else { 0.0_f32 } },
         }
         Children [
             (UText {
@@ -773,7 +773,7 @@ fn toggle_control_row(
                         }
                     )
                 ]
-                on(move |_event: On<Pointer<Click>>, mut state: ResMut<GameSettingsState>| {
+                on(move |_event: On<PointerClick>, mut state: ResMut<GameSettingsState>| {
                     if is_raytracing {
                         state.raytracing_enabled = !state.raytracing_enabled;
                     } else {
@@ -914,7 +914,7 @@ fn game_action_buttons_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> 
                                 color: Color::srgb(0.08, 0.08, 0.12),
                             })
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<GameSettingsState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<GameSettingsState>| {
                             state.status_message = "All graphical pipeline changes successfully applied to engine!".to_string();
                             info!("{}", state.status_message);
                         })

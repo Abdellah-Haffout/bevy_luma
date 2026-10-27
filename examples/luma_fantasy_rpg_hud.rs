@@ -272,22 +272,22 @@ fn fantasy_hud_scene(
         }
         Children [
             // Top Center: Compass Ribbon & Zone Banner
-            (hud_top_compass(icon_font.clone(), text_font.clone())),
-
+            @hud_top_compass(icon_font.clone(), text_font.clone())
+            --
             // Top Center Sub: Boss Encounter Health Bar
-            (hud_boss_encounter_bar(icon_font.clone(), text_font.clone())),
-
+            @hud_boss_encounter_bar(icon_font.clone(), text_font.clone())
+            --
             // Top Left: Character Medallion, Level, Currencies, and Active Buffs
-            (hud_character_crest(icon_font.clone(), text_font.clone(), serif_font)),
-
+            @hud_character_crest(icon_font.clone(), text_font.clone(), serif_font)
+            --
             // Top Right: Mini-Map Frame & Quest Objective Tracker
-            (hud_minimap_and_quests(icon_font.clone(), text_font.clone())),
-
+            @hud_minimap_and_quests(icon_font.clone(), text_font.clone())
+            --
             // Bottom Left: Combat Chronicle & Event Feed
-            (hud_combat_log_box(icon_font.clone(), text_font.clone())),
-
+            @hud_combat_log_box(icon_font.clone(), text_font.clone())
+            --
             // Bottom Center: Master Action Bar (Ruby HP, Hotbar, Sapphire MP)
-            (hud_bottom_action_cluster(icon_font, text_font)),
+            @hud_bottom_action_cluster(icon_font, text_font)
         ]
     }
 }
@@ -600,10 +600,13 @@ fn hud_character_crest(
                     gap: 6.0,
                 }
                 Children [
-                    (buff_badge(Icon::FLAME, Color::srgb(1.0, 0.45, 0.2), "24s", icon_font.clone(), text_font.clone())),
-                    (buff_badge(Icon::SHIELD, Color::srgb(0.95, 0.8, 0.4), "18s", icon_font.clone(), text_font.clone())),
-                    (buff_badge(Icon::ZAP, Color::srgb(0.5, 0.8, 1.0), "52m", icon_font.clone(), text_font.clone())),
-                    (buff_badge(Icon::HEART, Color::srgb(0.4, 0.9, 0.5), "1h", icon_font, text_font)),
+                    @buff_badge(Icon::FLAME, Color::srgb(1.0, 0.45, 0.2), "24s", icon_font.clone(), text_font.clone())
+                    --
+                    @buff_badge(Icon::SHIELD, Color::srgb(0.95, 0.8, 0.4), "18s", icon_font.clone(), text_font.clone())
+                    --
+                    @buff_badge(Icon::ZAP, Color::srgb(0.5, 0.8, 1.0), "52m", icon_font.clone(), text_font.clone())
+                    --
+                    @buff_badge(Icon::HEART, Color::srgb(0.4, 0.9, 0.5), "1h", icon_font, text_font)
                 ]
             )
         ]
@@ -855,13 +858,13 @@ fn hud_bottom_action_cluster(icon_font: Handle<Font>, text_font: Handle<Font>) -
         }
         Children [
             // Left: Ruby Health Orb
-            (hud_health_orb(icon_font.clone(), text_font.clone())),
-
+            @hud_health_orb(icon_font.clone(), text_font.clone())
+            --
             // Center: 8-Slot Action Hotbar
-            (hud_hotbar_strip(icon_font.clone(), text_font.clone())),
-
+            @hud_hotbar_strip(icon_font.clone(), text_font.clone())
+            --
             // Right: Sapphire Mana Orb
-            (hud_mana_orb(icon_font, text_font)),
+            @hud_mana_orb(icon_font, text_font)
         ]
     }
 }
@@ -1017,14 +1020,21 @@ fn hud_hotbar_strip(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
             gap: 8.0,
         }
         Children [
-            (ability_slot("1", Icon::FLAME, Color::srgb(1.0, 0.45, 0.2), "Fireball", 1, icon_font.clone(), text_font.clone())),
-            (ability_slot("2", Icon::CLOUD_SNOW, Color::srgb(0.4, 0.85, 1.0), "Frost Nova", 2, icon_font.clone(), text_font.clone())),
-            (ability_slot("3", Icon::ZAP, Color::srgb(1.0, 0.9, 0.3), "Lightning", 3, icon_font.clone(), text_font.clone())),
-            (ability_slot("4", Icon::SHIELD, Color::srgb(0.95, 0.8, 0.4), "Aegis", 4, icon_font.clone(), text_font.clone())),
-            (ability_slot("5", Icon::CROSSHAIR, Color::srgb(1.0, 0.3, 0.3), "Meteor", 5, icon_font.clone(), text_font.clone())),
-            (ability_slot("6", Icon::EYE, Color::srgb(0.75, 0.5, 1.0), "Blink", 6, icon_font.clone(), text_font.clone())),
-            (potion_slot_health(icon_font.clone(), text_font.clone())),
-            (potion_slot_mana(icon_font, text_font)),
+            @ability_slot("1", Icon::FLAME, Color::srgb(1.0, 0.45, 0.2), "Fireball", 1, icon_font.clone(), text_font.clone())
+            --
+            @ability_slot("2", Icon::CLOUD_SNOW, Color::srgb(0.4, 0.85, 1.0), "Frost Nova", 2, icon_font.clone(), text_font.clone())
+            --
+            @ability_slot("3", Icon::ZAP, Color::srgb(1.0, 0.9, 0.3), "Lightning", 3, icon_font.clone(), text_font.clone())
+            --
+            @ability_slot("4", Icon::SHIELD, Color::srgb(0.95, 0.8, 0.4), "Aegis", 4, icon_font.clone(), text_font.clone())
+            --
+            @ability_slot("5", Icon::CROSSHAIR, Color::srgb(1.0, 0.3, 0.3), "Meteor", 5, icon_font.clone(), text_font.clone())
+            --
+            @ability_slot("6", Icon::EYE, Color::srgb(0.75, 0.5, 1.0), "Blink", 6, icon_font.clone(), text_font.clone())
+            --
+            @potion_slot_health(icon_font.clone(), text_font.clone())
+            --
+            @potion_slot_mana(icon_font, text_font)
         ]
     }
 }
@@ -1099,7 +1109,7 @@ fn ability_slot(
                 color: Color::srgb(0.75, 0.8, 0.9),
             })
         ]
-        on(move |_event: On<Pointer<Click>>, mut state: ResMut<RpgGameState>| {
+        on(move |_event: On<PointerClick>, mut state: ResMut<RpgGameState>| {
             let dmg = slot_id as f32 * 680.0;
             state.boss_hp = (state.boss_hp - dmg).max(0.0);
             state.player_mp = (state.player_mp - 80.0).max(0.0);
@@ -1174,7 +1184,7 @@ fn potion_slot_health(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
                 }
             )
         ]
-        on(|_event: On<Pointer<Click>>, mut state: ResMut<RpgGameState>| {
+        on(|_event: On<PointerClick>, mut state: ResMut<RpgGameState>| {
             if state.health_potions > 0 {
                 state.health_potions -= 1;
                 state.player_hp = (state.player_hp + 1000.0).min(state.player_max_hp);
@@ -1250,7 +1260,7 @@ fn potion_slot_mana(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                 }
             )
         ]
-        on(|_event: On<Pointer<Click>>, mut state: ResMut<RpgGameState>| {
+        on(|_event: On<PointerClick>, mut state: ResMut<RpgGameState>| {
             if state.mana_potions > 0 {
                 state.mana_potions -= 1;
                 state.player_mp = (state.player_mp + 750.0).min(state.player_max_mp);

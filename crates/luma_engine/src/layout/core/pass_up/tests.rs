@@ -188,7 +188,7 @@ fn test_grid_fixed_tracks() {
         gap: 10.0,
         ..Default::default()
     };
-    layout.container_ext.grid.template_columns = vec![UTrackSize::Px(200.0), UTrackSize::Px(100.0)];
+    layout.grid_template_columns = vec![UTrackSize::Px(200.0), UTrackSize::Px(100.0)];
     let (min_w, max_w, min_h, max_h) =
         measure_grid_intrinsic(&mut scratch, &layout, UVal::Auto, USides::default());
     // Fixed columns: 200 + 100 + 10 = 310
@@ -220,8 +220,8 @@ fn test_grid_column_auto_flow() {
         gap: 10.0,
         ..Default::default()
     };
-    layout.container_ext.grid.auto_flow = UGridAutoFlow::Column;
-    layout.container_ext.grid.template_rows = vec![UTrackSize::Auto, UTrackSize::Auto];
+    layout.grid_auto_flow = UGridAutoFlow::Column;
+    layout.grid_template_rows = vec![UTrackSize::Auto, UTrackSize::Auto];
 
     let (min_w, max_w, min_h, max_h) =
         measure_grid_intrinsic(&mut scratch, &layout, UVal::Auto, USides::default());
@@ -253,10 +253,10 @@ fn test_grid_repeat_fit_intrinsic_with_explicit_width() {
         gap: 14.0,
         ..Default::default()
     };
-    layout.container_ext.grid.template_columns = vec![UTrackSize::repeat_fit(
+    layout.grid_template_columns = vec![UTrackSize::repeat_fit(
         UTrackRepeat::minmax(UTrackBound::px(200.0), UTrackBound::fr(1.0)),
     )];
-    layout.container_ext.grid.template_rows = vec![UTrackSize::Auto];
+    layout.grid_template_rows = vec![UTrackSize::Auto];
 
     // Explicit 960px width with 16px padding on sides (available = 928px)
     // (928 + 14) / (200 + 14) = 4 columns

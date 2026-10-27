@@ -8,6 +8,7 @@ use crate::layout::univis_node::{
 use luma_layout::solver::SolverSizeMode;
 
 #[test]
+#[allow(deprecated)]
 fn translate_spec_copies_ext_fields() {
     let node = UNode {
         width: UVal::Px(40.0),

@@ -139,7 +139,7 @@ impl Default for UiRolloutConfig {
             use_mesh_cache: true,
             use_post_settle_picking: true,
             validation: UiValidationMode::Disabled,
-            use_instanced_batching: true,
+            use_instanced_batching: false,
         }
     }
 }

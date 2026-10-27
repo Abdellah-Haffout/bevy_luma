@@ -82,8 +82,8 @@ fn player_root_scene(theme: &Theme) -> impl Scene {
             gap: 20.0,
         }
         Children [
-            (player_window_card(icon_font.clone(), text_font.clone())),
-            (player_footer_note(icon_font, text_font)),
+            @player_window_card(icon_font.clone(), text_font.clone())
+            @player_footer_note(icon_font, text_font)
         ]
     }
 }
@@ -109,11 +109,11 @@ fn player_window_card(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
             gap: 18.0,
         }
         Children [
-            (top_player_header(icon_font.clone(), text_font.clone())),
-            (square_album_stack(icon_font.clone(), text_font.clone())),
-            (track_meta_info(icon_font.clone(), text_font.clone())),
-            (scrubber_timeline_bar(text_font.clone())),
-            (transport_controls_row(icon_font, text_font)),
+            @top_player_header(icon_font.clone(), text_font.clone())
+            @square_album_stack(icon_font.clone(), text_font.clone())
+            @track_meta_info(icon_font.clone(), text_font.clone())
+            @scrubber_timeline_bar(text_font.clone())
+            @transport_controls_row(icon_font, text_font)
         ]
     }
 }
@@ -202,16 +202,16 @@ fn square_album_stack(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
         }
         Children [
             // Layer 1: Simulated Album Cover Visual Artwork
-            (layer_album_art()),
+            @layer_album_art()
 
             // Layer 2: Gloss & Vignette Filter
-            (layer_gloss_filter()),
+            @layer_gloss_filter()
 
             // Layer 3: Pinned Top-Left "MASTER QUALITY" Badge with Headphones Icon
-            (pinned_badge_top_left(icon_font.clone(), text_font)),
+            @pinned_badge_top_left(icon_font.clone(), text_font)
 
             // Layer 4: Center Play/Pause Touch Orb with Vector Icon
-            (center_play_button_orb(icon_font)),
+            @center_play_button_orb(icon_font)
         ]
     }
 }
@@ -345,7 +345,7 @@ fn center_play_button_orb(icon_font: Handle<Font>) -> impl Scene {
                 }
             )
         ]
-        on(|_event: On<Pointer<Click>>, mut state: ResMut<PlayerState>| {
+        on(|_event: On<PointerClick>, mut state: ResMut<PlayerState>| {
             state.is_playing = !state.is_playing;
             info!("Playback state changed: is_playing = {}", state.is_playing);
         })
@@ -437,7 +437,7 @@ fn track_meta_info(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                         }
                     )
                 ]
-                on(|_event: On<Pointer<Click>>, mut state: ResMut<PlayerState>| {
+                on(|_event: On<PointerClick>, mut state: ResMut<PlayerState>| {
                     state.is_liked = !state.is_liked;
                 })
             )
@@ -523,47 +523,46 @@ fn transport_controls_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
             align_items: UAlignItems::Center,
         }
         Children [
-            (icon_control_pill(Icon::SHUFFLE, icon_font.clone())),
-            (icon_control_pill(Icon::SKIP_BACK, icon_font.clone())),
-            (icon_control_pill(Icon::SKIP_FORWARD, icon_font.clone())),
-            (icon_control_pill(Icon::REPEAT, icon_font.clone())),
-            (
-                // Volume pill with Speaker Icon
-                UNode {
-                    background_color: Color::srgba(0.12, 0.15, 0.22, 0.8),
-                    border_radius: UCornerRadius::all(8.0),
-                    padding: USides::axes(12.0, 8.0),
+            @icon_control_pill(Icon::SHUFFLE, icon_font.clone())
+            --
+            @icon_control_pill(Icon::SKIP_BACK, icon_font.clone())
+            --
+            @icon_control_pill(Icon::SKIP_FORWARD, icon_font.clone())
+            --
+            @icon_control_pill(Icon::REPEAT, icon_font.clone())
+            --
+            // Volume pill with Speaker Icon
+            UNode {
+                background_color: Color::srgba(0.12, 0.15, 0.22, 0.8),
+                border_radius: UCornerRadius::all(8.0),
+                padding: USides::axes(12.0, 8.0),
+            }
+            UBorder {
+                color: Color::srgba(0.3, 0.35, 0.5, 0.3),
+                width: 1.0,
+                radius: UCornerRadius::all(8.0),
+            }
+            ULayout {
+                display: UDisplay::Flex,
+                flex_direction: UFlexDirection::Row,
+                align_items: UAlignItems::Center,
+                gap: 6.0,
+            }
+            Children [
+                UText {
+                    text: { Icon::VOLUME_2.to_string() },
+                    font_size: 14.0,
+                    font: { icon_font.clone() },
+                    color: Color::srgb(0.7, 0.8, 0.95),
                 }
-                UBorder {
-                    color: Color::srgba(0.3, 0.35, 0.5, 0.3),
-                    width: 1.0,
-                    radius: UCornerRadius::all(8.0),
+                --
+                UText {
+                    text: { "84%".to_string() },
+                    font_size: 11.0,
+                    font: { text_font },
+                    color: Color::srgb(0.7, 0.8, 0.95),
                 }
-                ULayout {
-                    display: UDisplay::Flex,
-                    flex_direction: UFlexDirection::Row,
-                    align_items: UAlignItems::Center,
-                    gap: 6.0,
-                }
-                Children [
-                    (
-                        UText {
-                            text: { Icon::VOLUME_2.to_string() },
-                            font_size: 14.0,
-                            font: { icon_font.clone() },
-                            color: Color::srgb(0.7, 0.8, 0.95),
-                        }
-                    ),
-                    (
-                        UText {
-                            text: { "84%".to_string() },
-                            font_size: 11.0,
-                            font: { text_font },
-                            color: Color::srgb(0.7, 0.8, 0.95),
-                        }
-                    ),
-                ]
-            ),
+            ]
         ]
     }
 }

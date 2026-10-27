@@ -277,8 +277,10 @@ mod tests {
 
     #[test]
     fn test_caret_reset() {
-        let mut caret = UTextInputCaret::default();
-        caret.visible = false;
+        let mut caret = UTextInputCaret {
+            visible: false,
+            ..Default::default()
+        };
         caret.reset_blink();
         assert!(caret.visible);
     }

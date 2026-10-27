@@ -75,6 +75,7 @@ pub(super) fn begin_ui_settlement_work(
             Changed<UWorldRoot>,
         )>,
     >,
+    viewport_mutations: Query<(), Or<(Changed<Window>, Changed<Camera>)>>,
     layout_nodes: Query<(), With<UNode>>,
     layout_child_mutations: Query<(Entity, Ref<Children>), (With<UNode>, Changed<Children>)>,
     layout_mutations: Query<
@@ -102,7 +103,13 @@ pub(super) fn begin_ui_settlement_work(
     mut removed_nodes: RemovedComponents<UNode>,
     mut removed_children: RemovedComponents<ChildOf>,
 ) {
-    let roots_changed = !root_mutations.is_empty();
+    // Window/camera changes (e.g. the compositor resizing the window after the first
+    // frame) alter the resolved canvas size and must start a new settlement generation.
+    // We only trigger this on the first iteration pass of the frame to avoid infinite loops,
+    // since Changed<Window> / Changed<Camera> trackers persist across schedule runs within a frame.
+    let is_first_pass = work_state.last_frame_iterations() <= 1;
+    let viewport_changed = is_first_pass && !viewport_mutations.is_empty();
+    let roots_changed = !root_mutations.is_empty() || viewport_changed;
     let layout_children_changed = layout_child_mutations.iter().any(|(entity, children)| {
         let current_layout_children = collect_layout_children(Some(&children), &layout_nodes);
         layout_children_changed(

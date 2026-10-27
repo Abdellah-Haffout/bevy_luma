@@ -145,10 +145,13 @@ fn typography_root_scene(theme: &Theme) -> impl Scene {
             gap: 12.0,
         }
         Children [
-            (studio_header(body_font.clone(), icon_font.clone())),
-            (studio_divider()),
-            (studio_columns(body_font.clone(), serif_font, arabic_font, icon_font)),
-            (studio_footer(body_font)),
+            @studio_header(body_font.clone(), icon_font.clone())
+            --
+            @studio_divider()
+            --
+            @studio_columns(body_font.clone(), serif_font, arabic_font, icon_font)
+            --
+            @studio_footer(body_font)
         ]
     }
 }
@@ -330,8 +333,9 @@ fn studio_columns(
             gap: 14.0,
         }
         Children [
-            (studio_left_column(body_font.clone(), icon_font.clone())),
-            (studio_right_column(body_font, serif_font, arabic_font, icon_font)),
+            @studio_left_column(body_font.clone(), icon_font.clone())
+            --
+            @studio_right_column(body_font, serif_font, arabic_font, icon_font)
         ]
     }
 }
@@ -351,9 +355,10 @@ fn studio_left_column(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl 
         }
         Children [
             // Card A: Real-time Outline Laboratory
-            (outline_lab_card(body_font.clone(), icon_font.clone())),
+            @outline_lab_card(body_font.clone(), icon_font.clone())
+            --
             // Card B: Selectable & Copyable Text Block
-            (selectable_card(body_font, icon_font)),
+            @selectable_card(body_font, icon_font)
         ]
     }
 }
@@ -500,10 +505,13 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                             gap: 8.0,
                         }
                         Children [
-                            (outline_thickness_btn("None (0px)", OutlineThickness::None, body_font.clone())),
-                            (outline_thickness_btn("Subtle (1.5px)", OutlineThickness::Subtle, body_font.clone())),
-                            (outline_thickness_btn("Medium (3.0px)", OutlineThickness::Medium, body_font.clone())),
-                            (outline_thickness_btn("Bold (5.0px)", OutlineThickness::Bold, body_font.clone())),
+                            @outline_thickness_btn("None (0px)", OutlineThickness::None, body_font.clone())
+                            --
+                            @outline_thickness_btn("Subtle (1.5px)", OutlineThickness::Subtle, body_font.clone())
+                            --
+                            @outline_thickness_btn("Medium (3.0px)", OutlineThickness::Medium, body_font.clone())
+                            --
+                            @outline_thickness_btn("Bold (5.0px)", OutlineThickness::Bold, body_font.clone())
                         ]
                     )
                 ]
@@ -553,10 +561,13 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                             gap: 8.0,
                         }
                         Children [
-                            (outline_color_btn("Gold", OutlineColorChoice::Gold, Color::srgb(0.96, 0.78, 0.28), body_font.clone())),
-                            (outline_color_btn("Cyan", OutlineColorChoice::Cyan, Color::srgb(0.20, 0.85, 0.98), body_font.clone())),
-                            (outline_color_btn("Crimson", OutlineColorChoice::Crimson, Color::srgb(0.95, 0.25, 0.40), body_font.clone())),
-                            (outline_color_btn("Emerald", OutlineColorChoice::Emerald, Color::srgb(0.25, 0.92, 0.55), body_font.clone())),
+                            @outline_color_btn("Gold", OutlineColorChoice::Gold, Color::srgb(0.96, 0.78, 0.28), body_font.clone())
+                            --
+                            @outline_color_btn("Cyan", OutlineColorChoice::Cyan, Color::srgb(0.20, 0.85, 0.98), body_font.clone())
+                            --
+                            @outline_color_btn("Crimson", OutlineColorChoice::Crimson, Color::srgb(0.95, 0.25, 0.40), body_font.clone())
+                            --
+                            @outline_color_btn("Emerald", OutlineColorChoice::Emerald, Color::srgb(0.25, 0.92, 0.55), body_font.clone())
                         ]
                     )
                 ]
@@ -634,7 +645,7 @@ fn outline_thickness_btn(label: &'static str, thickness: OutlineThickness, body_
                 }
             )
         ]
-        on(move |_event: On<Pointer<Click>>, mut state: ResMut<TypographyLabState>| {
+        on(move |_event: On<PointerClick>, mut state: ResMut<TypographyLabState>| {
             state.thickness = thickness;
         })
     }
@@ -690,7 +701,7 @@ fn outline_color_btn(
                 }
             )
         ]
-        on(move |_event: On<Pointer<Click>>, mut state: ResMut<TypographyLabState>| {
+        on(move |_event: On<PointerClick>, mut state: ResMut<TypographyLabState>| {
             state.color_choice = choice;
         })
     }
@@ -799,7 +810,7 @@ fn selectable_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sce
                                 }
                             ),
                         ]
-                        on(|_event: On<Pointer<Click>>,
+                        on(|_event: On<PointerClick>,
                             mut state: ResMut<TypographyLabState>,
                             query: Query<&UText, With<SelectableCodeSnippet>>,
                             mut commands: Commands| {
@@ -888,9 +899,10 @@ fn studio_right_column(
         }
         Children [
             // Card C: Rich Multi-Span Paragraph
-            (rich_spans_card(body_font.clone(), serif_font, icon_font.clone())),
+            @rich_spans_card(body_font.clone(), serif_font, icon_font.clone())
+            --
             // Card D: Bilingual Dual-Script Typography
-            (bilingual_card(body_font, arabic_font, icon_font)),
+            @bilingual_card(body_font, arabic_font, icon_font)
         ]
     }
 }
@@ -999,9 +1011,11 @@ fn rich_spans_card(
                     gap: 6.0,
                 }
                 Children [
-                    (rich_feature_pill(Icon::CHECK, "Mesh::ATTRIBUTE_COLOR: Per-vertex tinting without breaking batching", Color::srgb(0.25, 0.92, 0.55), icon_font.clone(), body_font.clone())),
-                    (rich_feature_pill(Icon::GRID_3X3, "Multi-section Parley text layout with font texture atlas caching", Color::srgb(0.38, 0.82, 0.98), icon_font.clone(), body_font.clone())),
-                    (rich_feature_pill(Icon::HEART, "Zero runtime overhead for plain labels, instant scaling for rich text", Color::srgb(0.96, 0.78, 0.28), icon_font, body_font.clone())),
+                    @rich_feature_pill(Icon::CHECK, "Mesh::ATTRIBUTE_COLOR: Per-vertex tinting without breaking batching", Color::srgb(0.25, 0.92, 0.55), icon_font.clone(), body_font.clone())
+                    --
+                    @rich_feature_pill(Icon::GRID_3X3, "Multi-section Parley text layout with font texture atlas caching", Color::srgb(0.38, 0.82, 0.98), icon_font.clone(), body_font.clone())
+                    --
+                    @rich_feature_pill(Icon::HEART, "Zero runtime overhead for plain labels, instant scaling for rich text", Color::srgb(0.96, 0.78, 0.28), icon_font, body_font.clone())
                 ]
             )
         ]

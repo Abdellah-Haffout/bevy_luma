@@ -70,10 +70,10 @@ fn dashboard_root_scene(theme: &Theme) -> impl Scene {
             gap: 16.0,
         }
         Children [
-            (top_navbar(icon_font.clone(), body_font.clone())),
-            (metrics_kpi_row(icon_font.clone(), body_font.clone())),
-            (middle_split_area(icon_font.clone(), body_font.clone())),
-            (footer_status_bar(icon_font, body_font)),
+            @top_navbar(icon_font.clone(), body_font.clone())
+            @metrics_kpi_row(icon_font.clone(), body_font.clone())
+            @middle_split_area(icon_font.clone(), body_font.clone())
+            @footer_status_bar(icon_font, body_font)
         ]
     }
 }
@@ -240,7 +240,7 @@ fn top_navbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                                 }
                             )
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<DashboardState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<DashboardState>| {
                             state.refresh_count += 1;
                             info!("Dashboard Metrics Refreshed #{}", state.refresh_count);
                         })
@@ -267,10 +267,10 @@ fn metrics_kpi_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sce
             gap: 14.0,
         }
         Children [
-            (kpi_card(icon_font.clone(), body_font.clone(), Icon::USERS, "ACTIVE CONCURRENT USERS", "48,290", "+14.2% vs yesterday", Color::srgb(0.2, 0.8, 0.5))),
-            (kpi_card(icon_font.clone(), body_font.clone(), Icon::ZAP, "API INGESTION RATE", "18.4k req/s", "Avg Latency 14.2ms", Color::srgb(0.38, 0.65, 1.0))),
-            (kpi_card(icon_font.clone(), body_font.clone(), Icon::CIRCLE_ALERT, "HTTP ERROR RATE", "0.018%", "Target < 0.05%", Color::srgb(0.9, 0.7, 0.2))),
-            (kpi_card(icon_font, body_font, Icon::BANKNOTE, "CURRENT CLOUD RUN-RATE", "$1,420 / mo", "Within Budget (-8%)", Color::srgb(0.65, 0.45, 1.0))),
+            @kpi_card(icon_font.clone(), body_font.clone(), Icon::USERS, "ACTIVE CONCURRENT USERS", "48,290", "+14.2% vs yesterday", Color::srgb(0.2, 0.8, 0.5))
+            @kpi_card(icon_font.clone(), body_font.clone(), Icon::ZAP, "API INGESTION RATE", "18.4k req/s", "Avg Latency 14.2ms", Color::srgb(0.38, 0.65, 1.0))
+            @kpi_card(icon_font.clone(), body_font.clone(), Icon::CIRCLE_ALERT, "HTTP ERROR RATE", "0.018%", "Target < 0.05%", Color::srgb(0.9, 0.7, 0.2))
+            @kpi_card(icon_font, body_font, Icon::BANKNOTE, "CURRENT CLOUD RUN-RATE", "$1,420 / mo", "Within Budget (-8%)", Color::srgb(0.65, 0.45, 1.0))
         ]
     }
 }
@@ -290,8 +290,8 @@ fn middle_split_area(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
             gap: 14.0,
         }
         Children [
-            (cluster_nodes_card(icon_font.clone(), body_font.clone())),
-            (regions_sidebar(icon_font, body_font)),
+            @cluster_nodes_card(icon_font.clone(), body_font.clone())
+            @regions_sidebar(icon_font, body_font)
         ]
     }
 }
@@ -380,10 +380,10 @@ fn cluster_nodes_card(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl 
                     gap: 10.0,
                 }
                 Children [
-                    (node_row(icon_font.clone(), body_font.clone(), "node-prod-east-01", "8 vCPU / 32 GB RAM", 0.62, "62% LOAD", Color::srgb(0.35, 0.65, 1.0))),
-                    (node_row(icon_font.clone(), body_font.clone(), "node-prod-east-02", "8 vCPU / 32 GB RAM", 0.74, "74% LOAD", Color::srgb(0.35, 0.65, 1.0))),
-                    (node_row(icon_font.clone(), body_font.clone(), "node-prod-east-03", "16 vCPU / 64 GB RAM", 0.41, "41% LOAD", Color::srgb(0.2, 0.8, 0.5))),
-                    (node_row(icon_font.clone(), body_font.clone(), "node-prod-east-04", "16 vCPU / 64 GB RAM", 0.88, "88% LOAD", Color::srgb(0.95, 0.55, 0.2))),
+                    @node_row(icon_font.clone(), body_font.clone(), "node-prod-east-01", "8 vCPU / 32 GB RAM", 0.62, "62% LOAD", Color::srgb(0.35, 0.65, 1.0))
+                    @node_row(icon_font.clone(), body_font.clone(), "node-prod-east-02", "8 vCPU / 32 GB RAM", 0.74, "74% LOAD", Color::srgb(0.35, 0.65, 1.0))
+                    @node_row(icon_font.clone(), body_font.clone(), "node-prod-east-03", "16 vCPU / 64 GB RAM", 0.41, "41% LOAD", Color::srgb(0.2, 0.8, 0.5))
+                    @node_row(icon_font.clone(), body_font.clone(), "node-prod-east-04", "16 vCPU / 64 GB RAM", 0.88, "88% LOAD", Color::srgb(0.95, 0.55, 0.2))
                 ]
             ),
             (
@@ -465,10 +465,10 @@ fn regions_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sce
                     gap: 8.0,
                 }
                 Children [
-                    (region_card(icon_font.clone(), body_font.clone(), "us-east-1 (N. Virginia)", "12ms", "HEALTHY", Color::srgb(0.2, 0.85, 0.5))),
-                    (region_card(icon_font.clone(), body_font.clone(), "eu-west-1 (Frankfurt)", "34ms", "HEALTHY", Color::srgb(0.2, 0.85, 0.5))),
-                    (region_card(icon_font.clone(), body_font.clone(), "ap-northeast-1 (Tokyo)", "112ms", "HEALTHY", Color::srgb(0.2, 0.85, 0.5))),
-                    (region_card(icon_font.clone(), body_font.clone(), "sa-east-1 (São Paulo)", "148ms", "ELEVATED", Color::srgb(0.9, 0.7, 0.2))),
+                    @region_card(icon_font.clone(), body_font.clone(), "us-east-1 (N. Virginia)", "12ms", "HEALTHY", Color::srgb(0.2, 0.85, 0.5))
+                    @region_card(icon_font.clone(), body_font.clone(), "eu-west-1 (Frankfurt)", "34ms", "HEALTHY", Color::srgb(0.2, 0.85, 0.5))
+                    @region_card(icon_font.clone(), body_font.clone(), "ap-northeast-1 (Tokyo)", "112ms", "HEALTHY", Color::srgb(0.2, 0.85, 0.5))
+                    @region_card(icon_font.clone(), body_font.clone(), "sa-east-1 (São Paulo)", "148ms", "ELEVATED", Color::srgb(0.9, 0.7, 0.2))
                 ]
             ),
             (

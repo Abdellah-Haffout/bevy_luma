@@ -111,12 +111,17 @@ fn editorial_root_scene(theme: &Theme) -> impl Scene {
             gap: 10.0,
         }
         Children [
-            (editorial_masthead(body_font.clone(), serif_font.clone())),
-            (editorial_divider()),
-            (editorial_toolbar(icon_font.clone(), body_font.clone())),
-            (editorial_article_header(body_font.clone())),
-            (editorial_body_columns(body_font.clone(), serif_font.clone(), icon_font)),
-            (editorial_footer(body_font)),
+            @editorial_masthead(body_font.clone(), serif_font.clone())
+            --
+            @editorial_divider()
+            --
+            @editorial_toolbar(icon_font.clone(), body_font.clone())
+            --
+            @editorial_article_header(body_font.clone())
+            --
+            @editorial_body_columns(body_font.clone(), serif_font.clone(), icon_font)
+            --
+            @editorial_footer(body_font)
         ]
     }
 }
@@ -294,7 +299,7 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                                 }
                             )
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<EditorialState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<EditorialState>| {
                             state.scale_mode = TypeScaleMode::Compact;
                         })
                     ),
@@ -333,7 +338,7 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                                 }
                             )
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<EditorialState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<EditorialState>| {
                             state.scale_mode = TypeScaleMode::Standard;
                         })
                     ),
@@ -372,7 +377,7 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                                 }
                             )
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<EditorialState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<EditorialState>| {
                             state.scale_mode = TypeScaleMode::Comfortable;
                         })
                     ),
@@ -423,7 +428,7 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                                 }
                             )
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<EditorialState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<EditorialState>| {
                             state.bookmarked = !state.bookmarked;
                         })
                     ),
@@ -486,8 +491,9 @@ fn editorial_body_columns(
             gap: 16.0,
         }
         Children [
-            (editorial_left_column(body_font.clone())),
-            (editorial_right_column(body_font, serif_font, icon_font)),
+            @editorial_left_column(body_font.clone())
+            --
+            @editorial_right_column(body_font, serif_font, icon_font)
         ]
     }
 }

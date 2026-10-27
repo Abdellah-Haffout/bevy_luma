@@ -83,9 +83,9 @@ fn social_feed_scene(theme: &Theme) -> impl Scene {
             gap: 14.0,
         }
         Children [
-            (feed_workspace_header(icon_font.clone(), body_font.clone())),
-            (feed_main_split_layout(icon_font.clone(), body_font.clone())),
-            (feed_workspace_footer(body_font)),
+            @feed_workspace_header(icon_font.clone(), body_font.clone())
+            @feed_main_split_layout(icon_font.clone(), body_font.clone())
+            @feed_workspace_footer(body_font)
         ]
     }
 }
@@ -252,8 +252,8 @@ fn feed_main_split_layout(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
             gap: 16.0,
         }
         Children [
-            (channels_sidebar(icon_font.clone(), body_font.clone())),
-            (chat_feed_column(icon_font, body_font)),
+            @channels_sidebar(icon_font.clone(), body_font.clone())
+            @chat_feed_column(icon_font, body_font)
         ]
     }
 }
@@ -292,37 +292,43 @@ fn channels_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sc
                 }
                 Children [
                     // Channels Section Header
-                    (UText {
+                    UText {
                         text: { "PUBLIC CHANNELS".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.65),
-                    }),
-                    (channel_pill_with_unread(icon_font.clone(), body_font.clone(), "infra-deployments", true, 3)),
-                    (channel_pill(icon_font.clone(), body_font.clone(), "core-engine", false)),
-                    (channel_pill_with_unread(icon_font.clone(), body_font.clone(), "ui-components", false, 7)),
-                    (channel_pill(icon_font.clone(), body_font.clone(), "release-notes", false)),
-                    (channel_pill(icon_font.clone(), body_font.clone(), "team-random", false)),
-
+                    }
+                    --
+                    @channel_pill_with_unread(icon_font.clone(), body_font.clone(), "infra-deployments", true, 3)
+                    --
+                    @channel_pill(icon_font.clone(), body_font.clone(), "core-engine", false)
+                    --
+                    @channel_pill_with_unread(icon_font.clone(), body_font.clone(), "ui-components", false, 7)
+                    --
+                    @channel_pill(icon_font.clone(), body_font.clone(), "release-notes", false)
+                    --
+                    @channel_pill(icon_font.clone(), body_font.clone(), "team-random", false)
+                    --
                     // Divider
-                    (
-                        UNode {
-                            width: UVal::Percent(1.0),
-                            height: UVal::Px(1.0),
-                            background_color: Color::srgba(0.2, 0.25, 0.35, 0.3),
-                        }
-                    ),
-
+                    UNode {
+                        width: UVal::Percent(1.0),
+                        height: UVal::Px(1.0),
+                        background_color: Color::srgba(0.2, 0.25, 0.35, 0.3),
+                    }
+                    --
                     // Direct Messages Section Header
-                    (UText {
+                    UText {
                         text: { "DIRECT MESSAGES".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.65),
-                    }),
-                    (dm_item(body_font.clone(), "Sarah Chen", "Principal Architect", true)),
-                    (dm_item(body_font.clone(), "Marcus Brody", "DevOps Lead", true)),
-                    (dm_item(body_font.clone(), "Elena Rostova", "UI/UX Designer", false)),
+                    }
+                    --
+                    @dm_item(body_font.clone(), "Sarah Chen", "Principal Architect", true)
+                    --
+                    @dm_item(body_font.clone(), "Marcus Brody", "DevOps Lead", true)
+                    --
+                    @dm_item(body_font.clone(), "Elena Rostova", "UI/UX Designer", false)
                 ]
             ),
             // Bottom Workspace Health Card
@@ -554,8 +560,8 @@ fn chat_feed_column(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sc
             gap: 12.0,
         }
         Children [
-            (feed_scroll_viewport(icon_font.clone(), body_font.clone())),
-            (feed_message_input_bar(icon_font, body_font)),
+            @feed_scroll_viewport(icon_font.clone(), body_font.clone())
+            @feed_message_input_bar(icon_font, body_font)
         ]
     }
 }
@@ -580,7 +586,7 @@ fn feed_scroll_viewport(icon_font: Handle<Font>, body_font: Handle<Font>) -> imp
         UScrollContainer::vertical()
         UScrollKineticDrag::default()
         Children [
-            (feed_scroll_content(icon_font, body_font))
+            @feed_scroll_content(icon_font, body_font)
         ]
     }
 }
@@ -666,10 +672,10 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                         ]
                     )
                 ]
-            ),
-
+            )
+            --
             // Message 1: Sarah Chen
-            (chat_message_with_snippet(
+            @chat_message_with_snippet(
                 icon_font.clone(),
                 body_font.clone(),
                 "Sarah Chen",
@@ -682,10 +688,10 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                 "7",
                 Icon::ZAP,
                 "4",
-            )),
-
+            )
+            --
             // Message 2: Marcus Brody
-            (chat_message_with_snippet(
+            @chat_message_with_snippet(
                 icon_font.clone(),
                 body_font.clone(),
                 "Marcus Brody",
@@ -698,10 +704,10 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                 "5",
                 Icon::STAR,
                 "3",
-            )),
-
+            )
+            --
             // Message 3: Elena Rostova
-            (chat_message(
+            @chat_message(
                 icon_font.clone(),
                 body_font.clone(),
                 "Elena Rostova",
@@ -713,10 +719,10 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                 "8",
                 Icon::STAR,
                 "6",
-            )),
-
+            )
+            --
             // Message 4: Alex Morgan
-            (chat_message_with_snippet(
+            @chat_message_with_snippet(
                 icon_font.clone(),
                 body_font.clone(),
                 "Alex Morgan",
@@ -729,11 +735,10 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                 "12",
                 Icon::FLAME,
                 "9",
-            )),
-
+            )
+            --
             // Dynamic Counter Pill
-            (
-                UNode {
+            UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.12, 0.16, 0.25, 0.6),
                     border_radius: UCornerRadius::all(8.0),
@@ -746,23 +751,21 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
-                        DynamicMessageCounter
-                        UText {
-                            text: { "Channel History: 4 total messages logged in session".to_string() },
-                            font_size: 11.0,
-                            font: { body_font.clone() },
-                            color: Color::srgb(0.4, 0.85, 0.6),
-                        }
-                    ),
-                    (UText {
+                    DynamicMessageCounter
+                    UText {
+                        text: { "Channel History: 4 total messages logged in session".to_string() },
+                        font_size: 11.0,
+                        font: { body_font.clone() },
+                        color: Color::srgb(0.4, 0.85, 0.6),
+                    }
+                    --
+                    UText {
                         text: { "End of synchronized history".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.62),
-                    })
+                    }
                 ]
-            )
         ]
     }
 }
@@ -837,15 +840,17 @@ fn chat_message(
                     gap: 6.0,
                 }
                 Children [
-                    (author_header_line(body_font.clone(), author, badge, badge_color, timestamp)),
-                    (UText {
+                    @author_header_line(body_font.clone(), author, badge, badge_color, timestamp)
+                    --
+                    UText {
                         text: { body.to_string() },
                         font_size: 12.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.85, 0.88, 0.94),
                         wrap_mode: UTextWrapMode::WrapToParent,
-                    }),
-                    (reactions_row(icon_font, body_font, r1_icon, r1_count, r2_icon, r2_count))
+                    }
+                    --
+                    @reactions_row(icon_font, body_font, r1_icon, r1_count, r2_icon, r2_count)
                 ]
             )
         ]
@@ -923,16 +928,19 @@ fn chat_message_with_snippet(
                     gap: 6.0,
                 }
                 Children [
-                    (author_header_line(body_font.clone(), author, badge, badge_color, timestamp)),
-                    (UText {
+                    @author_header_line(body_font.clone(), author, badge, badge_color, timestamp)
+                    --
+                    UText {
                         text: { body.to_string() },
                         font_size: 12.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.85, 0.88, 0.94),
                         wrap_mode: UTextWrapMode::WrapToParent,
-                    }),
-                    (code_snippet_box(icon_font.clone(), body_font.clone(), code)),
-                    (reactions_row(icon_font, body_font, r1_icon, r1_count, r2_icon, r2_count))
+                    }
+                    --
+                    @code_snippet_box(icon_font.clone(), body_font.clone(), code)
+                    --
+                    @reactions_row(icon_font, body_font, r1_icon, r1_count, r2_icon, r2_count)
                 ]
             )
         ]
@@ -1042,8 +1050,8 @@ fn reactions_row(
             gap: 8.0,
         }
         Children [
-            (reaction_pill(icon_font.clone(), body_font.clone(), icon1, count1)),
-            (reaction_pill(icon_font, body_font, icon2, count2)),
+            @reaction_pill(icon_font.clone(), body_font.clone(), icon1, count1)
+            @reaction_pill(icon_font, body_font, icon2, count2)
         ]
     }
 }
@@ -1213,7 +1221,7 @@ fn feed_message_input_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
                                 color: Color::WHITE,
                             })
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<FeedChatState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<FeedChatState>| {
                             state.message_count += 1;
                             state.status_notification = format!("Published cluster alert #{} to #infra-deployments", state.message_count);
                             info!("{}", state.status_notification);

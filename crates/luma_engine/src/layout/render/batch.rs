@@ -29,12 +29,16 @@ use bevy::render::{
 use bevy::shader::Shader;
 use bytemuck::{Pod, Zeroable};
 
-use crate::layout::components::UI3d;
+use std::collections::HashMap;
+use std::ops::Range;
+
+use crate::layout::components::{CachedUiContext, UI3d};
 use crate::layout::image::UImage;
 use crate::layout::query::ComputedSize;
+use crate::layout::render::clip_sync::UActiveClip;
 use crate::layout::univis_node::{UBorder, UClip, UNode};
 use crate::layout::visual::{UGradient, UInnerGlow, UShadow};
-use crate::prelude::UShapeMode;
+use crate::prelude::{UCornerRadius, UShapeMode};
 use crate::schedule::UiRolloutConfig;
 
 /// 160-byte GPU representation of a 2D Univis UI node, sent directly to VRAM in batches.
@@ -57,8 +61,16 @@ pub struct GpuNodeInstance {
 pub struct ExtractedNode {
     pub entity: Entity,
     pub main_entity: MainEntity,
+    pub root_entity: Entity,
     pub z_order: f32,
     pub instance: GpuNodeInstance,
+}
+
+#[derive(Clone, Debug)]
+pub struct UnivisBatchSlice {
+    pub root_entity: Entity,
+    pub range: Range<u32>,
+    pub min_z: f32,
 }
 
 #[derive(Resource, Default)]
@@ -72,6 +84,8 @@ pub struct UnivisBatchMeta {
     pub instance_buffer: RawBufferVec<GpuNodeInstance>,
     pub index_buffer: RawBufferVec<u32>,
     pub total_instances: u32,
+    pub slices: Vec<UnivisBatchSlice>,
+    pub batch_ranges: HashMap<Entity, Range<u32>>,
 }
 
 impl Default for UnivisBatchMeta {
@@ -81,6 +95,8 @@ impl Default for UnivisBatchMeta {
             instance_buffer: RawBufferVec::new(bevy::render::render_resource::BufferUsages::VERTEX),
             index_buffer: RawBufferVec::new(bevy::render::render_resource::BufferUsages::INDEX),
             total_instances: 0,
+            slices: Vec::new(),
+            batch_ranges: HashMap::default(),
         }
     }
 }
@@ -177,6 +193,7 @@ impl SpecializedRenderPipeline for UnivisBatchPipeline {
                 shader_defs: vec![],
                 entry_point: Some("vertex".into()),
                 buffers: vec![instance_layout],
+                constants: Default::default(),
             },
             primitive: bevy::render::render_resource::PrimitiveState {
                 topology: bevy::render::render_resource::PrimitiveTopology::TriangleList,
@@ -217,6 +234,7 @@ impl SpecializedRenderPipeline for UnivisBatchPipeline {
                     blend: Some(bevy::render::render_resource::BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: Default::default(),
             }),
             zero_initialize_workgroup_memory: false,
         }
@@ -277,6 +295,8 @@ fn extract_univis_nodes(
                 Option<&UBorder>,
                 Option<&UShadow>,
                 Option<&UClip>,
+                Option<&UActiveClip>,
+                Option<&CachedUiContext>,
             ),
             (
                 Without<UI3d>,
@@ -295,8 +315,18 @@ fn extract_univis_nodes(
         }
     }
 
-    for (entity, visibility, node, size, transform, border_opt, shadow_opt, clip_opt) in
-        nodes_query.iter()
+    for (
+        entity,
+        visibility,
+        node,
+        size,
+        transform,
+        border_opt,
+        shadow_opt,
+        clip_opt,
+        active_clip_opt,
+        cached_context_opt,
+    ) in nodes_query.iter()
     {
         if !visibility.get() || size.width <= 0.0 || size.height <= 0.0 {
             continue;
@@ -329,7 +359,27 @@ fn extract_univis_nodes(
             ([0.0; 4], [0.0; 4])
         };
 
-        let (clip_rect, clip_radius, use_clip) = if let Some(clip) = clip_opt {
+        let (clip_rect, clip_radius, use_clip) = if let Some(active_clip) = active_clip_opt {
+            if active_clip.use_clip {
+                (
+                    [
+                        active_clip.center.x,
+                        active_clip.center.y,
+                        active_clip.size.x,
+                        active_clip.size.y,
+                    ],
+                    [
+                        active_clip.radius.x,
+                        active_clip.radius.y,
+                        active_clip.radius.z,
+                        active_clip.radius.w,
+                    ],
+                    1.0f32,
+                )
+            } else {
+                ([0.0; 4], [0.0; 4], 0.0f32)
+            }
+        } else if let Some(clip) = clip_opt {
             let radius = [
                 node.border_radius.top_right,
                 node.border_radius.bottom_right,
@@ -350,15 +400,23 @@ fn extract_univis_nodes(
             UShapeMode::Cut => 1.0,
         };
 
+        let effective_radius = if node.border_radius != UCornerRadius::default() {
+            node.border_radius
+        } else if let Some(b) = border_opt && b.radius != UCornerRadius::default() {
+            b.radius
+        } else {
+            node.border_radius
+        };
+
         let instance = GpuNodeInstance {
             pos_size: [translation.x, translation.y, logical_size.x, logical_size.y],
             color: LinearRgba::from(node.background_color).to_f32_array(),
             border_color,
             radius: [
-                node.border_radius.top_right,
-                node.border_radius.bottom_right,
-                node.border_radius.top_left,
-                node.border_radius.bottom_left,
+                effective_radius.top_right,
+                effective_radius.bottom_right,
+                effective_radius.top_left,
+                effective_radius.bottom_left,
             ],
             border_params: [border_width, border_offset, 0.75, shape_mode_f],
             clip_rect,
@@ -368,9 +426,14 @@ fn extract_univis_nodes(
             flags: [use_clip, translation.z, 0.0, 0.0],
         };
 
+        let root_entity = cached_context_opt
+            .and_then(|c| c.root_entity)
+            .unwrap_or(entity);
+
         extracted.nodes.push(ExtractedNode {
             entity,
             main_entity: entity.into(),
+            root_entity,
             z_order: translation.z,
             instance,
         });
@@ -388,6 +451,8 @@ fn prepare_univis_nodes(
     mut extracted: ResMut<ExtractedNodes>,
 ) {
     meta.instance_buffer.clear();
+    meta.slices.clear();
+    meta.batch_ranges.clear();
     meta.total_instances = extracted.nodes.len() as u32;
 
     if meta.total_instances == 0 {
@@ -402,15 +467,72 @@ fn prepare_univis_nodes(
         ));
     }
 
-    // Sort nodes by Z-order for correct 2D blending
+    // Find min_z for each root_entity
+    let mut root_min_z: HashMap<Entity, f32> = HashMap::default();
+    for node in &extracted.nodes {
+        let entry = root_min_z.entry(node.root_entity).or_insert(node.z_order);
+        if node.z_order < *entry {
+            *entry = node.z_order;
+        }
+    }
+
+    // Sort nodes primarily by their root's min_z, then by root_entity, then by node z_order
     extracted.nodes.sort_by(|a, b| {
-        a.z_order
-            .partial_cmp(&b.z_order)
+        let min_z_a = root_min_z.get(&a.root_entity).copied().unwrap_or(a.z_order);
+        let min_z_b = root_min_z.get(&b.root_entity).copied().unwrap_or(b.z_order);
+        min_z_a
+            .partial_cmp(&min_z_b)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.root_entity.cmp(&b.root_entity))
+            .then_with(|| {
+                a.z_order
+                    .partial_cmp(&b.z_order)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
-    for node in &extracted.nodes {
+    let mut current_root: Option<Entity> = None;
+    let mut slice_start: u32 = 0;
+    let mut slice_min_z: f32 = 0.0;
+
+    for (idx, node) in extracted.nodes.iter().enumerate() {
         meta.instance_buffer.push(node.instance);
+
+        match current_root {
+            None => {
+                current_root = Some(node.root_entity);
+                slice_start = idx as u32;
+                slice_min_z = node.z_order;
+            }
+            Some(root) if root != node.root_entity => {
+                let range = slice_start..(idx as u32);
+                meta.slices.push(UnivisBatchSlice {
+                    root_entity: root,
+                    range: range.clone(),
+                    min_z: slice_min_z,
+                });
+                meta.batch_ranges.insert(root, range);
+
+                current_root = Some(node.root_entity);
+                slice_start = idx as u32;
+                slice_min_z = node.z_order;
+            }
+            Some(_) => {
+                if node.z_order < slice_min_z {
+                    slice_min_z = node.z_order;
+                }
+            }
+        }
+    }
+
+    if let Some(root) = current_root {
+        let range = slice_start..(extracted.nodes.len() as u32);
+        meta.slices.push(UnivisBatchSlice {
+            root_entity: root,
+            range: range.clone(),
+            min_z: slice_min_z,
+        });
+        meta.batch_ranges.insert(root, range);
     }
 
     meta.instance_buffer
@@ -437,18 +559,16 @@ fn queue_univis_nodes(
     mut pipelines: ResMut<SpecializedRenderPipelines<UnivisBatchPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     meta: Res<UnivisBatchMeta>,
-    extracted: Res<ExtractedNodes>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     views: Query<(Entity, &ExtractedView, &Msaa)>,
 ) {
-    if meta.total_instances == 0 {
+    if meta.total_instances == 0 || meta.slices.is_empty() {
         return;
     }
 
     let draw_function = draw_functions.read().id::<DrawUnivisBatch>();
-    let min_z = extracted.nodes.first().map(|n| n.z_order).unwrap_or(0.0);
 
-    for (entity, view, msaa) in views.iter() {
+    for (_view_entity, view, msaa) in views.iter() {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
@@ -461,19 +581,18 @@ fn queue_univis_nodes(
 
         let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, key);
 
-        // Add 1 single phase item to draw all instances.
-        // NOTE: batch_range MUST be 0..1 in the phase items list so the render loop
-        // does not skip subsequent items (like text) in the Transparent2d phase!
-        transparent_phase.add_transient(Transparent2d {
-            sort_key: FloatOrd(min_z),
-            entity: (entity, MainEntity::from(entity)),
-            pipeline: pipeline_id,
-            draw_function,
-            batch_range: 0..1,
-            extra_index: PhaseItemExtraIndex::None,
-            extracted_index: 0,
-            indexed: true,
-        });
+        for slice in &meta.slices {
+            transparent_phase.add_transient(Transparent2d {
+                sort_key: FloatOrd(slice.min_z),
+                entity: (slice.root_entity, MainEntity::from(slice.root_entity)),
+                pipeline: pipeline_id,
+                draw_function,
+                batch_range: 0..1,
+                extra_index: PhaseItemExtraIndex::None,
+                extracted_index: 0,
+                indexed: true,
+            });
+        }
     }
 }
 
@@ -514,7 +633,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUnivisBatchCommand {
     type ItemQuery = ();
 
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         meta: SystemParamItem<'w, '_, Self::Param>,
@@ -528,9 +647,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUnivisBatchCommand {
             return RenderCommandResult::Skip;
         };
 
+        let entity = item.entity();
+        let Some(range) = meta.batch_ranges.get(&entity) else {
+            return RenderCommandResult::Skip;
+        };
+
         pass.set_index_buffer(index_buf.slice(..), IndexFormat::Uint32);
         pass.set_vertex_buffer(0, inst_buf.slice(..));
-        pass.draw_indexed(0..6, 0, 0..meta.total_instances);
+        pass.draw_indexed(0..6, 0, range.clone());
         RenderCommandResult::Success
     }
 }

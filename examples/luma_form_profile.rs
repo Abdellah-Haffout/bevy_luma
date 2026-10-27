@@ -85,9 +85,9 @@ fn profile_form_scene(theme: &Theme) -> impl Scene {
             gap: 16.0,
         }
         Children [
-            (form_header(icon_font.clone(), body_font.clone())),
-            (form_split_layout(icon_font.clone(), body_font.clone())),
-            (form_footer(icon_font, body_font)),
+            @form_header(icon_font.clone(), body_font.clone())
+            @form_split_layout(icon_font.clone(), body_font.clone())
+            @form_footer(icon_font, body_font)
         ]
     }
 }
@@ -225,8 +225,8 @@ fn form_split_layout(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
             gap: 16.0,
         }
         Children [
-            (settings_nav_sidebar(icon_font.clone(), body_font.clone())),
-            (settings_form_content(icon_font, body_font)),
+            @settings_nav_sidebar(icon_font.clone(), body_font.clone())
+            @settings_form_content(icon_font, body_font)
         ]
     }
 }
@@ -260,11 +260,11 @@ fn settings_nav_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> imp
                 font: { body_font.clone() },
                 color: Color::srgb(0.45, 0.5, 0.65),
             }),
-            (nav_tab_item(icon_font.clone(), body_font.clone(), Icon::USER, "General Profile", true)),
-            (nav_tab_item(icon_font.clone(), body_font.clone(), Icon::KEY, "Security & Keys", false)),
-            (nav_tab_item(icon_font.clone(), body_font.clone(), Icon::ZAP, "API Rate Limits", false)),
-            (nav_tab_item(icon_font.clone(), body_font.clone(), Icon::CREDIT_CARD, "Billing & Quotas", false)),
-            (nav_tab_item(icon_font, body_font, Icon::CLIPBOARD_LIST, "Audit Trail", false)),
+            @nav_tab_item(icon_font.clone(), body_font.clone(), Icon::USER, "General Profile", true)
+            @nav_tab_item(icon_font.clone(), body_font.clone(), Icon::KEY, "Security & Keys", false)
+            @nav_tab_item(icon_font.clone(), body_font.clone(), Icon::ZAP, "API Rate Limits", false)
+            @nav_tab_item(icon_font.clone(), body_font.clone(), Icon::CREDIT_CARD, "Billing & Quotas", false)
+            @nav_tab_item(icon_font, body_font, Icon::CLIPBOARD_LIST, "Audit Trail", false)
         ]
     }
 }
@@ -409,18 +409,18 @@ fn settings_form_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                     gap: 12.0,
                 }
                 Children [
-                    (form_labeled_field(icon_font.clone(), body_font.clone(), Icon::USER, "FULL NAME", "Enter your legal full name", "Alex Morgan", TextInputFilter::SingleLine)),
-                    (form_labeled_field(icon_font.clone(), body_font.clone(), Icon::AT_SIGN, "DEVELOPER HANDLE (ALPHANUMERIC ONLY)", "Lowercase identifier for CLI sessions", "alex_morgan99", TextInputFilter::AlphaNumeric)),
-                    (form_labeled_field(icon_font.clone(), body_font.clone(), Icon::MAIL, "WORK EMAIL ADDRESS", "Primary contact for billing and token rotation", "alex.morgan@luma.io", TextInputFilter::SingleLine)),
-                    (form_labeled_field(icon_font.clone(), body_font.clone(), Icon::ZAP, "GLOBAL API RATE LIMIT (REQ / MIN - NUMERIC ONLY)", "Custom burst rate threshold for sandbox tokens", "5000", TextInputFilter::NumericOnly)),
+                    @form_labeled_field(icon_font.clone(), body_font.clone(), Icon::USER, "FULL NAME", "Enter your legal full name", "Alex Morgan", TextInputFilter::SingleLine)
+                    @form_labeled_field(icon_font.clone(), body_font.clone(), Icon::AT_SIGN, "DEVELOPER HANDLE (ALPHANUMERIC ONLY)", "Lowercase identifier for CLI sessions", "alex_morgan99", TextInputFilter::AlphaNumeric)
+                    @form_labeled_field(icon_font.clone(), body_font.clone(), Icon::MAIL, "WORK EMAIL ADDRESS", "Primary contact for billing and token rotation", "alex.morgan@luma.io", TextInputFilter::SingleLine)
+                    @form_labeled_field(icon_font.clone(), body_font.clone(), Icon::ZAP, "GLOBAL API RATE LIMIT (REQ / MIN - NUMERIC ONLY)", "Custom burst rate threshold for sandbox tokens", "5000", TextInputFilter::NumericOnly)
                 ]
             ),
 
             // Security switch toggle row
-            (security_toggle_row(icon_font.clone(), body_font.clone())),
+            @security_toggle_row(icon_font.clone(), body_font.clone())
 
             // Bottom action & save bar
-            (form_save_actions_bar(icon_font, body_font)),
+            @form_save_actions_bar(icon_font, body_font)
         ]
     }
 }
@@ -472,7 +472,7 @@ fn form_labeled_field(
                     })
                 ]
             ),
-            (form_text_input(icon_font, body_font, icon, "Enter value...", initial, filter)),
+            @form_text_input(icon_font, body_font, icon, "Enter value...", initial, filter)
         ]
     }
 }
@@ -679,7 +679,7 @@ fn security_toggle_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                         }
                     )
                 ]
-                on(|_event: On<Pointer<Click>>, mut state: ResMut<ProfileFormState>| {
+                on(|_event: On<PointerClick>, mut state: ResMut<ProfileFormState>| {
                     state.two_factor_enabled = !state.two_factor_enabled;
                     state.feedback_message = if state.two_factor_enabled {
                         "2FA enforced for all workspace deployment channels".to_string()
@@ -791,7 +791,7 @@ fn form_save_actions_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                                 color: Color::WHITE,
                             })
                         ]
-                        on(|_event: On<Pointer<Click>>, mut state: ResMut<ProfileFormState>| {
+                        on(|_event: On<PointerClick>, mut state: ResMut<ProfileFormState>| {
                             state.save_count += 1;
                             state.feedback_message = format!("Success: Profile changes saved at revision #{}", state.save_count);
                             info!("{}", state.feedback_message);

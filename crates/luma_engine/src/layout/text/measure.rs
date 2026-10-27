@@ -20,8 +20,8 @@ use bevy::asset::{AssetEvent, Assets};
 use bevy::ecs::relationship::Relationship;
 use bevy::prelude::*;
 use bevy::text::{
-    ComputedTextBlock, FontCx, LayoutCx, LetterSpacing, LineBreak, LineHeight, TextBounds,
-    TextFont, TextLayout, TextPipeline,
+    ComputedTextBlock, FontCx, LayoutCx, LetterSpacing, LineBreak, LineHeight, RemSize, TextBounds,
+    TextElement, TextFont, TextLayout, TextPipeline,
 };
 use std::collections::{HashMap, HashSet};
 use unicode_bidi::BidiInfo;

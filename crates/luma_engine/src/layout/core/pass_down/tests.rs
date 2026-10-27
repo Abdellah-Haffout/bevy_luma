@@ -83,6 +83,7 @@ fn solve_child_under_world_root(meters_per_unit: f32) -> (ComputedSize, Transfor
 }
 
 #[test]
+#[allow(deprecated)]
 fn translate_config_reads_container_ext_values() {
     let layout = ULayout {
         gap: 5.0,
@@ -838,6 +839,99 @@ fn subtree_stacking_keeps_descendants_inside_their_sibling_branch_order() {
         .translation
         .z;
 
-    assert!(earlier_z < earlier_child_z);
-    assert!(earlier_child_z < later_z);
+    let earlier_child_world_z = earlier_z + earlier_child_z;
+    assert!(earlier_child_z > 0.0);
+    assert!(earlier_z < earlier_child_world_z);
+    assert!(earlier_child_world_z < later_z);
 }
+
+#[test]
+fn deeply_nested_hierarchy_stays_strictly_inside_root_capsule_band() {
+    let mut app = App::new();
+    app.init_resource::<LayoutTreeDepth>();
+    app.init_resource::<LayoutCache>();
+    app.add_systems(
+        Update,
+        (
+            update_layout_hierarchy,
+            track_layout_changes,
+            update_depth_cache,
+            upward_measure_pass_cached,
+            downward_solve_pass_safe,
+        )
+            .chain(),
+    );
+
+    let capsule_band_width = 1.0;
+    let root = app
+        .world_mut()
+        .spawn((
+            UNode::default(),
+            ULayout::default(),
+            ResolvedRootUi {
+                root_entity: Entity::PLACEHOLDER,
+                space: UiSpace::Screen,
+                canvas: UiCanvasSize::Viewport,
+                canvas_size: Vec2::new(1280.0, 800.0),
+                camera_entity: None,
+                meters_per_unit: 1.0,
+                resolution_scale: 1.0,
+            },
+            ResolvedRootStack {
+                capsule_sort_key: 500.0,
+                capsule_band_base: 500.0,
+                capsule_band_width,
+                capsule_band_step: capsule_band_width / 40.0,
+                initialized: true,
+                ..default()
+            },
+        ))
+        .id();
+    app.world_mut()
+        .entity_mut(root)
+        .get_mut::<ResolvedRootUi>()
+        .unwrap()
+        .root_entity = root;
+
+    // Create 6 levels of nested children: root -> c1 -> c2 -> c3 -> c4 -> c5 -> c6
+    let mut current_parent = root;
+    let mut nodes = Vec::new();
+    for _ in 0..6 {
+        let child = app
+            .world_mut()
+            .spawn((
+                UNode {
+                    width: UVal::Px(100.0),
+                    height: UVal::Px(100.0),
+                    ..default()
+                },
+                ChildOf(current_parent),
+            ))
+            .id();
+        nodes.push(child);
+        current_parent = child;
+    }
+
+    app.update();
+
+    let mut accumulated_z = 0.0;
+    for &node in &nodes {
+        let transform = app
+            .world()
+            .entity(node)
+            .get::<Transform>()
+            .expect("node must have transform");
+        assert!(
+            transform.translation.z > 0.0,
+            "each child should be offset forward from its parent"
+        );
+        accumulated_z += transform.translation.z;
+    }
+
+    // Crucial guarantee: The deepest child's world offset from capsule base MUST be less than capsule_band_width!
+    assert!(
+        accumulated_z < capsule_band_width,
+        "Deeply nested child accumulated Z ({accumulated_z}) exceeded capsule band width ({capsule_band_width})!"
+    );
+}
+

@@ -139,7 +139,7 @@ impl Default for UInteractionColors {
 /// Event Handler: Pointer Over (Hover Enter)
 #[doc(hidden)]
 pub fn on_pointer_over(
-    trigger: On<Pointer<Over>>,
+    trigger: On<PointerOver>,
     mut query: Query<
         (
             &mut UInteraction,
@@ -151,7 +151,7 @@ pub fn on_pointer_over(
         With<UInteraction>,
     >,
 ) {
-    let entity = trigger.entity.entity();
+    let entity = trigger.entity;
 
     if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
         query.get_mut(entity)
@@ -171,7 +171,7 @@ pub fn on_pointer_over(
 /// Event Handler: Pointer Click (Click Enter)
 #[doc(hidden)]
 pub fn on_pointer_click(
-    trigger: On<Pointer<Click>>,
+    trigger: On<PointerClick>,
     mut query: Query<
         (
             &mut UInteraction,
@@ -181,7 +181,7 @@ pub fn on_pointer_click(
         With<UInteraction>,
     >,
 ) {
-    let entity = trigger.entity.entity();
+    let entity = trigger.entity;
 
     if let Ok((mut interaction, mut node, colors)) = query.get_mut(entity) {
         *interaction = UInteraction::Clicked;
@@ -194,7 +194,7 @@ pub fn on_pointer_click(
 /// Event Handler: Pointer Out (Hover Exit)
 #[doc(hidden)]
 pub fn on_pointer_out(
-    trigger: On<Pointer<Out>>,
+    trigger: On<PointerOut>,
     mut query: Query<
         (
             &mut UInteraction,
@@ -206,7 +206,7 @@ pub fn on_pointer_out(
         With<UInteraction>,
     >,
 ) {
-    let entity = trigger.entity.entity();
+    let entity = trigger.entity;
 
     if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
         query.get_mut(entity)
@@ -226,7 +226,7 @@ pub fn on_pointer_out(
 /// Event Handler: Pointer Press (Click Down)
 #[doc(hidden)]
 pub fn on_pointer_press(
-    trigger: On<Pointer<Press>>,
+    trigger: On<PointerPress>,
     mut query: Query<
         (
             &mut UInteraction,
@@ -238,7 +238,7 @@ pub fn on_pointer_press(
         With<UInteraction>,
     >,
 ) {
-    let entity = trigger.entity.entity();
+    let entity = trigger.entity;
 
     if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
         query.get_mut(entity)
@@ -258,7 +258,7 @@ pub fn on_pointer_press(
 /// Event Handler: Pointer Release (Click Up)
 #[doc(hidden)]
 pub fn on_pointer_release(
-    trigger: On<Pointer<Release>>,
+    trigger: On<PointerRelease>,
     mut query: Query<
         (
             &mut UInteraction,
@@ -270,7 +270,7 @@ pub fn on_pointer_release(
         With<UInteraction>,
     >,
 ) {
-    let entity = trigger.entity.entity();
+    let entity = trigger.entity;
 
     if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
         query.get_mut(entity)

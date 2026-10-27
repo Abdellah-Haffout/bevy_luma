@@ -87,9 +87,9 @@ fn banking_root_scene(theme: &Theme) -> impl Scene {
             gap: 16.0,
         }
         Children [
-            (portal_navbar(icon_font.clone(), text_font.clone())),
-            (portal_main_content(icon_font.clone(), text_font.clone())),
-            (portal_audit_footer(icon_font, text_font)),
+            @portal_navbar(icon_font.clone(), text_font.clone())
+            @portal_main_content(icon_font.clone(), text_font.clone())
+            @portal_audit_footer(icon_font, text_font)
         ]
     }
 }
@@ -225,8 +225,8 @@ fn portal_main_content(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
             gap: 16.0,
         }
         Children [
-            (left_account_controls(icon_font.clone(), text_font.clone())),
-            (right_transaction_feed(icon_font, text_font)),
+            @left_account_controls(icon_font.clone(), text_font.clone())
+            @right_transaction_feed(icon_font, text_font)
         ]
     }
 }
@@ -255,13 +255,13 @@ fn left_account_controls(icon_font: Handle<Font>, text_font: Handle<Font>) -> im
         }
         Children [
             // Account balance summary card
-            (balance_hero_card(icon_font.clone(), text_font.clone())),
+            @balance_hero_card(icon_font.clone(), text_font.clone())
 
             // Quick transfer actions
-            (quick_transfer_section(icon_font.clone(), text_font.clone())),
+            @quick_transfer_section(icon_font.clone(), text_font.clone())
 
             // Account management row (Card freeze & Security)
-            (card_actions_row(icon_font, text_font)),
+            @card_actions_row(icon_font, text_font)
         ]
     }
 }
@@ -413,10 +413,10 @@ fn quick_transfer_section(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                     gap: 10.0,
                 }
                 Children [
-                    (transfer_button(250.0, "$250", icon_font.clone(), text_font.clone())),
-                    (transfer_button(500.0, "$500", icon_font.clone(), text_font.clone())),
-                    (transfer_button(1000.0, "$1,000", icon_font.clone(), text_font.clone())),
-                    (transfer_button(5000.0, "$5,000", icon_font, text_font)),
+                    @transfer_button(250.0, "$250", icon_font.clone(), text_font.clone())
+                    @transfer_button(500.0, "$500", icon_font.clone(), text_font.clone())
+                    @transfer_button(1000.0, "$1,000", icon_font.clone(), text_font.clone())
+                    @transfer_button(5000.0, "$5,000", icon_font, text_font)
                 ]
             )
         ]
@@ -466,7 +466,7 @@ fn transfer_button(amount: f64, label: &'static str, icon_font: Handle<Font>, te
                 color: Color::srgb(0.3, 0.75, 1.0),
             })
         ]
-        on(move |_event: On<Pointer<Click>>, mut state: ResMut<BankingState>| {
+        on(move |_event: On<PointerClick>, mut state: ResMut<BankingState>| {
             if state.is_card_frozen {
                 state.last_action = "Action Blocked: Account card is currently frozen!".to_string();
             } else if state.balance >= amount {
@@ -576,7 +576,7 @@ fn card_actions_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                         }
                     )
                 ]
-                on(|_event: On<Pointer<Click>>, mut state: ResMut<BankingState>| {
+                on(|_event: On<PointerClick>, mut state: ResMut<BankingState>| {
                     state.is_card_frozen = !state.is_card_frozen;
                     state.last_action = if state.is_card_frozen {
                         "Security Status: Cards frozen. Outgoing transfers suspended.".to_string()
@@ -665,11 +665,11 @@ fn right_transaction_feed(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                     gap: 8.0,
                 }
                 Children [
-                    (ledger_row(Icon::ARROW_DOWN_LEFT, "Stripe Platform Payout", "Direct Deposit • Revenue", "+$8,420.00", Color::srgb(0.2, 0.85, 0.5), icon_font.clone(), text_font.clone())),
-                    (ledger_row(Icon::CLOUD, "Amazon Web Services", "Cloud Infrastructure Services", "-$1,245.30", Color::srgb(0.9, 0.45, 0.4), icon_font.clone(), text_font.clone())),
-                    (ledger_row(Icon::GLOBE, "Tokyo Partner Wire", "Cross-Border Liquidity Transfer", "+$15,000.00", Color::srgb(0.2, 0.85, 0.5), icon_font.clone(), text_font.clone())),
-                    (ledger_row(Icon::CREDIT_CARD, "Figma Enterprise License", "Annual Design Workspace Seat", "-$540.00", Color::srgb(0.9, 0.45, 0.4), icon_font.clone(), text_font.clone())),
-                    (ledger_row(Icon::PIGGY_BANK, "Treasury Yield Dividend", "Automatic Sweep Distribution", "+$382.40", Color::srgb(0.2, 0.85, 0.5), icon_font.clone(), text_font.clone())),
+                    @ledger_row(Icon::ARROW_DOWN_LEFT, "Stripe Platform Payout", "Direct Deposit • Revenue", "+$8,420.00", Color::srgb(0.2, 0.85, 0.5), icon_font.clone(), text_font.clone())
+                    @ledger_row(Icon::CLOUD, "Amazon Web Services", "Cloud Infrastructure Services", "-$1,245.30", Color::srgb(0.9, 0.45, 0.4), icon_font.clone(), text_font.clone())
+                    @ledger_row(Icon::GLOBE, "Tokyo Partner Wire", "Cross-Border Liquidity Transfer", "+$15,000.00", Color::srgb(0.2, 0.85, 0.5), icon_font.clone(), text_font.clone())
+                    @ledger_row(Icon::CREDIT_CARD, "Figma Enterprise License", "Annual Design Workspace Seat", "-$540.00", Color::srgb(0.9, 0.45, 0.4), icon_font.clone(), text_font.clone())
+                    @ledger_row(Icon::PIGGY_BANK, "Treasury Yield Dividend", "Automatic Sweep Distribution", "+$382.40", Color::srgb(0.2, 0.85, 0.5), icon_font.clone(), text_font.clone())
                 ]
             ),
             (

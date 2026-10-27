@@ -13,5 +13,5 @@ std = []
 bevy_reflect = ["dep:bevy_reflect"]
 
 [dependencies]
-glam = { version = "0.32", default-features = false, features = ["std"] }
-bevy_reflect = { version = "0.19.0", default-features = false, optional = true, features = ["glam"] }
+glam = { version = "0.33", default-features = false, features = ["std"] }
+bevy_reflect = { version = "0.20.0", default-features = false, optional = true, features = ["glam"] }
