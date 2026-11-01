@@ -309,6 +309,7 @@ fn sync_entity_material(
         let (grad_type, param_y, center) = match grad.kind {
             UGradientKind::Linear { angle } => (1.0, angle, Vec2::ZERO),
             UGradientKind::Radial { center, radius } => (2.0, radius, center),
+            UGradientKind::Angular { center } => (3.0, 0.0, center),
         };
         let count = grad.stops.len().min(8);
         let mut colors = [Vec4::ZERO; 8];

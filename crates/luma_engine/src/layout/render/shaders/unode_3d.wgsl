@@ -167,6 +167,13 @@ fn fragment(
         let dist_rad = length(body_uv - center);
         let t_rad = (dist_rad / radius) - offset;
         current_base_color = sample_gradient(t_rad);
+    } else if (material.grad_params.x == 3.0) {
+        let center = material.grad_center.xy;
+        let dir = body_uv - center;
+        let angle = atan2(dir.x, -dir.y);
+        let norm_angle = fract((angle / 6.283185307179586) + 1.0);
+        let t_conic = norm_angle - offset;
+        current_base_color = sample_gradient(t_conic);
     }
 
     if (material.use_texture > 0u) {

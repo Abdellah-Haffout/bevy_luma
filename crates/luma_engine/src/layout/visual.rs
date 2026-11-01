@@ -20,6 +20,11 @@ pub enum UGradientKind {
         /// Relative radius (e.g. 0.5 reaches the edge).
         radius: f32,
     },
+    /// Conic / angular sweep gradient centered at normalized coordinates (0.5, 0.5 = center of node).
+    Angular {
+        /// Center in normalized [0.0, 1.0] UV coordinates.
+        center: Vec2,
+    },
 }
 
 /// A single color stop in a [`UGradient`].
@@ -213,6 +218,57 @@ impl UGradient {
             interpolation: UGradientInterpolation::Smooth,
             offset: 0.0,
         }
+    }
+
+    /// Creates an angular / conic sweep gradient centered in the node.
+    pub fn angular(start_color: Color, end_color: Color) -> Self {
+        Self {
+            stops: vec![
+                UGradientStop::new(0.0, start_color),
+                UGradientStop::new(1.0, end_color),
+            ],
+            kind: UGradientKind::Angular {
+                center: Vec2::splat(0.5),
+            },
+            interpolation: UGradientInterpolation::Smooth,
+            offset: 0.0,
+        }
+    }
+
+    /// Creates a multi-stop angular / conic sweep gradient centered in the node.
+    pub fn angular_stops<I, S>(stops: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<UGradientStop>,
+    {
+        let mut stops_vec: Vec<UGradientStop> = stops
+            .into_iter()
+            .map(Into::into)
+            .take(MAX_GRADIENT_STOPS)
+            .collect();
+        stops_vec.sort_by(|a, b| a.position.total_cmp(&b.position));
+        Self {
+            stops: stops_vec,
+            kind: UGradientKind::Angular {
+                center: Vec2::splat(0.5),
+            },
+            interpolation: UGradientInterpolation::Smooth,
+            offset: 0.0,
+        }
+    }
+
+    /// Alias for [`UGradient::angular`] (conic sweep gradient).
+    pub fn conic(start_color: Color, end_color: Color) -> Self {
+        Self::angular(start_color, end_color)
+    }
+
+    /// Alias for [`UGradient::angular_stops`] (conic sweep gradient with multiple stops).
+    pub fn conic_stops<I, S>(stops: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<UGradientStop>,
+    {
+        Self::angular_stops(stops)
     }
 
     /// Switches the gradient to stepped interpolation (hard edges, discrete color bands).

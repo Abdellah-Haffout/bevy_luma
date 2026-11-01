@@ -227,6 +227,14 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let dist_rad = length(body_uv - center);
         let t_rad = (dist_rad / radius) - offset;
         body_color = sample_gradient(t_rad);
+    } else if (material.grad_params.x == 3.0) {
+        // Multi-stop conic / angular gradient
+        let center = material.grad_center.xy;
+        let dir = body_uv - center;
+        let angle = atan2(dir.x, -dir.y);
+        let norm_angle = fract((angle / 6.283185307179586) + 1.0);
+        let t_conic = norm_angle - offset;
+        body_color = sample_gradient(t_conic);
     }
 
     if (material.use_texture == 1u) {
@@ -263,8 +271,12 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     // Shape compositing: Border + Body seamlessly combined without seam or opacity loss
-    let shape_rgb = material.border_color.rgb * (border_alpha * material.border_color.a) + body_color.rgb * (body_alpha * body_color.a);
-    let shape_alpha = border_alpha * material.border_color.a + body_alpha * body_color.a;
+    var eff_border_color = material.border_color;
+    if (border_width > 0.0 && material.grad_params.z > 0.0 && material.border_color.a == 0.0) {
+        eff_border_color = body_color;
+    }
+    let shape_rgb = eff_border_color.rgb * (border_alpha * eff_border_color.a) + body_color.rgb * (body_alpha * body_color.a);
+    let shape_alpha = border_alpha * eff_border_color.a + body_alpha * body_color.a;
 
     // Porter-Duff Over: Shape over Shadow
     let comp_rgb = shape_rgb + shadow_premul.rgb * (1.0 - shape_alpha);
