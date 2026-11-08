@@ -1,9 +1,9 @@
-#import bevy_pbr::{
+import bevy_pbr::render::{
     mesh_view_bindings,
     pbr_types,
     pbr_functions,
     forward_io::VertexOutput,
-}
+};
 
 struct UNodeMaterial3d {
     color: vec4<f32>,
@@ -28,6 +28,10 @@ struct UNodeMaterial3d {
 
     inner_glow_color: vec4<f32>,
     inner_glow_params: vec4<f32>,
+
+    custom_params: array<vec4<f32>, 4>,
+    custom_meta: vec4<f32>,
+    custom_cursor: vec4<f32>,
 }
 
 @group(3) @binding(0) var<uniform> material: UNodeMaterial3d;
@@ -179,6 +183,15 @@ fn fragment(
     if (material.use_texture > 0u) {
         let tex_sample = textureSample(base_texture, base_sampler, in.uv);
         current_base_color = tex_sample * current_base_color;
+    }
+
+    if (material.custom_meta.w > 0.5) {
+        let shader_col = mix(material.custom_params[0], material.custom_params[1], clamp(body_uv.y, 0.0, 1.0));
+        let opacity = clamp(material.custom_meta.z, 0.0, 1.0);
+        current_base_color = vec4<f32>(
+            mix(current_base_color.rgb, shader_col.rgb, opacity),
+            mix(current_base_color.a, shader_col.a, opacity)
+        );
     }
 
     // Holographic inner edge glow

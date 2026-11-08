@@ -175,3 +175,7 @@ path = "examples/overlapping_roots.rs"
 [[example]]
 name = "edit_text"
 path = "examples/edit_text.rs"
+
+[[example]]
+name = "luma_focus_showcase"
+path = "examples/luma_focus_showcase.rs"

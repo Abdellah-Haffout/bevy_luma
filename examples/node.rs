@@ -170,12 +170,12 @@ fn section_title(text: &str, accent: Color, font: Handle<Font>) -> impl Scene {
             offset: 0.0,
         }
         Children [
-            (UText {
+            UText {
                 text,
                 font_size: 11.5,
                 font: { font },
                 color: accent,
-            })
+            }
         ]
     }
 }
@@ -203,7 +203,7 @@ fn showcase_header(font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -212,36 +212,40 @@ fn showcase_header(font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene {
                     gap: 10.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::CODESANDBOX.to_string() },
                         font_size: 18.0,
                         font: { icon_font },
                         color: Color::srgb(0.35, 0.75, 1.0),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "LUMA NODE DESIGN SYSTEMS".to_string() },
                         font_size: 13.5,
                         font: { font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (
+                    }
+                --
+                    
                         UNode {
                             background_color: Color::srgba(0.2, 0.5, 0.9, 0.2),
                             border_radius: UCornerRadius::all(4.0),
                             padding: USides::axes(6.0, 2.0),
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "BLENDER vs UNREAL ENGINE".to_string() },
                                 font_size: 9.0,
                                 font: { font.clone() },
                                 color: Color::srgb(0.4, 0.8, 1.0),
-                            })
+                            }
                         ]
-                    ),
+                    
+                --
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -258,7 +262,7 @@ fn showcase_header(font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene {
                     --
                     @legend_chip("Exec Pin (White ▶)", Color::WHITE, font)
                 ]
-            )
+            
         ]
     }
 }
@@ -275,20 +279,21 @@ fn legend_chip(label: &str, color: Color, font: Handle<Font>) -> impl Scene {
             gap: 5.0,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Px(7.0),
                     height: UVal::Px(7.0),
                     background_color: color,
                     border_radius: UCornerRadius::all(3.5),
                 }
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: label,
                 font_size: 10.5,
                 font: { font },
                 color: Color::srgb(0.65, 0.70, 0.80),
-            })
+            }
         ]
     }
 }
@@ -473,7 +478,7 @@ fn blender_header(
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -482,28 +487,31 @@ fn blender_header(
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::CHEVRON_DOWN.to_string() },
                         font_size: 11.0,
                         font: { icon_font },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: title,
                         font_size: 12.0,
                         font: { font },
                         color: Color::WHITE,
-                    }),
+                    }
+                --
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Px(6.0),
                     height: UVal::Px(6.0),
                     background_color: Color::srgba(1.0, 1.0, 1.0, 0.4),
                     border_radius: UCornerRadius::all(3.0),
                 }
-            )
+            
         ]
     }
 }
@@ -681,12 +689,12 @@ fn blender_value_field(val: Option<&str>, font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (UText {
+            UText {
                 text: text_str,
                 font_size: 10.0,
                 font: { font },
                 color: Color::srgb(0.9, 0.9, 0.9),
-            })
+            }
         ]
     }
 }
@@ -717,18 +725,19 @@ fn blender_dropdown(title: &str, icon_font: Handle<Font>, font: Handle<Font>) ->
             align_items: UAlignItems::Center,
         }
         Children [
-            (UText {
+            UText {
                 text: title,
                 font_size: 10.5,
                 font: { font },
                 color: Color::srgb(0.9, 0.9, 0.9),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { Icon::CHEVRON_DOWN.to_string() },
                 font_size: 11.0,
                 font: { icon_font },
                 color: Color::srgb(0.7, 0.7, 0.7),
-            })
+            }
         ]
     }
 }
@@ -905,7 +914,7 @@ fn ue_header(
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -913,21 +922,24 @@ fn ue_header(
                     gap: 1.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: title,
                         font_size: 13.0,
                         font: { font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: subtitle,
                         font_size: 9.0,
                         font: { font },
                         color: Color::srgba(1.0, 1.0, 1.0, 0.7),
-                    }),
+                    }
+                --
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Px(24.0),
                     height: UVal::Px(24.0),
@@ -940,14 +952,14 @@ fn ue_header(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::CPU.to_string() },
                         font_size: 13.0,
                         font: { icon_font },
                         color: Color::WHITE,
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -969,12 +981,12 @@ fn ue_exec_pin(icon_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (UText {
+            UText {
                 text: { Icon::PLAY.to_string() },
                 font_size: 10.0,
                 font: { icon_font },
                 color: Color::WHITE,
-            })
+            }
         ]
     }
 }
@@ -1190,12 +1202,12 @@ fn ue_axis_box(text: &str, accent: Color, font: Handle<Font>) -> impl Scene {
             offset: 0.0,
         }
         Children [
-            (UText {
+            UText {
                 text,
                 font_size: 9.5,
                 font: { font },
                 color: Color::srgb(0.85, 0.85, 0.85),
-            })
+            }
         ]
     }
 }
@@ -1324,7 +1336,7 @@ fn showcase_footer(font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -1333,26 +1345,29 @@ fn showcase_footer(font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene {
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::INFO.to_string() },
                         font_size: 14.0,
                         font: { icon_font },
                         color: Color::srgb(0.4, 0.75, 1.0),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Comparing Node Paradigms: Blender Flat Geometry & Sliders vs. Unreal Engine Blueprints & Exec Flow Pins (▶).".to_string() },
                         font_size: 11.5,
                         font: { font.clone() },
                         color: Color::srgb(0.65, 0.70, 0.85),
-                    }),
+                    }
+                --
                 ]
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: { "Luma UI · Signed Distance Field Engine".to_string() },
                 font_size: 11.0,
                 font: { font },
                 color: Color::srgb(0.45, 0.50, 0.65),
-            })
+            }
         ]
     }
 }

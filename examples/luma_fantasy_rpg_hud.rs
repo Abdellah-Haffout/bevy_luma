@@ -319,7 +319,7 @@ fn hud_top_compass(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
         }
         Children [
             // Zone Name with Compass Icon
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -328,22 +328,24 @@ fn hud_top_compass(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::COMPASS.to_string() },
                         font_size: 13.0,
                         font: { icon_font },
                         color: Color::srgb(0.95, 0.82, 0.45),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "SANCTUARY OF ELDORIA • CHAPTER IV".to_string() },
                         font_size: 12.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.95, 0.82, 0.45),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Compass Ribbon Bearings
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -354,17 +356,26 @@ fn hud_top_compass(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText { text: { "W".to_string() }, font_size: 11.5, font: { text_font.clone() }, color: Color::srgb(0.55, 0.6, 0.7) }),
-                    (UText { text: { "• •".to_string() }, font_size: 9.0, font: { text_font.clone() }, color: Color::srgb(0.35, 0.4, 0.5) }),
-                    (UText { text: { "NW".to_string() }, font_size: 11.5, font: { text_font.clone() }, color: Color::srgb(0.55, 0.6, 0.7) }),
-                    (UText { text: { "• •".to_string() }, font_size: 9.0, font: { text_font.clone() }, color: Color::srgb(0.35, 0.4, 0.5) }),
-                    (UText { text: { "▼ [ N ]".to_string() }, font_size: 13.0, font: { text_font.clone() }, color: Color::srgb(1.0, 0.9, 0.4) }),
-                    (UText { text: { "• •".to_string() }, font_size: 9.0, font: { text_font.clone() }, color: Color::srgb(0.35, 0.4, 0.5) }),
-                    (UText { text: { "NE".to_string() }, font_size: 11.5, font: { text_font.clone() }, color: Color::srgb(0.55, 0.6, 0.7) }),
-                    (UText { text: { "• •".to_string() }, font_size: 9.0, font: { text_font.clone() }, color: Color::srgb(0.35, 0.4, 0.5) }),
-                    (UText { text: { "E".to_string() }, font_size: 11.5, font: { text_font }, color: Color::srgb(0.55, 0.6, 0.7) }),
+                    UText { text: { "W".to_string() }, font_size: 11.5, font: { text_font.clone() }, color: Color::srgb(0.55, 0.6, 0.7) }
+                --
+                    UText { text: { "• •".to_string() }, font_size: 9.0, font: { text_font.clone() }, color: Color::srgb(0.35, 0.4, 0.5) }
+                --
+                    UText { text: { "NW".to_string() }, font_size: 11.5, font: { text_font.clone() }, color: Color::srgb(0.55, 0.6, 0.7) }
+                --
+                    UText { text: { "• •".to_string() }, font_size: 9.0, font: { text_font.clone() }, color: Color::srgb(0.35, 0.4, 0.5) }
+                --
+                    UText { text: { "▼ [ N ]".to_string() }, font_size: 13.0, font: { text_font.clone() }, color: Color::srgb(1.0, 0.9, 0.4) }
+                --
+                    UText { text: { "• •".to_string() }, font_size: 9.0, font: { text_font.clone() }, color: Color::srgb(0.35, 0.4, 0.5) }
+                --
+                    UText { text: { "NE".to_string() }, font_size: 11.5, font: { text_font.clone() }, color: Color::srgb(0.55, 0.6, 0.7) }
+                --
+                    UText { text: { "• •".to_string() }, font_size: 9.0, font: { text_font.clone() }, color: Color::srgb(0.35, 0.4, 0.5) }
+                --
+                    UText { text: { "E".to_string() }, font_size: 11.5, font: { text_font }, color: Color::srgb(0.55, 0.6, 0.7) }
+                --
                 ]
-            )
+            
         ]
     }
 }
@@ -395,7 +406,7 @@ fn hud_boss_encounter_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
         }
         Children [
             // Boss Title
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -406,7 +417,7 @@ fn hud_boss_encounter_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -415,32 +426,35 @@ fn hud_boss_encounter_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::FLAME.to_string() },
                                 font_size: 13.0,
                                 font: { icon_font },
                                 color: Color::srgb(1.0, 0.35, 0.35),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "MALAKOR THE VOIDBRINGER (ANCIENT WYRM)".to_string() },
                                 font_size: 12.5,
                                 font: { text_font.clone() },
                                 color: Color::srgb(1.0, 0.45, 0.45),
                                 outline_width: 1.5,
                                 outline_color: Color::srgba(0.0, 0.0, 0.0, 0.8),
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "68% • PHASE II".to_string() },
                         font_size: 11.5,
                         font: { text_font },
                         color: Color::srgb(0.95, 0.8, 0.4),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Boss Health Track & Filled Meter
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     height: UVal::Px(12.0),
@@ -448,7 +462,7 @@ fn hud_boss_encounter_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                     border_radius: UCornerRadius::all(4.0),
                 }
                 Children [
-                    (
+                    
                         BossHealthBarFill
                         UNode {
                             width: UVal::Percent(0.684),
@@ -456,9 +470,9 @@ fn hud_boss_encounter_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                             background_color: Color::srgb(0.85, 0.18, 0.22),
                             border_radius: UCornerRadius::all(4.0),
                         }
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -491,7 +505,7 @@ fn hud_character_crest(
         }
         Children [
             // Top Row: Avatar Frame + Info
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -501,7 +515,7 @@ fn hud_character_crest(
                 }
                 Children [
                     // Medallion Avatar Circle
-                    (
+                    
                         UNode {
                             width: UVal::Px(52.0),
                             height: UVal::Px(52.0),
@@ -519,16 +533,17 @@ fn hud_character_crest(
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::AWARD.to_string() },
                                 font_size: 22.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(1.0, 0.88, 0.45),
-                            })
+                            }
                         ]
-                    ),
+                    
+                --
                     // Name, Title, and Exp Bar
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -536,20 +551,22 @@ fn hud_character_crest(
                             gap: 3.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "Archmage Valerius".to_string() },
                                 font_size: 15.0,
                                 font: { serif_font },
                                 color: Color::srgb(0.95, 0.96, 0.98),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Level 58 Grand Invoker".to_string() },
                                 font_size: 11.0,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.65, 0.75, 0.9),
-                            }),
+                            }
+                --
                             // Experience Progress Track
-                            (
+                            
                                 UNode {
                                     width: UVal::Px(120.0),
                                     height: UVal::Px(5.0),
@@ -557,22 +574,23 @@ fn hud_character_crest(
                                     border_radius: UCornerRadius::all(2.5),
                                 }
                                 Children [
-                                    (
+                                    
                                         UNode {
                                             width: UVal::Percent(0.74),
                                             height: UVal::Percent(1.0),
                                             background_color: Color::srgb(0.5, 0.4, 0.85),
                                             border_radius: UCornerRadius::all(2.5),
                                         }
-                                    )
+                                    
                                 ]
-                            )
+                            
                         ]
-                    )
+                    
                 ]
-            ),
+            
+                --
             // Currency Row
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.03, 0.04, 0.07, 0.7),
@@ -587,12 +605,15 @@ fn hud_character_crest(
                     gap: 16.0,
                 }
                 Children [
-                    (UText { text: { "[G] 4,820 Gold".to_string() }, font_size: 12.0, font: { text_font.clone() }, color: Color::srgb(0.95, 0.85, 0.35) }),
-                    (UText { text: { "[V] 128 Void Shards".to_string() }, font_size: 12.0, font: { text_font.clone() }, color: Color::srgb(0.65, 0.88, 1.0) }),
+                    UText { text: { "[G] 4,820 Gold".to_string() }, font_size: 12.0, font: { text_font.clone() }, color: Color::srgb(0.95, 0.85, 0.35) }
+                --
+                    UText { text: { "[V] 128 Void Shards".to_string() }, font_size: 12.0, font: { text_font.clone() }, color: Color::srgb(0.65, 0.88, 1.0) }
+                --
                 ]
-            ),
+            
+                --
             // Active Buffs Row
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -608,7 +629,7 @@ fn hud_character_crest(
                     --
                     @buff_badge(Icon::HEART, Color::srgb(0.4, 0.9, 0.5), "1h", icon_font, text_font)
                 ]
-            )
+            
         ]
     }
 }
@@ -640,8 +661,10 @@ fn buff_badge(
             align_items: UAlignItems::Center,
         }
         Children [
-            (UText { text: { icon_glyph.to_string() }, font_size: 13.0, font: { icon_font }, color: { color } }),
-            (UText { text: { time.to_string() }, font_size: 9.0, font: { text_font }, color: Color::srgb(0.8, 0.85, 0.95) }),
+            UText { text: { icon_glyph.to_string() }, font_size: 13.0, font: { icon_font }, color: { color } }
+                --
+            UText { text: { time.to_string() }, font_size: 9.0, font: { text_font }, color: Color::srgb(0.8, 0.85, 0.95) }
+                --
         ]
     }
 }
@@ -665,7 +688,7 @@ fn hud_minimap_and_quests(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
         }
         Children [
             // Circular Mini-Map Frame
-            (
+            
                 UNode {
                     width: UVal::Px(160.0),
                     height: UVal::Px(160.0),
@@ -686,30 +709,33 @@ fn hud_minimap_and_quests(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                 }
                 Children [
                     // Player Blip
-                    (
+                    
                         UNode {
                             width: UVal::Px(8.0),
                             height: UVal::Px(8.0),
                             background_color: Color::srgb(0.2, 0.9, 0.4),
                             border_radius: UCornerRadius::all(4.0),
                         }
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "YOU".to_string() },
                         font_size: 9.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.2, 0.9, 0.4),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "X: 384  Y: 712".to_string() },
                         font_size: 9.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.6, 0.7, 0.8),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Quest Objective Card
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.05, 0.06, 0.09, 0.85),
@@ -727,7 +753,7 @@ fn hud_minimap_and_quests(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                     gap: 4.0,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -736,40 +762,44 @@ fn hud_minimap_and_quests(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                             gap: 4.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::MAP_PIN.to_string() },
                                 font_size: 11.0,
                                 font: { icon_font },
                                 color: Color::srgb(0.85, 0.72, 0.35),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "CURRENT QUEST".to_string() },
                                 font_size: 9.5,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.85, 0.72, 0.35),
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "The Sunken Relic of Eldoria".to_string() },
                         font_size: 12.0,
                         font: { text_font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "• Retrieve the Sunstone Core (2/3)".to_string() },
                         font_size: 10.5,
                         font: { text_font.clone() },
                         color: Color::srgb(0.7, 0.8, 0.9),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "• Defeat Voidbringer Malakor (0/1)".to_string() },
                         font_size: 10.5,
                         font: { text_font },
                         color: Color::srgb(1.0, 0.45, 0.45),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -798,7 +828,7 @@ fn hud_combat_log_box(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
             gap: 6.0,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -807,21 +837,23 @@ fn hud_combat_log_box(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
                     gap: 5.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::FEATHER.to_string() },
                         font_size: 11.0,
                         font: { icon_font },
                         color: Color::srgb(0.55, 0.65, 0.8),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "COMBAT CHRONICLE".to_string() },
                         font_size: 10.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.55, 0.65, 0.8),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 CombatLogText
                 UText {
                     text: { "[Log] Encounter begun with Voidbringer Malakor!\n[Combat] Boss HP: 68400 / 100000\n[Stats] HP: 3150/4000  MP: 1420/2200".to_string() },
@@ -829,13 +861,14 @@ fn hud_combat_log_box(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
                     font: { text_font.clone() },
                     color: Color::srgb(0.85, 0.9, 0.95),
                 }
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: { "Click Q / E to drink potions or 1-6 for abilities".to_string() },
                 font_size: 9.5,
                 font: { text_font },
                 color: Color::srgb(0.45, 0.5, 0.6),
-            })
+            }
         ]
     }
 }
@@ -891,7 +924,7 @@ fn hud_health_orb(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scen
             gap: 2.0,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -900,21 +933,23 @@ fn hud_health_orb(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scen
                     gap: 3.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::HEART.to_string() },
                         font_size: 11.0,
                         font: { icon_font },
                         color: Color::srgb(1.0, 0.8, 0.8),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "HEALTH".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(1.0, 0.8, 0.8),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 HealthReadoutText
                 UText {
                     text: { "3,150".to_string() },
@@ -924,13 +959,14 @@ fn hud_health_orb(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scen
                     outline_width: 1.5,
                     outline_color: Color::BLACK,
                 }
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: { "/ 4,000".to_string() },
                 font_size: 12.0,
                 font: { text_font },
                 color: Color::srgb(1.0, 0.8, 0.8),
-            })
+            }
         ]
     }
 }
@@ -957,7 +993,7 @@ fn hud_mana_orb(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene 
             gap: 2.0,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -966,21 +1002,23 @@ fn hud_mana_orb(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene 
                     gap: 3.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::DROPLETS.to_string() },
                         font_size: 11.0,
                         font: { icon_font },
                         color: Color::srgb(0.8, 0.9, 1.0),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "MANA".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.8, 0.9, 1.0),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 ManaReadoutText
                 UText {
                     text: { "1,420".to_string() },
@@ -990,13 +1028,14 @@ fn hud_mana_orb(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene 
                     outline_width: 1.5,
                     outline_color: Color::BLACK,
                 }
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: { "/ 2,200".to_string() },
                 font_size: 12.0,
                 font: { text_font },
                 color: Color::srgb(0.8, 0.9, 1.0),
-            })
+            }
         ]
     }
 }
@@ -1076,7 +1115,7 @@ fn ability_slot(
         }
         Children [
             // Top Row: Keybind Badge
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -1086,28 +1125,30 @@ fn ability_slot(
                     justify_content: UJustifyContent::Start,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { key.to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.85, 0.72, 0.35),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Center Glyph Icon
-            (UText {
+            UText {
                 text: { icon_glyph.to_string() },
                 font_size: 18.0,
                 font: { icon_font },
                 color: { glyph_color },
-            }),
+            }
+                --
             // Bottom Name Micro-label
-            (UText {
+            UText {
                 text: { name.to_string() },
                 font_size: 8.5,
                 font: { text_font },
                 color: Color::srgb(0.75, 0.8, 0.9),
-            })
+            }
         ]
         on(move |_event: On<PointerClick>, mut state: ResMut<RpgGameState>| {
             let dmg = slot_id as f32 * 680.0;
@@ -1148,7 +1189,7 @@ fn potion_slot_health(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
         }
         Children [
             // Top Row: Keybind 'Q'
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -1158,23 +1199,25 @@ fn potion_slot_health(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
                     justify_content: UJustifyContent::Start,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "Q".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(1.0, 0.5, 0.5),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Center Potion Icon
-            (UText {
+            UText {
                 text: { Icon::HEART.to_string() },
                 font_size: 18.0,
                 font: { icon_font },
                 color: Color::srgb(1.0, 0.35, 0.35),
-            }),
+            }
+                --
             // Bottom Count Text
-            (
+            
                 HealthPotionCountText
                 UText {
                     text: { "x4".to_string() },
@@ -1182,7 +1225,7 @@ fn potion_slot_health(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
                     font: { text_font },
                     color: Color::srgb(1.0, 0.85, 0.85),
                 }
-            )
+            
         ]
         on(|_event: On<PointerClick>, mut state: ResMut<RpgGameState>| {
             if state.health_potions > 0 {
@@ -1224,7 +1267,7 @@ fn potion_slot_mana(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
         }
         Children [
             // Top Row: Keybind 'E'
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -1234,23 +1277,25 @@ fn potion_slot_mana(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                     justify_content: UJustifyContent::Start,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "E".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.5, 0.75, 1.0),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Center Potion Icon
-            (UText {
+            UText {
                 text: { Icon::DROPLETS.to_string() },
                 font_size: 18.0,
                 font: { icon_font },
                 color: Color::srgb(0.4, 0.8, 1.0),
-            }),
+            }
+                --
             // Bottom Count Text
-            (
+            
                 ManaPotionCountText
                 UText {
                     text: { "x6".to_string() },
@@ -1258,7 +1303,7 @@ fn potion_slot_mana(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                     font: { text_font },
                     color: Color::srgb(0.8, 0.92, 1.0),
                 }
-            )
+            
         ]
         on(|_event: On<PointerClick>, mut state: ResMut<RpgGameState>| {
             if state.mana_potions > 0 {

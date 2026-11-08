@@ -1,10 +1,29 @@
+use bevy::mesh::MeshVertexBufferLayoutRef;
 use bevy::prelude::*;
-use bevy::render::render_resource::AsBindGroup;
+use bevy::render::render_resource::{
+    AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
+};
 use bevy::shader::ShaderRef;
 use bevy::sprite_render::*;
 
+/// Pipeline specialization key for [`UNodeMaterial`] allowing per-node custom fragment shader overrides.
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
+pub struct UNodeMaterialKey {
+    /// Optional custom fragment shader overriding the default `unode.wgsl`.
+    pub custom_shader: Option<Handle<Shader>>,
+}
+
+impl From<&UNodeMaterial> for UNodeMaterialKey {
+    fn from(material: &UNodeMaterial) -> Self {
+        Self {
+            custom_shader: material.custom_shader.clone(),
+        }
+    }
+}
+
 /// Custom 2D material shader for Univis UI nodes.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+#[bind_group_data(UNodeMaterialKey)]
 pub struct UNodeMaterial {
     // Group 1: Vectors (16 bytes)
     /// Base background color.
@@ -96,6 +115,19 @@ pub struct UNodeMaterial {
     /// Inner glow parameters: x = blur, y = active (1.0 or 0.0), z = spread, w = 0.0.
     #[uniform(0)]
     pub inner_glow_params: Vec4,
+
+    /// Custom shader user uniform vectors (`params[0]..params[3]` in `UShader`).
+    #[uniform(0)]
+    pub custom_params: [Vec4; 4],
+    /// Custom shader metadata: x = time, y = blend_mode, z = opacity, w = active (1.0 or 0.0).
+    #[uniform(0)]
+    pub custom_meta: Vec4,
+    /// Custom shader mouse state: xy = local cursor UV, z = smooth hover (0..1), w = smooth press (0..1).
+    #[uniform(0)]
+    pub custom_cursor: Vec4,
+
+    /// Optional specialized fragment shader handle compiled by `UShaderCache`.
+    pub custom_shader: Option<Handle<Shader>>,
 }
 
 impl Default for UNodeMaterial {
@@ -127,6 +159,10 @@ impl Default for UNodeMaterial {
             shadow_params: Vec4::ZERO,
             inner_glow_color: LinearRgba::NONE,
             inner_glow_params: Vec4::ZERO,
+            custom_params: [Vec4::ZERO; 4],
+            custom_meta: Vec4::ZERO,
+            custom_cursor: Vec4::new(0.5, 0.5, 0.0, 0.0),
+            custom_shader: None,
         }
     }
 }
@@ -139,5 +175,19 @@ impl Material2d for UNodeMaterial {
     fn alpha_mode(&self) -> AlphaMode2d {
         // Blend keeps transparency, soft edges, and shadow falloff intact.
         AlphaMode2d::Blend
+    }
+
+    fn specialize(
+        _pipeline: &Material2dPipeline,
+        descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayoutRef,
+        key: Material2dKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        if let Some(custom_shader) = &key.bind_group_data.custom_shader
+            && let Some(fragment) = &mut descriptor.fragment
+        {
+            fragment.shader = custom_shader.clone();
+        }
+        Ok(())
     }
 }

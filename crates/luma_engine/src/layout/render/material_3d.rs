@@ -78,6 +78,16 @@ pub struct UNodeMaterial3d {
     #[uniform(0)]
     pub inner_glow_params: Vec4,
 
+    /// Custom shader user uniform vectors (`params[0]..params[3]` in `UShader`).
+    #[uniform(0)]
+    pub custom_params: [Vec4; 4],
+    /// Custom shader metadata: x = time, y = blend_mode, z = opacity, w = active (1.0 or 0.0).
+    #[uniform(0)]
+    pub custom_meta: Vec4,
+    /// Custom shader mouse state: xy = local cursor UV, z = smooth hover (0..1), w = smooth press (0..1).
+    #[uniform(0)]
+    pub custom_cursor: Vec4,
+
     // --- texture bindings ---
     /// Optional texture to draw inside the node bounds.
     #[texture(1)]
@@ -87,7 +97,7 @@ pub struct UNodeMaterial3d {
 
 impl Material for UNodeMaterial3d {
     fn fragment_shader() -> ShaderRef {
-        "embedded://luma_engine/layout/render/shaders/unode_3d.wgsl".into()
+        "embedded://luma_engine/layout/render/shaders/unode_3d.wesl".into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {

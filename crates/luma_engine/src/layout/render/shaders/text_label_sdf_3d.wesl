@@ -1,9 +1,9 @@
-#import bevy_pbr::{
+import bevy_pbr::render::{
     mesh_view_bindings,
     pbr_types,
     pbr_functions,
     forward_io::VertexOutput,
-}
+};
 
 struct UTextLabelSdfMaterial3d {
     color: vec4<f32>,
@@ -75,11 +75,10 @@ fn fragment(
     let a3 = smoothstep(-edge, edge, dist3);
     let fill_alpha = (a0 + a1 + a2 + a3) * 0.25;
 
-#ifdef VERTEX_COLORS
+@if(VERTEX_COLORS)
     let fill_color = material.color * in.color;
-#else
+@else
     let fill_color = material.color;
-#endif
 
     var final_color: vec4<f32>;
 

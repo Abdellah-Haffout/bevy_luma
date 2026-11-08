@@ -48,7 +48,7 @@ fn gallery_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             // Page Header
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -58,23 +58,25 @@ fn gallery_scene(theme: &Theme) -> impl Scene {
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "Corners & Borders Gallery".to_string() },
                         font_size: 26.0,
                         font: { font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Hardware-accelerated Signed Distance Field (SDF) anti-aliased corners, chamfered cuts, and borders.".to_string() },
                         font_size: 14.0,
                         font: { font.clone() },
                         color: Color::srgb(0.60, 0.65, 0.78),
-                    })
+                    }
                 ]
-            ),
+            
+                --
 
             // 3-Column Responsive Grid of Showcase Cards
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -106,7 +108,7 @@ fn gallery_scene(theme: &Theme) -> impl Scene {
                     // Card 6: Floating Outset Border (Offset)
                     @offset_border_card(font.clone())
                 ]
-            )
+            
         ]
     }
 }
@@ -133,7 +135,7 @@ fn rounded_card(font: Handle<Font>) -> impl Scene {
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -141,22 +143,24 @@ fn rounded_card(font: Handle<Font>) -> impl Scene {
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "1. Uniform Rounded".to_string() },
                         font_size: 17.0,
                         font: { font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "border_radius: UCornerRadius::all(16.0)\nshape_mode: UShapeMode::Round".to_string() },
                         font_size: 12.0,
                         font: { font.clone() },
                         color: Color::srgb(0.55, 0.65, 0.82),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Mini badge preview inside
-            (
+            
                 UNode {
                     width: UVal::Px(110.0),
                     height: UVal::Px(32.0),
@@ -176,14 +180,14 @@ fn rounded_card(font: Handle<Font>) -> impl Scene {
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "Smooth 8px".to_string() },
                         font_size: 12.0,
                         font,
                         color: Color::srgb(0.80, 0.90, 1.0),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -210,7 +214,7 @@ fn chamfered_card(font: Handle<Font>) -> impl Scene {
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -218,22 +222,24 @@ fn chamfered_card(font: Handle<Font>) -> impl Scene {
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "2. Chamfered / Cut".to_string() },
                         font_size: 17.0,
                         font: { font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "border_radius: UCornerRadius::all(20.0)\nshape_mode: UShapeMode::Cut (45° cuts)".to_string() },
                         font_size: 12.0,
                         font: { font.clone() },
                         color: Color::srgb(0.85, 0.75, 0.55),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Mini badge preview inside
-            (
+            
                 UNode {
                     width: UVal::Px(120.0),
                     height: UVal::Px(32.0),
@@ -254,14 +260,14 @@ fn chamfered_card(font: Handle<Font>) -> impl Scene {
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "Mecha Bevel".to_string() },
                         font_size: 12.0,
                         font,
                         color: Color::srgb(1.0, 0.90, 0.70),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -295,7 +301,7 @@ fn asymmetric_card(font: Handle<Font>) -> impl Scene {
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -303,22 +309,24 @@ fn asymmetric_card(font: Handle<Font>) -> impl Scene {
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "3. Asymmetric Diagonals".to_string() },
                         font_size: 17.0,
                         font: { font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "top_left/bottom_right: 30.0\ntop_right/bottom_left: 6.0".to_string() },
                         font_size: 12.0,
                         font: { font.clone() },
                         color: Color::srgb(0.78, 0.65, 0.88),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Mini badge preview inside
-            (
+            
                 UNode {
                     width: UVal::Px(130.0),
                     height: UVal::Px(32.0),
@@ -352,14 +360,14 @@ fn asymmetric_card(font: Handle<Font>) -> impl Scene {
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "Diagonal Leaf".to_string() },
                         font_size: 12.0,
                         font,
                         color: Color::srgb(0.92, 0.82, 1.0),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -388,7 +396,7 @@ fn top_only_card(font: Handle<Font>) -> impl Scene {
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -396,22 +404,24 @@ fn top_only_card(font: Handle<Font>) -> impl Scene {
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "4. Top-Only Rounded".to_string() },
                         font_size: 17.0,
                         font: { font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "border_radius: UCornerRadius::top(24.0)\nBottom corners remain sharp (0.0)".to_string() },
                         font_size: 12.0,
                         font: { font.clone() },
                         color: Color::srgb(0.55, 0.80, 0.75),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Mini tab preview inside
-            (
+            
                 UNode {
                     width: UVal::Px(110.0),
                     height: UVal::Px(32.0),
@@ -431,14 +441,14 @@ fn top_only_card(font: Handle<Font>) -> impl Scene {
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "Tab Header".to_string() },
                         font_size: 12.0,
                         font,
                         color: Color::srgb(0.75, 1.0, 0.95),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -467,7 +477,7 @@ fn bottom_only_card(font: Handle<Font>) -> impl Scene {
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -475,22 +485,24 @@ fn bottom_only_card(font: Handle<Font>) -> impl Scene {
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "5. Bottom-Only Rounded".to_string() },
                         font_size: 17.0,
                         font: { font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "border_radius: UCornerRadius::bottom(24.0)\nTop corners remain sharp (0.0)".to_string() },
                         font_size: 12.0,
                         font: { font.clone() },
                         color: Color::srgb(0.88, 0.65, 0.72),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Mini sheet preview inside
-            (
+            
                 UNode {
                     width: UVal::Px(120.0),
                     height: UVal::Px(32.0),
@@ -510,14 +522,14 @@ fn bottom_only_card(font: Handle<Font>) -> impl Scene {
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "Drawer Sheet".to_string() },
                         font_size: 12.0,
                         font,
                         color: Color::srgb(1.0, 0.85, 0.90),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -544,7 +556,7 @@ fn offset_border_card(font: Handle<Font>) -> impl Scene {
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -552,22 +564,24 @@ fn offset_border_card(font: Handle<Font>) -> impl Scene {
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "6. Floating Outset Border".to_string() },
                         font_size: 17.0,
                         font: { font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "UBorder { offset: 4.0, width: 2.0 }\nCreates an air gap between body and border".to_string() },
                         font_size: 12.0,
                         font: { font.clone() },
                         color: Color::srgb(0.60, 0.82, 0.68),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Mini badge preview inside
-            (
+            
                 UNode {
                     width: UVal::Px(110.0),
                     height: UVal::Px(32.0),
@@ -587,14 +601,14 @@ fn offset_border_card(font: Handle<Font>) -> impl Scene {
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "Outset Gap".to_string() },
                         font_size: 12.0,
                         font,
                         color: Color::srgb(0.80, 1.0, 0.85),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }

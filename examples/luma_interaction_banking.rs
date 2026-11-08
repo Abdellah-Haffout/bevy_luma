@@ -88,7 +88,9 @@ fn banking_root_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             @portal_navbar(icon_font.clone(), text_font.clone())
+            --
             @portal_main_content(icon_font.clone(), text_font.clone())
+            --
             @portal_audit_footer(icon_font, text_font)
         ]
     }
@@ -119,7 +121,7 @@ fn portal_navbar(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -128,7 +130,7 @@ fn portal_navbar(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(36.0),
                             height: UVal::Px(36.0),
@@ -141,15 +143,16 @@ fn portal_navbar(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::LIBRARY.to_string() },
                                 font_size: 20.0,
                                 font: { icon_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -157,23 +160,25 @@ fn portal_navbar(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "AURA PRIVATE CAPITAL".to_string() },
                                 font_size: 14.0,
                                 font: { text_font.clone() },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Treasury & Institutional Custody".to_string() },
                                 font_size: 11.0,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.7),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 // Live Security Badge
                 UNode {
                     background_color: Color::srgba(0.08, 0.2, 0.14, 0.6),
@@ -192,20 +197,21 @@ fn portal_navbar(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::SHIELD.to_string() },
                         font_size: 14.0,
                         font: { icon_font },
                         color: Color::srgb(0.2, 0.9, 0.5),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "256-BIT ENCRYPTED SESSION".to_string() },
                         font_size: 11.0,
                         font: { text_font },
                         color: Color::srgb(0.25, 0.9, 0.55),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -226,6 +232,7 @@ fn portal_main_content(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
         }
         Children [
             @left_account_controls(icon_font.clone(), text_font.clone())
+            --
             @right_transaction_feed(icon_font, text_font)
         ]
     }
@@ -258,9 +265,11 @@ fn left_account_controls(icon_font: Handle<Font>, text_font: Handle<Font>) -> im
             @balance_hero_card(icon_font.clone(), text_font.clone())
 
             // Quick transfer actions
+            --
             @quick_transfer_section(icon_font.clone(), text_font.clone())
 
             // Account management row (Card freeze & Security)
+            --
             @card_actions_row(icon_font, text_font)
         ]
     }
@@ -286,7 +295,7 @@ fn balance_hero_card(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl S
             gap: 8.0,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -297,7 +306,7 @@ fn balance_hero_card(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl S
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -306,29 +315,32 @@ fn balance_hero_card(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl S
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::CREDIT_CARD.to_string() },
                                 font_size: 13.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.5, 0.7, 0.9),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "OPERATING CAPITAL ACCOUNT".to_string() },
                                 font_size: 11.0,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.7),
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "CHECKING •• 8941".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.6, 0.65, 0.8),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 BalanceDisplay
                 UText {
                     text: { "$142,850.00 USD".to_string() },
@@ -338,8 +350,9 @@ fn balance_hero_card(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl S
                     outline_width: 1.2,
                     outline_color: Color::srgba(0.1, 0.85, 0.5, 0.3),
                 }
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -350,7 +363,7 @@ fn balance_hero_card(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl S
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -359,28 +372,30 @@ fn balance_hero_card(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl S
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::TRENDING_UP.to_string() },
                                 font_size: 13.0,
                                 font: { icon_font },
                                 color: Color::srgb(0.2, 0.85, 0.5),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "+$12,400.00 (+8.7%) this quarter".to_string() },
                                 font_size: 12.0,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.2, 0.85, 0.5),
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "APY: 4.85% Treasury Yield".to_string() },
                         font_size: 11.0,
                         font: { text_font },
                         color: Color::srgb(0.85, 0.65, 0.3),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -397,13 +412,14 @@ fn quick_transfer_section(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
             gap: 10.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { "DISPATCH INSTANT WIRE TRANSFER".to_string() },
                 font_size: 12.0,
                 font: { text_font.clone() },
                 color: Color::srgb(0.7, 0.75, 0.9),
-            }),
-            (
+            }
+                --
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -414,11 +430,14 @@ fn quick_transfer_section(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                 }
                 Children [
                     @transfer_button(250.0, "$250", icon_font.clone(), text_font.clone())
+                    --
                     @transfer_button(500.0, "$500", icon_font.clone(), text_font.clone())
+                    --
                     @transfer_button(1000.0, "$1,000", icon_font.clone(), text_font.clone())
+                    --
                     @transfer_button(5000.0, "$5,000", icon_font, text_font)
                 ]
-            )
+            
         ]
     }
 }
@@ -453,18 +472,19 @@ fn transfer_button(amount: f64, label: &'static str, icon_font: Handle<Font>, te
             gap: 6.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { Icon::ARROW_UP_RIGHT.to_string() },
                 font_size: 13.0,
                 font: { icon_font },
                 color: Color::srgb(0.3, 0.75, 1.0),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: label,
                 font_size: 13.0,
                 font: { text_font },
                 color: Color::srgb(0.3, 0.75, 1.0),
-            })
+            }
         ]
         on(move |_event: On<PointerClick>, mut state: ResMut<BankingState>| {
             if state.is_card_frozen {
@@ -497,7 +517,7 @@ fn card_actions_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -505,7 +525,7 @@ fn card_actions_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                     gap: 2.0,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -514,29 +534,32 @@ fn card_actions_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::CREDIT_CARD.to_string() },
                                 font_size: 13.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.7, 0.8, 0.95),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "PHYSICAL & VIRTUAL CARDS".to_string() },
                                 font_size: 12.0,
                                 font: { text_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "Instant lock toggles all card transactions immediately.".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 // Toggle Freeze Button
                 UNode {
                     background_color: Color::srgb(0.85, 0.25, 0.25),
@@ -557,7 +580,7 @@ fn card_actions_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                     gap: 6.0,
                 }
                 Children [
-                    (
+                    
                         FreezeButtonIcon
                         UText {
                             text: { Icon::LOCK.to_string() },
@@ -565,8 +588,9 @@ fn card_actions_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                             font: { icon_font },
                             color: Color::WHITE,
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         FreezeButtonText
                         UText {
                             text: { "FREEZE CARD".to_string() },
@@ -574,7 +598,7 @@ fn card_actions_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                             font: { text_font },
                             color: Color::WHITE,
                         }
-                    )
+                    
                 ]
                 on(|_event: On<PointerClick>, mut state: ResMut<BankingState>| {
                     state.is_card_frozen = !state.is_card_frozen;
@@ -585,7 +609,7 @@ fn card_actions_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                     };
                     info!("{}", state.last_action);
                 })
-            )
+            
         ]
     }
 }
@@ -613,7 +637,7 @@ fn right_transaction_feed(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
             gap: 12.0,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -624,7 +648,7 @@ fn right_transaction_feed(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -633,29 +657,32 @@ fn right_transaction_feed(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::FILE_TEXT.to_string() },
                                 font_size: 14.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.6, 0.7, 0.9),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "SETTLED TRANSACTIONS".to_string() },
                                 font_size: 13.0,
                                 font: { text_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "FEDWIRE • ACH CLEARING".to_string() },
                         font_size: 10.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -666,13 +693,18 @@ fn right_transaction_feed(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                 }
                 Children [
                     @ledger_row(Icon::ARROW_DOWN_LEFT, "Stripe Platform Payout", "Direct Deposit • Revenue", "+$8,420.00", Color::srgb(0.2, 0.85, 0.5), icon_font.clone(), text_font.clone())
+                    --
                     @ledger_row(Icon::CLOUD, "Amazon Web Services", "Cloud Infrastructure Services", "-$1,245.30", Color::srgb(0.9, 0.45, 0.4), icon_font.clone(), text_font.clone())
+                    --
                     @ledger_row(Icon::GLOBE, "Tokyo Partner Wire", "Cross-Border Liquidity Transfer", "+$15,000.00", Color::srgb(0.2, 0.85, 0.5), icon_font.clone(), text_font.clone())
+                    --
                     @ledger_row(Icon::CREDIT_CARD, "Figma Enterprise License", "Annual Design Workspace Seat", "-$540.00", Color::srgb(0.9, 0.45, 0.4), icon_font.clone(), text_font.clone())
+                    --
                     @ledger_row(Icon::PIGGY_BANK, "Treasury Yield Dividend", "Automatic Sweep Distribution", "+$382.40", Color::srgb(0.2, 0.85, 0.5), icon_font.clone(), text_font.clone())
                 ]
-            ),
-            (
+            
+                --
+            
                 // Live Status Box
                 UNode {
                     width: UVal::Percent(1.0),
@@ -687,13 +719,14 @@ fn right_transaction_feed(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::CIRCLE_CHECK_BIG.to_string() },
                         font_size: 13.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.4, 0.8, 0.6),
-                    }),
-                    (
+                    }
+                --
+                    
                         ActionStatusDisplay
                         UText {
                             text: { "Account verified • All payment rails operational".to_string() },
@@ -702,9 +735,9 @@ fn right_transaction_feed(icon_font: Handle<Font>, text_font: Handle<Font>) -> i
                             color: Color::srgb(0.4, 0.8, 0.6),
                             wrap_mode: UTextWrapMode::WrapToParent,
                         }
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -728,7 +761,7 @@ fn ledger_row(icon_code: &str, entity: &str, category: &str, amount: &str, amoun
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -737,7 +770,7 @@ fn ledger_row(icon_code: &str, entity: &str, category: &str, amount: &str, amoun
                     gap: 10.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(30.0),
                             height: UVal::Px(30.0),
@@ -750,15 +783,16 @@ fn ledger_row(icon_code: &str, entity: &str, category: &str, amount: &str, amoun
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: icon_str,
                                 font_size: 13.0,
                                 font: { icon_font },
                                 color: amount_color,
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -766,28 +800,30 @@ fn ledger_row(icon_code: &str, entity: &str, category: &str, amount: &str, amoun
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: entity,
                                 font_size: 13.0,
                                 font: { text_font.clone() },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: category,
                                 font_size: 11.0,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.65),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: amount,
                 font_size: 13.0,
                 font: { text_font },
                 color: amount_color,
-            })
+            }
         ]
     }
 }
@@ -812,7 +848,7 @@ fn portal_audit_footer(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -821,26 +857,28 @@ fn portal_audit_footer(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::SHIELD.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Luma Interaction Engine • Real-time Pointer Click Observers & Color States".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    })
+                    }
                 ]
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: { "Member FDIC Insured • Sovereign Custody v4.1".to_string() },
                 font_size: 11.0,
                 font: { text_font },
                 color: Color::srgb(0.2, 0.85, 0.5),
-            })
+            }
         ]
     }
 }

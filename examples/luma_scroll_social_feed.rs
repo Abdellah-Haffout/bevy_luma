@@ -84,7 +84,9 @@ fn social_feed_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             @feed_workspace_header(icon_font.clone(), body_font.clone())
+            --
             @feed_main_split_layout(icon_font.clone(), body_font.clone())
+            --
             @feed_workspace_footer(body_font)
         ]
     }
@@ -116,7 +118,7 @@ fn feed_workspace_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
         }
         Children [
             // Left: Team Brand + Active Channel
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -126,7 +128,7 @@ fn feed_workspace_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                 }
                 Children [
                     // Brand Badge with Lucide Icon
-                    (
+                    
                         UNode {
                             width: UVal::Px(38.0),
                             height: UVal::Px(38.0),
@@ -139,15 +141,16 @@ fn feed_workspace_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::MESSAGE_SQUARE.to_string() },
                                 font_size: 18.0,
                                 font: { icon_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -155,7 +158,7 @@ fn feed_workspace_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             gap: 2.0,
                         }
                         Children [
-                            (
+                            
                                 ChannelNameText
                                 UText {
                                     text: { "ORBIT LABS • # infra-deployments".to_string() },
@@ -165,20 +168,22 @@ fn feed_workspace_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                                     outline_width: 1.2,
                                     outline_color: Color::srgba(0.35, 0.45, 0.95, 0.5),
                                 }
-                            ),
-                            (UText {
+                            
+                --
+                            UText {
                                 text: { "Production clusters, zero-downtime rollouts, and telemetry alerts".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.65),
                                 wrap_mode: UTextWrapMode::WrapToParent,
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
+            
+                --
             // Right: Connectivity + Member Status
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -187,7 +192,7 @@ fn feed_workspace_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             padding: USides::axes(10.0, 5.0),
                             background_color: Color::srgba(0.08, 0.25, 0.18, 0.8),
@@ -200,39 +205,41 @@ fn feed_workspace_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             gap: 6.0,
                         }
                         Children [
-                            (
+                            
                                 UNode {
                                     width: UVal::Px(7.0),
                                     height: UVal::Px(7.0),
                                     background_color: Color::srgb(0.2, 0.85, 0.5),
                                     border_radius: UCornerRadius::all(4.0),
                                 }
-                            ),
-                            (UText {
+                            
+                --
+                            UText {
                                 text: { "16 ONLINE".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.3, 0.9, 0.6),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode {
                             padding: USides::axes(12.0, 6.0),
                             background_color: Color::srgba(0.12, 0.16, 0.24, 0.7),
                             border_radius: UCornerRadius::all(6.0),
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "REGION: FRA-1".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.65, 0.7, 0.85),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -253,6 +260,7 @@ fn feed_main_split_layout(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
         }
         Children [
             @channels_sidebar(icon_font.clone(), body_font.clone())
+            --
             @chat_feed_column(icon_font, body_font)
         ]
     }
@@ -283,7 +291,7 @@ fn channels_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sc
         }
         Children [
             // Channels & Direct messages list
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -330,9 +338,10 @@ fn channels_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sc
                     --
                     @dm_item(body_font.clone(), "Elena Rostova", "UI/UX Designer", false)
                 ]
-            ),
+            
+                --
             // Bottom Workspace Health Card
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.04, 0.06, 0.1, 0.7),
@@ -346,20 +355,21 @@ fn channels_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sc
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "LATENCY: 4.2ms".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.3, 0.85, 0.55),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "TLS 1.3".to_string() },
                         font_size: 10.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.68),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -399,7 +409,7 @@ fn channel_pill_with_unread(
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -408,35 +418,37 @@ fn channel_pill_with_unread(
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::HASH.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: text_color,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { title.to_string() },
                         font_size: 12.0,
                         font: { body_font.clone() },
                         color: text_color,
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     padding: USides::axes(6.0, 2.0),
                     background_color: Color::srgb(0.38, 0.35, 0.95),
                     border_radius: UCornerRadius::all(8.0),
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { unread.to_string() },
                         font_size: 10.0,
                         font: { body_font.clone() },
                         color: Color::WHITE,
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -475,18 +487,19 @@ fn channel_pill(
             gap: 8.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { Icon::HASH.to_string() },
                 font_size: 12.0,
                 font: { icon_font },
                 color: text_color,
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { title.to_string() },
                 font_size: 12.0,
                 font: { body_font.clone() },
                 color: text_color,
-            })
+            }
         ]
     }
 }
@@ -511,15 +524,16 @@ fn dm_item(body_font: Handle<Font>, name: &'static str, role: &'static str, onli
             gap: 8.0,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Px(8.0),
                     height: UVal::Px(8.0),
                     background_color: dot_color,
                     border_radius: UCornerRadius::all(4.0),
                 }
-            ),
-            (
+            
+                --
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -527,20 +541,21 @@ fn dm_item(body_font: Handle<Font>, name: &'static str, role: &'static str, onli
                     gap: 2.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { name.to_string() },
                         font_size: 12.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.8, 0.85, 0.92),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { role.to_string() },
                         font_size: 10.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.6),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -561,6 +576,7 @@ fn chat_feed_column(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sc
         }
         Children [
             @feed_scroll_viewport(icon_font.clone(), body_font.clone())
+            --
             @feed_message_input_bar(icon_font, body_font)
         ]
     }
@@ -604,7 +620,7 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
         }
         Children [
             // Welcome Header Card
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.1, 0.13, 0.22, 0.5),
@@ -623,7 +639,7 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                     gap: 14.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(36.0),
                             height: UVal::Px(36.0),
@@ -636,15 +652,16 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::SHIELD.to_string() },
                                 font_size: 18.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.55, 0.5, 1.0),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         USelf {
                             flex_grow: { Some(1.0) },
@@ -655,24 +672,25 @@ fn feed_scroll_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                             gap: 4.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "Welcome to the start of the #infra-deployments channel history.".to_string() },
                                 font_size: 14.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
                                 wrap_mode: UTextWrapMode::WrapToParent,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Scroll with mouse wheel or drag to navigate message logs. Automatic word-wrapping adapts to parent container width dynamically.".to_string() },
                                 font_size: 12.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.55, 0.6, 0.72),
                                 wrap_mode: UTextWrapMode::WrapToParent,
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            )
+            
             --
             // Message 1: Sarah Chen
             @chat_message_with_snippet(
@@ -805,7 +823,7 @@ fn chat_message(
             align_items: UAlignItems::Start,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Px(38.0),
                     height: UVal::Px(38.0),
@@ -821,15 +839,16 @@ fn chat_message(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: initial,
                         font_size: 16.0,
                         font: { body_font.clone() },
                         color: Color::WHITE,
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode::default()
                 USelf {
                     flex_grow: { Some(1.0) },
@@ -852,7 +871,7 @@ fn chat_message(
                     --
                     @reactions_row(icon_font, body_font, r1_icon, r1_count, r2_icon, r2_count)
                 ]
-            )
+            
         ]
     }
 }
@@ -893,7 +912,7 @@ fn chat_message_with_snippet(
             align_items: UAlignItems::Start,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Px(38.0),
                     height: UVal::Px(38.0),
@@ -909,15 +928,16 @@ fn chat_message_with_snippet(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: initial,
                         font_size: 16.0,
                         font: { body_font.clone() },
                         color: Color::WHITE,
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode::default()
                 USelf {
                     flex_grow: { Some(1.0) },
@@ -942,7 +962,7 @@ fn chat_message_with_snippet(
                     --
                     @reactions_row(icon_font, body_font, r1_icon, r1_count, r2_icon, r2_count)
                 ]
-            )
+            
         ]
     }
 }
@@ -964,33 +984,35 @@ fn author_header_line(
             gap: 8.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { author.to_string() },
                 font_size: 13.0,
                 font: { body_font.clone() },
                 color: Color::WHITE,
-            }),
-            (
+            }
+                --
+            
                 UNode {
                     padding: USides::axes(6.0, 2.0),
                     background_color: badge_color,
                     border_radius: UCornerRadius::all(4.0),
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { badge.to_string() },
                         font_size: 9.0,
                         font: { body_font.clone() },
                         color: Color::WHITE,
-                    })
+                    }
                 ]
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: { timestamp.to_string() },
                 font_size: 11.0,
                 font: { body_font.clone() },
                 color: Color::srgb(0.45, 0.5, 0.6),
-            })
+            }
         ]
     }
 }
@@ -1016,19 +1038,20 @@ fn code_snippet_box(icon_font: Handle<Font>, body_font: Handle<Font>, code: &'st
             gap: 8.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { Icon::CODE.to_string() },
                 font_size: 12.0,
                 font: { icon_font },
                 color: Color::srgb(0.35, 0.7, 0.6),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { code.to_string() },
                 font_size: 11.0,
                 font: { body_font.clone() },
                 color: Color::srgb(0.4, 0.85, 0.7),
                 wrap_mode: UTextWrapMode::WrapToParent,
-            })
+            }
         ]
     }
 }
@@ -1051,6 +1074,7 @@ fn reactions_row(
         }
         Children [
             @reaction_pill(icon_font.clone(), body_font.clone(), icon1, count1)
+            --
             @reaction_pill(icon_font, body_font, icon2, count2)
         ]
     }
@@ -1082,18 +1106,19 @@ fn reaction_pill(
             gap: 6.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { icon.to_string() },
                 font_size: 12.0,
                 font: { icon_font },
                 color: Color::srgb(0.4, 0.8, 1.0),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { count.to_string() },
                 font_size: 11.0,
                 font: { body_font.clone() },
                 color: Color::srgb(0.75, 0.8, 0.9),
-            })
+            }
         ]
     }
 }
@@ -1124,7 +1149,7 @@ fn feed_message_input_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
         }
         Children [
             // Left Input Placeholder Box
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -1133,22 +1158,24 @@ fn feed_message_input_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
                     gap: 10.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::MESSAGE_CIRCLE.to_string() },
                         font_size: 14.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.4, 0.45, 0.6),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Message #infra-deployments... (Type an update or code snippet)".to_string() },
                         font_size: 12.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.62),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Right Action Buttons
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -1156,7 +1183,7 @@ fn feed_message_input_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
                     gap: 10.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             background_color: Color::srgba(0.14, 0.18, 0.28, 0.8),
                             border_radius: UCornerRadius::all(6.0),
@@ -1175,21 +1202,23 @@ fn feed_message_input_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::PAPERCLIP.to_string() },
                                 font_size: 12.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.7, 0.75, 0.85),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "ATTACH LOG".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.7, 0.75, 0.85),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode {
                             background_color: Color::srgb(0.38, 0.35, 0.95),
                             border_radius: UCornerRadius::all(6.0),
@@ -1208,27 +1237,28 @@ fn feed_message_input_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::SEND.to_string() },
                                 font_size: 12.0,
                                 font: { icon_font },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "POST UPDATE".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<FeedChatState>| {
                             state.message_count += 1;
                             state.status_notification = format!("Published cluster alert #{} to #infra-deployments", state.message_count);
                             info!("{}", state.status_notification);
                         })
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -1253,7 +1283,7 @@ fn feed_workspace_footer(body_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 FeedStatusText
                 UText {
                     text: { "Connected to Orbit Realtime Gateway • P99 4.2ms".to_string() },
@@ -1261,13 +1291,14 @@ fn feed_workspace_footer(body_font: Handle<Font>) -> impl Scene {
                     font: { body_font.clone() },
                     color: Color::srgb(0.4, 0.85, 0.6),
                 }
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: { "Luma Scroll Engine • UScrollContainer • Kinetic Momentum Drag • WrapToParent".to_string() },
                 font_size: 11.0,
                 font: { body_font.clone() },
                 color: Color::srgb(0.45, 0.5, 0.65),
-            })
+            }
         ]
     }
 }

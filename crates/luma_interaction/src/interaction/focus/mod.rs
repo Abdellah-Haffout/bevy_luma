@@ -26,6 +26,7 @@ pub use types::{
     UFocusNavigationSettings, UFocusState, UFocusable, UFocused, set_focus,
 };
 pub use visual::{
-    UFocusVisual, on_focus_activate_default, on_focus_deactivate_default, on_focus_gained_visual,
-    on_focus_lost_visual, on_pointer_focus_click,
+    UFocusMotionState, UFocusVisual, focus_motion_system, on_focus_activate_default,
+    on_focus_deactivate_default, on_focus_gained_visual, on_focus_lost_visual,
+    on_pointer_focus_click,
 };

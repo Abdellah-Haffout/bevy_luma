@@ -63,7 +63,9 @@ fn studio_palette_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             @studio_header(icon_font.clone(), text_font.clone())
+            --
             @studio_workspace_row(icon_font.clone(), text_font.clone())
+            --
             @studio_footer(text_font)
         ]
     }
@@ -94,7 +96,7 @@ fn studio_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -103,7 +105,7 @@ fn studio_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(34.0),
                             height: UVal::Px(34.0),
@@ -116,15 +118,16 @@ fn studio_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::LAYOUT_GRID.to_string() },
                                 font_size: 18.0,
                                 font: { icon_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -132,23 +135,25 @@ fn studio_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "CREATIVE VECTOR STUDIO // MATERIAL & SHADER PALETTE".to_string() },
                                 font_size: 14.5,
                                 font: { text_font.clone() },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Real-time SDF analytical shaders, multi-stop ramps & chamfered surfaces".to_string() },
                                 font_size: 10.5,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.55, 0.6, 0.72),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     background_color: Color::srgba(0.2, 0.15, 0.35, 0.6),
                     border_radius: UCornerRadius::all(6.0),
@@ -166,20 +171,21 @@ fn studio_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::CPU.to_string() },
                         font_size: 13.0,
                         font: { icon_font },
                         color: Color::srgb(0.85, 0.65, 1.0),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "SDF HARDWARE RENDERING".to_string() },
                         font_size: 10.5,
                         font: { text_font },
                         color: Color::srgb(0.85, 0.65, 1.0),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -200,6 +206,7 @@ fn studio_workspace_row(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
         }
         Children [
             @studio_sidebar_toolbar(icon_font.clone())
+            --
             @material_cards_grid(icon_font, text_font)
         ]
     }
@@ -232,11 +239,17 @@ fn studio_sidebar_toolbar(icon_font: Handle<Font>) -> impl Scene {
         }
         Children [
             @tool_button(Icon::MOUSE_POINTER, true, icon_font.clone())
+            --
             @tool_button(Icon::PEN_TOOL, false, icon_font.clone())
+            --
             @tool_button(Icon::SQUARE, false, icon_font.clone())
+            --
             @tool_button(Icon::TYPE, false, icon_font.clone())
+            --
             @tool_button(Icon::PIPETTE, false, icon_font.clone())
+            --
             @tool_button(Icon::SLIDERS_VERTICAL, false, icon_font.clone())
+            --
             @tool_button(Icon::ZOOM_IN, false, icon_font)
         ]
     }
@@ -273,12 +286,12 @@ fn tool_button(icon_code: &'static str, active: bool, icon_font: Handle<Font>) -
             align_items: UAlignItems::Center,
         }
         Children [
-            (UText {
+            UText {
                 text: { icon_code.to_string() },
                 font_size: 16.0,
                 font: { icon_font },
                 color: icon_color,
-            })
+            }
         ]
     }
 }
@@ -299,8 +312,11 @@ fn material_cards_grid(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
         }
         Children [
             @linear_sunset_card(icon_font.clone(), text_font.clone())
+            --
             @radial_focus_card(icon_font.clone(), text_font.clone())
+            --
             @chamfered_card(icon_font.clone(), text_font.clone())
+            --
             @elevation_shadow_card(icon_font, text_font)
         ]
     }
@@ -610,18 +626,19 @@ fn studio_footer(text_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (UText {
+            UText {
                 text: { "SDF Shape primitives render crisp borders, soft elevation, and gradients at any display DPI.".to_string() },
                 font_size: 11.0,
                 font: { text_font.clone() },
                 color: Color::srgb(0.5, 0.55, 0.65),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { "Luma Visual SDF Pipeline".to_string() },
                 font_size: 11.0,
                 font: { text_font },
                 color: Color::srgb(0.95, 0.45, 0.25),
-            })
+            }
         ]
     }
 }
@@ -643,18 +660,19 @@ fn palette_label(
             gap: 6.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { icon_code.to_string() },
                 font_size: 13.0,
                 font: { icon_font },
                 color: accent,
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: title,
                 font_size: 12.0,
                 font: { text_font },
                 color: accent,
-            })
+            }
         ]
     }
 }

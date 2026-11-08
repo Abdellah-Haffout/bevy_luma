@@ -140,30 +140,32 @@ fn editorial_masthead(body_font: Handle<Font>, serif_font: Handle<Font>) -> impl
             gap: 2.0,
         }
         Children [
-            (
+            
                 UText {
                     text: { "OCTOBER 2026  *  VOLUME XXIV  *  ISSUE 04  *  MONOGRAPH SERIES".to_string() },
                     font_size: 10.5,
                     font: { body_font.clone() },
                     color: Color::srgb(0.78, 0.68, 0.48),
                 }
-            ),
-            (
+            
+                --
+            
                 UText {
                     text: { "THE ATHENAEUM REVIEW".to_string() },
                     font_size: 26.0,
                     font: { serif_font },
                     color: Color::srgb(0.97, 0.95, 0.92),
                 }
-            ),
-            (
+            
+                --
+            
                 UText {
                     text: { "LITTERAE  *  PHILOSOPHIA  *  MONUMENTA  *  ARS VIVENDI".to_string() },
                     font_size: 10.0,
                     font: { body_font },
                     color: Color::srgb(0.55, 0.60, 0.68),
                 }
-            ),
+            
         ]
     }
 }
@@ -202,7 +204,7 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
         }
         Children [
             // Left metadata tags
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -211,7 +213,7 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             background_color: Color::srgb(0.16, 0.14, 0.10),
                             border_radius: UCornerRadius::all(4.0),
@@ -223,29 +225,31 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                             radius: UCornerRadius::all(4.0),
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { "ESSAY & CRITICISM".to_string() },
                                     font_size: 10.0,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.88, 0.76, 0.52),
                                 }
-                            )
+                            
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "Curated by Julian Vance  *  8 Min Read  *  Kyoto & Zurich".to_string() },
                             font_size: 11.5,
                             font: { body_font.clone() },
                             color: Color::srgb(0.60, 0.66, 0.74),
                         }
-                    ),
+                    
                 ]
-            ),
+            
+                --
 
             // Right interactive reading controls
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -255,7 +259,7 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                 }
                 Children [
                     // Type scale indicator
-                    (
+                    
                         TypeScaleLabel
                         UText {
                             text: { "Scale: Standard (13px)".to_string() },
@@ -263,10 +267,11 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                             font: { body_font.clone() },
                             color: Color::srgb(0.70, 0.75, 0.82),
                         }
-                    ),
+                    
+                --
 
                     // Button A- (Compact)
-                    (
+                    
                         UNode {
                             width: UVal::Px(30.0),
                             height: UVal::Px(24.0),
@@ -290,22 +295,23 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                             pressed: Color::srgb(0.30, 0.24, 0.16),
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { "A-".to_string() },
                                     font_size: 10.5,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.85, 0.88, 0.94),
                                 }
-                            )
+                            
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<EditorialState>| {
                             state.scale_mode = TypeScaleMode::Compact;
                         })
-                    ),
+                    
+                --
 
                     // Button A (Standard)
-                    (
+                    
                         UNode {
                             width: UVal::Px(30.0),
                             height: UVal::Px(24.0),
@@ -329,22 +335,23 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                             pressed: Color::srgb(0.30, 0.24, 0.16),
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { "A".to_string() },
                                     font_size: 11.5,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.85, 0.88, 0.94),
                                 }
-                            )
+                            
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<EditorialState>| {
                             state.scale_mode = TypeScaleMode::Standard;
                         })
-                    ),
+                    
+                --
 
                     // Button A+ (Comfortable)
-                    (
+                    
                         UNode {
                             width: UVal::Px(30.0),
                             height: UVal::Px(24.0),
@@ -368,22 +375,23 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                             pressed: Color::srgb(0.30, 0.24, 0.16),
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { "A+".to_string() },
                                     font_size: 13.0,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.85, 0.88, 0.94),
                                 }
-                            )
+                            
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<EditorialState>| {
                             state.scale_mode = TypeScaleMode::Comfortable;
                         })
-                    ),
+                    
+                --
 
                     // Bookmark Button with Lucide Icon!
-                    (
+                    
                         UNode {
                             height: UVal::Px(24.0),
                             background_color: Color::srgb(0.16, 0.18, 0.24),
@@ -409,7 +417,7 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                             pressed: Color::srgb(0.32, 0.38, 0.52),
                         }
                         Children [
-                            (
+                            
                                 BookmarkBtnIcon
                                 UText {
                                     text: { Icon::BOOKMARK.to_string() },
@@ -417,8 +425,9 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                                     font: { icon_font },
                                     color: Color::srgb(0.88, 0.90, 0.96),
                                 }
-                            ),
-                            (
+                            
+                --
+                            
                                 BookmarkBtnLabel
                                 UText {
                                     text: { "Save to Library".to_string() },
@@ -426,14 +435,14 @@ fn editorial_toolbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.88, 0.90, 0.96),
                                 }
-                            )
+                            
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<EditorialState>| {
                             state.bookmarked = !state.bookmarked;
                         })
-                    ),
+                    
                 ]
-            ),
+            
         ]
     }
 }
@@ -451,15 +460,16 @@ fn editorial_article_header(body_font: Handle<Font>) -> impl Scene {
             gap: 4.0,
         }
         Children [
-            (
+            
                 UText {
                     text: { "The Architecture of Quietude: Form, Shadow, and the Monolith".to_string() },
                     font_size: 22.0,
                     font: { body_font.clone() },
                     color: Color::srgb(0.96, 0.94, 0.90),
                 }
-            ),
-            (
+            
+                --
+            
                 UText {
                     text: { "How contemporary builders abandon synthetic noise to rediscover acoustic stillness, tactile honesty,\n\
                              and the sacred balance between raw masonry and indirect illumination.".to_string() },
@@ -467,7 +477,7 @@ fn editorial_article_header(body_font: Handle<Font>) -> impl Scene {
                     font: { body_font },
                     color: Color::srgb(0.65, 0.70, 0.78),
                 }
-            ),
+            
         ]
     }
 }
@@ -522,7 +532,7 @@ fn editorial_left_column(body_font: Handle<Font>) -> impl Scene {
         }
         Children [
             // Lead Paragraph with Drop Cap
-            (
+            
                 UNode {
                     width: UVal::Px(744.0),
                 }
@@ -534,7 +544,7 @@ fn editorial_left_column(body_font: Handle<Font>) -> impl Scene {
                 }
                 Children [
                     // Drop Cap Box
-                    (
+                    
                         UNode {
                             width: UVal::Px(46.0),
                             height: UVal::Px(46.0),
@@ -552,18 +562,19 @@ fn editorial_left_column(body_font: Handle<Font>) -> impl Scene {
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { "I".to_string() },
                                     font_size: 32.0,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.92, 0.80, 0.54),
                                 }
-                            )
+                            
                         ]
-                    ),
+                    
+                --
                     // Opening text beside Drop Cap
-                    (
+                    
                         UNode {
                             width: UVal::Px(686.0),
                         }
@@ -573,7 +584,7 @@ fn editorial_left_column(body_font: Handle<Font>) -> impl Scene {
                             gap: 3.0,
                         }
                         Children [
-                            (
+                            
                                 ArticleBodyText
                                 UText {
                                     text: { "N AN AGE DOMINATED BY PERVASIVE DIGITAL CHATTER and glass curtain facades, a deliberate spatial counter-movement has taken root across modern ateliers.".to_string() },
@@ -582,8 +593,9 @@ fn editorial_left_column(body_font: Handle<Font>) -> impl Scene {
                                     color: Color::srgb(0.90, 0.88, 0.84),
                                     wrap_mode: UTextWrapMode::WrapToParent,
                                 }
-                            ),
-                            (
+                            
+                --
+                            
                                 ArticleBodyText
                                 UText {
                                     text: { "Architects are abandoning fragile lightweight assemblies in pursuit of tectonic mass, acoustic silence, and unyielding material sincerity.".to_string() },
@@ -592,24 +604,26 @@ fn editorial_left_column(body_font: Handle<Font>) -> impl Scene {
                                     color: Color::srgb(0.82, 0.80, 0.77),
                                     wrap_mode: UTextWrapMode::WrapToParent,
                                 }
-                            ),
+                            
                         ]
-                    ),
+                    
                 ]
-            ),
+            
+                --
 
             // Subheading I
-            (
+            
                 UText {
                     text: { "1. The Resonance of Heavy Mass".to_string() },
                     font_size: 15.0,
                     font: { body_font.clone() },
                     color: Color::srgb(0.82, 0.70, 0.48),
                 }
-            ),
+            
+                --
 
             // Paragraph 1
-            (
+            
                 ArticleBodyText
                 UText {
                     text: { "When structural mass exceeds functional necessity, an instinctive psychological sanctuary is formed. Board-marked concrete, cyclopean limestone, and unvarnished timber do not demand visual admiration; rather, they gently absorb ambient noise and ground human consciousness in physical permanence.".to_string() },
@@ -618,9 +632,10 @@ fn editorial_left_column(body_font: Handle<Font>) -> impl Scene {
                     color: Color::srgb(0.80, 0.79, 0.76),
                     wrap_mode: UTextWrapMode::WrapToParent,
                 }
-            ),
+            
+                --
 
-            (
+            
                 ArticleBodyText
                 UText {
                     text: { "In the Alpine sanctuaries of Peter Zumthor and the ancient tea chambers of Kyoto, silence is not an empty void. It is a dense, sculpted medium held securely within monolithic walls, shielding the occupant from the frantic rhythm of urban life.".to_string() },
@@ -629,20 +644,22 @@ fn editorial_left_column(body_font: Handle<Font>) -> impl Scene {
                     color: Color::srgb(0.80, 0.79, 0.76),
                     wrap_mode: UTextWrapMode::WrapToParent,
                 }
-            ),
+            
+                --
 
             // Subheading II
-            (
+            
                 UText {
                     text: { "2. The Choreography of Daylight and Shadow".to_string() },
                     font_size: 15.0,
                     font: { body_font.clone() },
                     color: Color::srgb(0.82, 0.70, 0.48),
                 }
-            ),
+            
+                --
 
             // Paragraph 2
-            (
+            
                 ArticleBodyText
                 UText {
                     text: { "Light without deep shadow is blinding; architecture that bathes every plane in uniform illumination robs space of mystery. By constricting exterior openings into deep-set reveals and vertical skylight clefts, natural light enters as an exquisite living sundial that breathes quiet life across textured plaster and raw stone.".to_string() },
@@ -651,7 +668,7 @@ fn editorial_left_column(body_font: Handle<Font>) -> impl Scene {
                     color: Color::srgb(0.80, 0.79, 0.76),
                     wrap_mode: UTextWrapMode::WrapToParent,
                 }
-            ),
+            
         ]
     }
 }
@@ -675,7 +692,7 @@ fn editorial_right_column(
         }
         Children [
             // 1. Pull-Quote Card
-            (
+            
                 UNode {
                     width: UVal::Px(420.0),
                     background_color: Color::srgb(0.11, 0.13, 0.17),
@@ -693,7 +710,7 @@ fn editorial_right_column(
                     gap: 8.0,
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { "\"Architecture begins where utility ends, where\n\
                                      masonry embraces silence, and where morning light\n\
@@ -702,20 +719,22 @@ fn editorial_right_column(
                             font: { serif_font.clone() },
                             color: Color::srgb(0.94, 0.91, 0.86),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "-- Julian Vance, 'The Monolith in Modern Space' (1998)".to_string() },
                             font_size: 10.5,
                             font: { body_font.clone() },
                             color: Color::srgb(0.75, 0.64, 0.44),
                         }
-                    ),
+                    
                 ]
-            ),
+            
+                --
 
             // 2. Architectural Lexicon / Annotations Card
-            (
+            
                 UNode {
                     width: UVal::Px(420.0),
                     background_color: Color::srgb(0.09, 0.11, 0.14),
@@ -733,43 +752,47 @@ fn editorial_right_column(
                     gap: 7.0,
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { "EDITORIAL ANNOTATIONS".to_string() },
                             font_size: 11.0,
                             font: { body_font.clone() },
                             color: Color::srgb(0.78, 0.68, 0.48),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "* Cyclopean Masonry: Interlocking dry-stone construction\n  granting immense acoustic and thermal inertia.".to_string() },
                             font_size: 11.0,
                             font: { body_font.clone() },
                             color: Color::srgb(0.70, 0.74, 0.80),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "* Chiaroscuro Volume: Deep gradient transitions between\n  sunlit surfaces and contemplative shadows.".to_string() },
                             font_size: 11.0,
                             font: { body_font.clone() },
                             color: Color::srgb(0.70, 0.74, 0.80),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "* Tactile Honesty: Exposing rough aggregate and saw kerfs\n  without masking coats or artificial veneers.".to_string() },
                             font_size: 11.0,
                             font: { body_font.clone() },
                             color: Color::srgb(0.70, 0.74, 0.80),
                         }
-                    ),
+                    
                 ]
-            ),
+            
+                --
 
             // 3. Issue Colophon Card
-            (
+            
                 UNode {
                     width: UVal::Px(420.0),
                     background_color: Color::srgb(0.08, 0.10, 0.13),
@@ -787,32 +810,34 @@ fn editorial_right_column(
                     gap: 5.0,
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { "PUBLICATION COLOPHON".to_string() },
                             font_size: 10.5,
                             font: { serif_font },
                             color: Color::srgb(0.78, 0.68, 0.48),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "Typeset in Luma SDF font engine with embedded Inter Regular,\nFreeSerif, and Lucide vector iconography.".to_string() },
                             font_size: 10.5,
                             font: { body_font.clone() },
                             color: Color::srgb(0.60, 0.65, 0.72),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "The Athenaeum Press * Oxford & Zurich * All Rights Reserved".to_string() },
                             font_size: 10.0,
                             font: { body_font },
                             color: Color::srgb(0.48, 0.52, 0.60),
                         }
-                    ),
+                    
                 ]
-            ),
+            
         ]
     }
 }
@@ -832,22 +857,23 @@ fn editorial_footer(body_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UText {
                     text: { "[<- Prev: The Monasteries of Mount Athos]          [Next: The Courtyard Houses of Fez ->]".to_string() },
                     font_size: 10.5,
                     font: { body_font.clone() },
                     color: Color::srgb(0.52, 0.58, 0.68),
                 }
-            ),
-            (
+            
+                --
+            
                 UText {
                     text: { "THE ATHENAEUM REVIEW  *  FOUNDED MDCCCXLVII".to_string() },
                     font_size: 10.0,
                     font: { body_font },
                     color: Color::srgb(0.44, 0.48, 0.56),
                 }
-            ),
+            
         ]
     }
 }

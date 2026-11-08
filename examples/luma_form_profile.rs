@@ -86,7 +86,9 @@ fn profile_form_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             @form_header(icon_font.clone(), body_font.clone())
+            --
             @form_split_layout(icon_font.clone(), body_font.clone())
+            --
             @form_footer(icon_font, body_font)
         ]
     }
@@ -117,7 +119,7 @@ fn form_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -126,7 +128,7 @@ fn form_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(34.0),
                             height: UVal::Px(34.0),
@@ -139,15 +141,16 @@ fn form_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::SHIELD.to_string() },
                                 font_size: 18.0,
                                 font: { icon_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -155,25 +158,27 @@ fn form_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "DEVELOPER CLOUD CONSOLE".to_string() },
                                 font_size: 14.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
                                 outline_width: 1.0,
                                 outline_color: Color::srgba(0.38, 0.35, 0.95, 0.4),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Account Identity & Security Credentials".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.7),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 // Org Switcher Chip
                 UNode {
                     background_color: Color::srgba(0.12, 0.16, 0.24, 0.8),
@@ -192,20 +197,21 @@ fn form_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::HASH.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: Color::srgb(0.5, 0.7, 1.0),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "ORG: LUMA-LABS / PROD".to_string() },
                         font_size: 11.0,
                         font: { body_font },
                         color: Color::srgb(0.7, 0.8, 0.95),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -226,6 +232,7 @@ fn form_split_layout(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
         }
         Children [
             @settings_nav_sidebar(icon_font.clone(), body_font.clone())
+            --
             @settings_form_content(icon_font, body_font)
         ]
     }
@@ -254,16 +261,21 @@ fn settings_nav_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> imp
             gap: 6.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { "SETTINGS".to_string() },
                 font_size: 11.0,
                 font: { body_font.clone() },
                 color: Color::srgb(0.45, 0.5, 0.65),
-            }),
+            }
+                --
             @nav_tab_item(icon_font.clone(), body_font.clone(), Icon::USER, "General Profile", true)
+            --
             @nav_tab_item(icon_font.clone(), body_font.clone(), Icon::KEY, "Security & Keys", false)
+            --
             @nav_tab_item(icon_font.clone(), body_font.clone(), Icon::ZAP, "API Rate Limits", false)
+            --
             @nav_tab_item(icon_font.clone(), body_font.clone(), Icon::CREDIT_CARD, "Billing & Quotas", false)
+            --
             @nav_tab_item(icon_font, body_font, Icon::CLIPBOARD_LIST, "Audit Trail", false)
         ]
     }
@@ -313,18 +325,19 @@ fn nav_tab_item(
             gap: 10.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { icon.to_string() },
                 font_size: 13.0,
                 font: { icon_font },
                 color: icon_color,
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: label,
                 font_size: 13.0,
                 font: { body_font },
                 color: text_color,
-            })
+            }
         ]
     }
 }
@@ -353,7 +366,7 @@ fn settings_form_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
         }
         Children [
             // Section title
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -363,7 +376,7 @@ fn settings_form_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                     gap: 4.0,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -372,34 +385,37 @@ fn settings_form_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             gap: 8.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::SETTINGS.to_string() },
                                 font_size: 16.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.4, 0.75, 1.0),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "GENERAL PROFILE & AUTHENTICATION".to_string() },
                                 font_size: 16.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
                                 outline_width: 1.0,
                                 outline_color: Color::srgba(0.38, 0.35, 0.95, 0.35),
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "Configure your public profile credentials and deployment authorization keys.".to_string() },
                         font_size: 12.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.7),
                         wrap_mode: UTextWrapMode::WrapToParent,
-                    })
+                    }
                 ]
-            ),
+            
+                --
 
             // Form inputs grid / column
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -410,16 +426,21 @@ fn settings_form_content(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                 }
                 Children [
                     @form_labeled_field(icon_font.clone(), body_font.clone(), Icon::USER, "FULL NAME", "Enter your legal full name", "Alex Morgan", TextInputFilter::SingleLine)
+                    --
                     @form_labeled_field(icon_font.clone(), body_font.clone(), Icon::AT_SIGN, "DEVELOPER HANDLE (ALPHANUMERIC ONLY)", "Lowercase identifier for CLI sessions", "alex_morgan99", TextInputFilter::AlphaNumeric)
+                    --
                     @form_labeled_field(icon_font.clone(), body_font.clone(), Icon::MAIL, "WORK EMAIL ADDRESS", "Primary contact for billing and token rotation", "alex.morgan@luma.io", TextInputFilter::SingleLine)
+                    --
                     @form_labeled_field(icon_font.clone(), body_font.clone(), Icon::ZAP, "GLOBAL API RATE LIMIT (REQ / MIN - NUMERIC ONLY)", "Custom burst rate threshold for sandbox tokens", "5000", TextInputFilter::NumericOnly)
                 ]
-            ),
+            
+                --
 
             // Security switch toggle row
             @security_toggle_row(icon_font.clone(), body_font.clone())
 
             // Bottom action & save bar
+            --
             @form_save_actions_bar(icon_font, body_font)
         ]
     }
@@ -447,7 +468,7 @@ fn form_labeled_field(
             gap: 4.0,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -458,20 +479,22 @@ fn form_labeled_field(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: label,
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.7, 0.75, 0.9),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: caption,
                         font_size: 10.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.6),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             @form_text_input(icon_font, body_font, icon, "Enter value...", initial, filter)
         ]
     }
@@ -530,13 +553,14 @@ fn form_text_input(
             width: 2.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { icon.to_string() },
                 font_size: 13.0,
                 font: { icon_font },
                 color: Color::srgb(0.4, 0.5, 0.7),
-            }),
-            (
+            }
+                --
+            
                 UNode {
                     width: UVal::Px(0.0),
                     height: { UVal::Px(font_size * 1.2) },
@@ -549,8 +573,9 @@ fn form_text_input(
                 }
                 Visibility::Hidden
                 UTextInputSelectionMarker
-            ),
-            (
+            
+                --
+            
                 UTextInputTextMarker
                 UText {
                     text: initial_text,
@@ -558,8 +583,9 @@ fn form_text_input(
                     font: { body_font },
                     color: initial_color,
                 }
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Px(2.0),
                     height: { UVal::Px(font_size * 1.2) },
@@ -572,7 +598,7 @@ fn form_text_input(
                 }
                 Visibility::Hidden
                 UTextInputCaretMarker
-            )
+            
         ]
     }
 }
@@ -593,7 +619,7 @@ fn security_toggle_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -602,7 +628,7 @@ fn security_toggle_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(32.0),
                             height: UVal::Px(32.0),
@@ -615,15 +641,16 @@ fn security_toggle_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::KEY.to_string() },
                                 font_size: 15.0,
                                 font: { icon_font },
                                 color: Color::srgb(0.2, 0.85, 0.5),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -631,24 +658,26 @@ fn security_toggle_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "MANDATORY TWO-FACTOR AUTHENTICATION (2FA)".to_string() },
                                 font_size: 12.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Enforce hardware FIDO2 key or TOTP code before pushing git commits to main.".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.65),
                                 wrap_mode: UTextWrapMode::WrapToParent,
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 // Toggle Switch Pill
                 TwoFactorTogglePill
                 UNode {
@@ -669,7 +698,7 @@ fn security_toggle_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         TwoFactorToggleKnob
                         UNode {
                             width: UVal::Px(18.0),
@@ -677,7 +706,7 @@ fn security_toggle_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                             background_color: Color::WHITE,
                             border_radius: UCornerRadius::all(9.0),
                         }
-                    )
+                    
                 ]
                 on(|_event: On<PointerClick>, mut state: ResMut<ProfileFormState>| {
                     state.two_factor_enabled = !state.two_factor_enabled;
@@ -688,7 +717,7 @@ fn security_toggle_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl
                     };
                     info!("{}", state.feedback_message);
                 })
-            )
+            
         ]
     }
 }
@@ -707,7 +736,7 @@ fn form_save_actions_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 FeedbackToastText
                 UText {
                     text: { "All profile settings up to date".to_string() },
@@ -715,8 +744,9 @@ fn form_save_actions_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                     font: { body_font.clone() },
                     color: Color::srgb(0.4, 0.8, 0.6),
                 }
-            ),
-            (
+            
+                --
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -724,7 +754,7 @@ fn form_save_actions_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             background_color: Color::srgba(0.12, 0.16, 0.22, 0.8),
                             border_radius: UCornerRadius::all(8.0),
@@ -744,21 +774,23 @@ fn form_save_actions_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::X.to_string() },
                                 font_size: 11.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.65, 0.7, 0.8),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "DISCARD".to_string() },
                                 font_size: 12.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.65, 0.7, 0.8),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode {
                             background_color: Color::srgb(0.38, 0.35, 0.95),
                             border_radius: UCornerRadius::all(8.0),
@@ -778,27 +810,28 @@ fn form_save_actions_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             gap: 8.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::SAVE.to_string() },
                                 font_size: 12.0,
                                 font: { icon_font },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "SAVE CHANGES".to_string() },
                                 font_size: 12.0,
                                 font: { body_font },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<ProfileFormState>| {
                             state.save_count += 1;
                             state.feedback_message = format!("Success: Profile changes saved at revision #{}", state.save_count);
                             info!("{}", state.feedback_message);
                         })
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -823,7 +856,7 @@ fn form_footer(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -832,21 +865,23 @@ fn form_footer(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::INFO.to_string() },
                         font_size: 12.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Luma Form Engine • UTextInput, Caret Animation, and Filter Validation".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -855,20 +890,21 @@ fn form_footer(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::CHECK.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: Color::srgb(0.38, 0.55, 1.0),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "BSN Architecture • Hardware-accelerated UI".to_string() },
                         font_size: 11.0,
                         font: { body_font },
                         color: Color::srgb(0.38, 0.55, 1.0),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }

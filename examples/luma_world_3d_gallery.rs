@@ -239,7 +239,7 @@ fn kiosk_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene 
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -248,35 +248,37 @@ fn kiosk_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Scene 
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::LIBRARY.to_string() },
                         font_size: 14.0,
                         font: { icon_font },
                         color: Color::srgb(1.0, 0.88, 0.5),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "NORDIC MODERNISM WING • GALLERY 4".to_string() },
                         font_size: 12.0,
                         font: { text_font.clone() },
                         color: Color::srgb(1.0, 0.88, 0.5),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     padding: USides::axes(8.0, 3.0),
                     background_color: Color::srgba(0.15, 0.2, 0.28, 0.6),
                     border_radius: UCornerRadius::all(4.0),
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "CATALOG REF: MMA-1924-CT".to_string() },
                         font_size: 11.0,
                         font: { text_font },
                         color: Color::srgb(0.7, 0.75, 0.85),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -302,7 +304,7 @@ fn kiosk_artifact_body(
         }
         Children [
             // Title & Artist
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -310,25 +312,27 @@ fn kiosk_artifact_body(
                     gap: 3.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "THE CELESTIAL TORUS".to_string() },
                         font_size: 24.0,
                         font: { serif_font },
                         color: Color::WHITE,
                         outline_width: 1.5,
                         outline_color: Color::srgba(0.85, 0.65, 0.2, 0.45),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Astrid Lindholm (Danish, 1892–1968) • Cast Bronze & Obsidian (1924)".to_string() },
                         font_size: 13.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.85, 0.72, 0.4),
-                    })
+                    }
                 ]
-            ),
+            
+                --
 
             // Curatorial Note
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.04, 0.05, 0.08, 0.6),
@@ -341,7 +345,7 @@ fn kiosk_artifact_body(
                     gap: 6.0,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -350,31 +354,34 @@ fn kiosk_artifact_body(
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::BOOK_OPEN.to_string() },
                                 font_size: 12.0,
                                 font: { icon_font },
                                 color: Color::srgb(0.92, 0.76, 0.35),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "CURATORIAL ESSAY".to_string() },
                                 font_size: 11.5,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.92, 0.76, 0.35),
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "Cast during the early Nordic Modernist renaissance in Copenhagen.\nThe continuous single-surface topology explores non-Euclidean curvature\nand mathematical equilibrium, balancing brushed bronze luster against\ndeep obsidian shadows.".to_string() },
                         font_size: 12.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.92, 0.94, 0.98),
-                    })
+                    }
                 ]
-            ),
+            
+                --
 
             // Dimension Specs Row
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.04, 0.05, 0.08, 0.6),
@@ -396,7 +403,7 @@ fn kiosk_artifact_body(
                     --
                     @spec_pill("PROVENANCE", "Lindholm Estate", text_font)
                 ]
-            )
+            
         ]
     }
 }
@@ -411,18 +418,19 @@ fn spec_pill(label: &'static str, value: &'static str, text_font: Handle<Font>) 
             gap: 2.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { label.to_string() },
                 font_size: 11.0,
                 font: { text_font.clone() },
                 color: Color::srgb(0.72, 0.76, 0.86),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { value.to_string() },
                 font_size: 13.5,
                 font: { text_font },
                 color: Color::WHITE,
-            })
+            }
         ]
     }
 }
@@ -453,7 +461,7 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
         }
         Children [
             // Left: Play Button + Narration Info
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -463,7 +471,7 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
                 }
                 Children [
                     // Play Button Circle
-                    (
+                    
                         UNode {
                             width: UVal::Px(32.0),
                             height: UVal::Px(32.0),
@@ -482,7 +490,7 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (
+                            
                                 AudioGuidePlayButtonText
                                 UText {
                                     text: { Icon::PLAY.to_string() },
@@ -490,7 +498,7 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
                                     font: { icon_font.clone() },
                                     color: Color::srgb(0.06, 0.07, 0.1),
                                 }
-                            )
+                            
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<ExhibitionKioskState>| {
                             state.audio_playing = !state.audio_playing;
@@ -501,8 +509,9 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
                             };
                             info!("{}", state.status_notification);
                         })
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -510,7 +519,7 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
                             gap: 2.0,
                         }
                         Children [
-                            (
+                            
                                 AudioGuideStatusText
                                 UText {
                                     text: { "OFFICIAL AUDIO TOUR: 03:42 / 12:15".to_string() },
@@ -518,8 +527,9 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
                                     font: { text_font.clone() },
                                     color: Color::WHITE,
                                 }
-                            ),
-                            (
+                            
+                --
+                            
                                 UNode::default()
                                 ULayout {
                                     display: UDisplay::Flex,
@@ -528,26 +538,28 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
                                     gap: 4.0,
                                 }
                                 Children [
-                                    (UText {
+                                    UText {
                                         text: { Icon::HEADPHONES.to_string() },
                                         font_size: 10.0,
                                         font: { icon_font },
                                         color: Color::srgb(0.5, 0.55, 0.65),
-                                    }),
-                                    (UText {
+                                    }
+                --
+                                    UText {
                                         text: { "Narrated by Chief Curator Dr. Henrik Vogel".to_string() },
                                         font_size: 10.0,
                                         font: { text_font.clone() },
                                         color: Color::srgb(0.5, 0.55, 0.65),
-                                    })
+                                    }
                                 ]
-                            )
+                            
                         ]
-                    )
+                    
                 ]
-            ),
+            
+                --
             // Right: Scrubber Track Mock
-            (
+            
                 UNode {
                     width: UVal::Px(160.0),
                     height: UVal::Px(6.0),
@@ -555,16 +567,16 @@ fn kiosk_audio_tour_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> imp
                     border_radius: UCornerRadius::all(3.0),
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Percent(0.35),
                             height: UVal::Percent(1.0),
                             background_color: Color::srgb(0.92, 0.76, 0.35),
                             border_radius: UCornerRadius::all(3.0),
                         }
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -588,7 +600,7 @@ fn kiosk_action_footer(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
         }
         Children [
             // Left: Language Pill
-            (
+            
                 UNode {
                     padding: USides::axes(12.0, 6.0),
                     background_color: Color::srgba(0.12, 0.16, 0.24, 0.7),
@@ -606,22 +618,24 @@ fn kiosk_action_footer(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::GLOBE.to_string() },
                         font_size: 11.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.7, 0.75, 0.85),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "LANGUAGE: ENGLISH (EN)".to_string() },
                         font_size: 10.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.7, 0.75, 0.85),
-                    })
+                    }
                 ]
-            ),
+            
+                --
             // Right: Navigation Buttons
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -629,7 +643,7 @@ fn kiosk_action_footer(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                     gap: 10.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             background_color: Color::srgba(0.12, 0.16, 0.24, 0.8),
                             border_radius: UCornerRadius::all(6.0),
@@ -643,21 +657,23 @@ fn kiosk_action_footer(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::ARROW_LEFT.to_string() },
                                 font_size: 12.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.7, 0.75, 0.85),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "PREVIOUS".to_string() },
                                 font_size: 11.0,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.7, 0.75, 0.85),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode {
                             background_color: Color::srgb(0.92, 0.76, 0.35),
                             border_radius: UCornerRadius::all(6.0),
@@ -676,22 +692,23 @@ fn kiosk_action_footer(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "NEXT ARTIFACT".to_string() },
                                 font_size: 11.0,
                                 font: { text_font },
                                 color: Color::srgb(0.06, 0.07, 0.1),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { Icon::ARROW_RIGHT.to_string() },
                                 font_size: 12.0,
                                 font: { icon_font },
                                 color: Color::srgb(0.06, 0.07, 0.1),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }

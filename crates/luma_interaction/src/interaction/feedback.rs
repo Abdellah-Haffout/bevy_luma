@@ -136,6 +136,45 @@ impl Default for UInteractionColors {
     }
 }
 
+/// Event Handler: Pointer Enter (Hover Enter)
+#[doc(hidden)]
+pub fn on_pointer_enter(
+    trigger: On<PointerEnter>,
+    mut query: Query<
+        (
+            &mut UInteraction,
+            Option<&mut UNode>,
+            Option<&UInteractionColors>,
+            Option<&UInteractionScale>,
+            Option<&mut UTransitionState>,
+        ),
+        With<UInteraction>,
+    >,
+) {
+    let entity = trigger.entity;
+
+    if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
+        query.get_mut(entity)
+    {
+        if *interaction != UInteraction::Hovered && *interaction != UInteraction::Pressed {
+            *interaction = UInteraction::Hovered;
+        }
+        if let (Some(ref mut node), Some(color)) = (node.as_deref_mut(), colors) {
+            if node.background_color != color.hovered {
+                node.background_color = color.hovered;
+            }
+        }
+        if let Some(scale) = scale {
+            if let Some(ref mut state) = transition_state {
+                let target = Vec2::splat(scale.hovered);
+                if state.target_scale != target {
+                    state.target_scale = target;
+                }
+            }
+        }
+    }
+}
+
 /// Event Handler: Pointer Over (Hover Enter)
 #[doc(hidden)]
 pub fn on_pointer_over(
@@ -156,13 +195,20 @@ pub fn on_pointer_over(
     if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
         query.get_mut(entity)
     {
-        *interaction = UInteraction::Hovered;
+        if *interaction != UInteraction::Hovered && *interaction != UInteraction::Pressed {
+            *interaction = UInteraction::Hovered;
+        }
         if let (Some(ref mut node), Some(color)) = (node.as_deref_mut(), colors) {
-            node.background_color = color.hovered;
+            if node.background_color != color.hovered {
+                node.background_color = color.hovered;
+            }
         }
         if let Some(scale) = scale {
             if let Some(ref mut state) = transition_state {
-                state.target_scale = Vec2::splat(scale.hovered);
+                let target = Vec2::splat(scale.hovered);
+                if state.target_scale != target {
+                    state.target_scale = target;
+                }
             }
         }
     }
@@ -184,9 +230,52 @@ pub fn on_pointer_click(
     let entity = trigger.entity;
 
     if let Ok((mut interaction, mut node, colors)) = query.get_mut(entity) {
-        *interaction = UInteraction::Clicked;
+        if *interaction != UInteraction::Clicked {
+            *interaction = UInteraction::Clicked;
+        }
         if let (Some(ref mut node), Some(color)) = (node.as_deref_mut(), colors) {
-            node.background_color = color.hovered;
+            if node.background_color != color.hovered {
+                node.background_color = color.hovered;
+            }
+        }
+    }
+}
+
+/// Event Handler: Pointer Leave (Hover Exit)
+#[doc(hidden)]
+pub fn on_pointer_leave(
+    trigger: On<PointerLeave>,
+    mut query: Query<
+        (
+            &mut UInteraction,
+            Option<&mut UNode>,
+            Option<&UInteractionColors>,
+            Option<&UInteractionScale>,
+            Option<&mut UTransitionState>,
+        ),
+        With<UInteraction>,
+    >,
+) {
+    let entity = trigger.entity;
+
+    if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
+        query.get_mut(entity)
+    {
+        if *interaction != UInteraction::Normal {
+            *interaction = UInteraction::Normal;
+        }
+        if let (Some(ref mut node), Some(color)) = (node.as_deref_mut(), colors) {
+            if node.background_color != color.normal {
+                node.background_color = color.normal;
+            }
+        }
+        if let Some(scale) = scale {
+            if let Some(ref mut state) = transition_state {
+                let target = Vec2::splat(scale.normal);
+                if state.target_scale != target {
+                    state.target_scale = target;
+                }
+            }
         }
     }
 }
@@ -211,13 +300,20 @@ pub fn on_pointer_out(
     if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
         query.get_mut(entity)
     {
-        *interaction = UInteraction::Normal;
+        if *interaction != UInteraction::Normal {
+            *interaction = UInteraction::Normal;
+        }
         if let (Some(ref mut node), Some(color)) = (node.as_deref_mut(), colors) {
-            node.background_color = color.normal;
+            if node.background_color != color.normal {
+                node.background_color = color.normal;
+            }
         }
         if let Some(scale) = scale {
             if let Some(ref mut state) = transition_state {
-                state.target_scale = Vec2::splat(scale.normal);
+                let target = Vec2::splat(scale.normal);
+                if state.target_scale != target {
+                    state.target_scale = target;
+                }
             }
         }
     }
@@ -243,13 +339,20 @@ pub fn on_pointer_press(
     if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
         query.get_mut(entity)
     {
-        *interaction = UInteraction::Pressed;
+        if *interaction != UInteraction::Pressed {
+            *interaction = UInteraction::Pressed;
+        }
         if let (Some(ref mut node), Some(color)) = (node.as_deref_mut(), colors) {
-            node.background_color = color.pressed;
+            if node.background_color != color.pressed {
+                node.background_color = color.pressed;
+            }
         }
         if let Some(scale) = scale {
             if let Some(ref mut state) = transition_state {
-                state.target_scale = Vec2::splat(scale.pressed);
+                let target = Vec2::splat(scale.pressed);
+                if state.target_scale != target {
+                    state.target_scale = target;
+                }
             }
         }
     }
@@ -275,13 +378,20 @@ pub fn on_pointer_release(
     if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
         query.get_mut(entity)
     {
-        *interaction = UInteraction::Released;
+        if *interaction != UInteraction::Released {
+            *interaction = UInteraction::Released;
+        }
         if let (Some(ref mut node), Some(color)) = (node.as_deref_mut(), colors) {
-            node.background_color = color.hovered;
+            if node.background_color != color.hovered {
+                node.background_color = color.hovered;
+            }
         }
         if let Some(scale) = scale {
             if let Some(ref mut state) = transition_state {
-                state.target_scale = Vec2::splat(scale.hovered);
+                let target = Vec2::splat(scale.hovered);
+                if state.target_scale != target {
+                    state.target_scale = target;
+                }
             }
         }
     }

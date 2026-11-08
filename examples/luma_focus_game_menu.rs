@@ -85,7 +85,9 @@ fn game_menu_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             @game_top_header(icon_font.clone(), text_font.clone())
+            --
             @game_settings_split_body(icon_font.clone(), text_font.clone())
+            --
             @game_bottom_controller_bar(icon_font, text_font)
         ]
     }
@@ -117,7 +119,7 @@ fn game_top_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
         }
         Children [
             // Title & Subtitle with Vector Gamepad Icon
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -126,7 +128,7 @@ fn game_top_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(38.0),
                             height: UVal::Px(38.0),
@@ -144,15 +146,16 @@ fn game_top_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::GAMEPAD_2.to_string() },
                                 font_size: 20.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.95, 0.8, 0.4),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -160,26 +163,28 @@ fn game_top_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "VALKYRIE // TACTICAL SIMULATION".to_string() },
                                 font_size: 15.0,
                                 font: { text_font.clone() },
                                 color: Color::WHITE,
                                 outline_width: 1.2,
                                 outline_color: Color::srgba(0.95, 0.75, 0.3, 0.35),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "SYSTEM CONFIGURATION & HARDWARE TUNING • BUILD 1.04.8".to_string() },
                                 font_size: 11.0,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.65),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
+            
+                --
             // Right Control Modality Badge
-            (
+            
                 UNode {
                     padding: USides::axes(14.0, 7.0),
                     background_color: Color::srgba(0.15, 0.2, 0.3, 0.7),
@@ -197,20 +202,21 @@ fn game_top_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::COMMAND.to_string() },
                         font_size: 13.0,
                         font: { icon_font },
                         color: Color::srgb(0.95, 0.75, 0.3),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "KEYBOARD FOCUS ACTIVE [TAB / ARROWS]".to_string() },
                         font_size: 11.0,
                         font: { text_font },
                         color: Color::srgb(0.95, 0.85, 0.6),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -231,6 +237,7 @@ fn game_settings_split_body(icon_font: Handle<Font>, text_font: Handle<Font>) ->
         }
         Children [
             @game_category_sidebar(icon_font.clone(), text_font.clone())
+            --
             @game_controls_panel(icon_font, text_font)
         ]
     }
@@ -260,7 +267,7 @@ fn game_category_sidebar(icon_font: Handle<Font>, text_font: Handle<Font>) -> im
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -268,22 +275,29 @@ fn game_category_sidebar(icon_font: Handle<Font>, text_font: Handle<Font>) -> im
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "SETTINGS CATEGORIES".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.62),
-                    }),
+                    }
+                --
                     @menu_category_button(Icon::MONITOR, "DISPLAY & GRAPHICS", true, icon_font.clone(), text_font.clone())
+                    --
                     @menu_category_button(Icon::VOLUME_2, "AUDIO & ACOUSTICS", false, icon_font.clone(), text_font.clone())
+                    --
                     @menu_category_button(Icon::GAMEPAD_2, "CONTROLS & KEYBINDS", false, icon_font.clone(), text_font.clone())
+                    --
                     @menu_category_button(Icon::CROSSHAIR, "GAMEPLAY & HUD", false, icon_font.clone(), text_font.clone())
+                    --
                     @menu_category_button(Icon::EYE, "ACCESSIBILITY", false, icon_font.clone(), text_font.clone())
+                    --
                     @menu_category_button(Icon::ACTIVITY, "BENCHMARK TEST", false, icon_font.clone(), text_font.clone())
                 ]
-            ),
+            
+                --
             // Hardware Spec Summary Card
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.04, 0.06, 0.1, 0.8),
@@ -301,7 +315,7 @@ fn game_category_sidebar(icon_font: Handle<Font>, text_font: Handle<Font>) -> im
                     gap: 4.0,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -310,34 +324,37 @@ fn game_category_sidebar(icon_font: Handle<Font>, text_font: Handle<Font>) -> im
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::CPU.to_string() },
                                 font_size: 12.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.95, 0.75, 0.3),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "DETECTED HARDWARE".to_string() },
                                 font_size: 10.0,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.65),
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "VULKAN 1.3 • MESA HIGH-PERF".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.95, 0.75, 0.3),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "VRAM: 8,192 MB ALLOCATED".to_string() },
                         font_size: 10.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.65, 0.7, 0.8),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -381,7 +398,9 @@ fn menu_category_button(
             radius: UCornerRadius::all(8.0),
         }
         UFocusable::new()
-        UFocusVisual::border(Color::srgb(0.95, 0.75, 0.3), 2.0)
+        UFocusVisual::ring(Color::srgb(0.95, 0.75, 0.3))
+            .with_contract(6.0, 0.0)
+            .with_as_hover(true)
         UInteraction::default()
         UInteractionColors {
             normal: bg_color,
@@ -395,18 +414,19 @@ fn menu_category_button(
             gap: 10.0,
         }
         Children [
-            (UText {
+            UText {
                 text: icon_str,
                 font_size: 14.0,
                 font: { icon_font },
                 color: text_color,
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { label.to_string() },
                 font_size: 12.0,
                 font: { text_font },
                 color: text_color,
-            })
+            }
         ]
     }
 }
@@ -435,7 +455,7 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
         }
         Children [
             // Settings Controls Form
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -444,7 +464,7 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                 }
                 Children [
                     // Section Title
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -453,7 +473,7 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                             gap: 10.0,
                         }
                         Children [
-                            (
+                            
                                 UNode {
                                     width: UVal::Px(32.0),
                                     height: UVal::Px(32.0),
@@ -466,15 +486,16 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                                     align_items: UAlignItems::Center,
                                 }
                                 Children [
-                                    (UText {
+                                    UText {
                                         text: { Icon::SLIDERS_VERTICAL.to_string() },
                                         font_size: 16.0,
                                         font: { icon_font.clone() },
                                         color: Color::srgb(0.95, 0.8, 0.4),
-                                    })
+                                    }
                                 ]
-                            ),
-                            (
+                            
+                --
+                            
                                 UNode::default()
                                 ULayout {
                                     display: UDisplay::Flex,
@@ -482,22 +503,24 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                                     gap: 2.0,
                                 }
                                 Children [
-                                    (UText {
+                                    UText {
                                         text: { "DISPLAY RESOLUTION & RENDER ENGINE".to_string() },
                                         font_size: 14.0,
                                         font: { text_font.clone() },
                                         color: Color::WHITE,
-                                    }),
-                                    (UText {
+                                    }
+                --
+                                    UText {
                                         text: { "Navigate options with TAB or Arrow Keys. Press ENTER to select or toggle.".to_string() },
                                         font_size: 11.0,
                                         font: { text_font.clone() },
                                         color: Color::srgb(0.5, 0.55, 0.65),
-                                    })
+                                    }
                                 ]
-                            )
+                            
                         ]
-                    ),
+                    
+                --
 
                     // Control Row 1: Resolution
                     @control_row(
@@ -512,7 +535,9 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                             }
                             Children [
                                 @option_chip("1080p (FHD)", false, icon_font.clone(), text_font.clone())
+                                --
                                 @option_chip("1440p (QHD)", true, icon_font.clone(), text_font.clone())
+                                --
                                 @option_chip("2160p (4K)", false, icon_font.clone(), text_font.clone())
                             ]
                         },
@@ -532,8 +557,11 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                             }
                             Children [
                                 @option_chip("LOW", false, icon_font.clone(), text_font.clone())
+                                --
                                 @option_chip("MEDIUM", false, icon_font.clone(), text_font.clone())
+                                --
                                 @option_chip("HIGH", false, icon_font.clone(), text_font.clone())
+                                --
                                 @option_chip("ULTRA", true, icon_font.clone(), text_font.clone())
                             ]
                         },
@@ -553,7 +581,9 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                             }
                             Children [
                                 @option_chip("60 FPS", false, icon_font.clone(), text_font.clone())
+                                --
                                 @option_chip("144 FPS", true, icon_font.clone(), text_font.clone())
+                                --
                                 @option_chip("UNLIMITED", false, icon_font.clone(), text_font.clone())
                             ]
                         },
@@ -572,6 +602,7 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                     )
 
                     // Control Row 5: V-Sync Toggle
+                    --
                     @toggle_control_row(
                         Icon::REFRESH_CW,
                         "VERTICAL SYNC (V-SYNC)",
@@ -582,7 +613,8 @@ fn game_controls_panel(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl
                         text_font.clone(),
                     )
                 ]
-            ),
+            
+                --
 
             // Bottom Action Buttons
             @game_action_buttons_bar(icon_font, text_font)
@@ -606,7 +638,7 @@ fn control_row(title: &'static str, desc: &'static str, widget: impl Scene, text
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -614,21 +646,23 @@ fn control_row(title: &'static str, desc: &'static str, widget: impl Scene, text
                     gap: 2.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { title.to_string() },
                         font_size: 12.0,
                         font: { text_font.clone() },
                         color: Color::WHITE,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { desc.to_string() },
                         font_size: 10.0,
                         font: { text_font },
                         color: Color::srgb(0.5, 0.55, 0.65),
                         wrap_mode: UTextWrapMode::WrapToParent,
-                    })
+                    }
                 ]
-            ),
+            
+                --
             @widget
         ]
     }
@@ -654,7 +688,9 @@ fn option_chip(label: &'static str, selected: bool, icon_font: Handle<Font>, tex
             border_radius: UCornerRadius::all(6.0),
         }
         UFocusable::new()
-        UFocusVisual::border(Color::srgb(1.0, 0.9, 0.5), 2.0)
+        UFocusVisual::ring(Color::srgb(1.0, 0.9, 0.5))
+            .with_contract(5.0, 0.0)
+            .with_as_hover(true)
         UInteraction::default()
         ULayout {
             display: UDisplay::Flex,
@@ -664,18 +700,19 @@ fn option_chip(label: &'static str, selected: bool, icon_font: Handle<Font>, tex
             gap: { if selected { 4.0_f32 } else { 0.0_f32 } },
         }
         Children [
-            (UText {
+            UText {
                 text: { if selected { Icon::CHECK.to_string() } else { "".to_string() } },
                 font_size: 11.0,
                 font: { icon_font },
                 color: text_color,
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { label.to_string() },
                 font_size: 11.0,
                 font: { text_font },
                 color: text_color,
-            })
+            }
         ]
     }
 }
@@ -705,7 +742,7 @@ fn toggle_control_row(
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -714,13 +751,14 @@ fn toggle_control_row(
                     gap: 10.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: icon_str,
                         font_size: 14.0,
                         font: { icon_font },
                         color: Color::srgb(0.95, 0.75, 0.3),
-                    }),
-                    (
+                    }
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -728,24 +766,26 @@ fn toggle_control_row(
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { title.to_string() },
                                 font_size: 12.0,
                                 font: { text_font.clone() },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { desc.to_string() },
                                 font_size: 10.0,
                                 font: { text_font },
                                 color: Color::srgb(0.5, 0.55, 0.65),
                                 wrap_mode: UTextWrapMode::WrapToParent,
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 // Focusable Toggle Switch Pill
                 UNode {
                     width: UVal::Px(46.0),
@@ -755,7 +795,9 @@ fn toggle_control_row(
                     padding: USides::all(3.0),
                 }
                 UFocusable::new()
-                UFocusVisual::border(Color::srgb(1.0, 0.9, 0.5), 2.0)
+                UFocusVisual::ring(Color::srgb(1.0, 0.9, 0.5))
+                    .with_contract(6.0, 0.0)
+                    .with_as_hover(true)
                 UInteraction::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -764,14 +806,12 @@ fn toggle_control_row(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
-                        UNode {
-                            width: UVal::Px(18.0),
-                            height: UVal::Px(18.0),
-                            background_color: Color::WHITE,
-                            border_radius: UCornerRadius::all(9.0),
-                        }
-                    )
+                    UNode {
+                        width: UVal::Px(18.0),
+                        height: UVal::Px(18.0),
+                        background_color: Color::WHITE,
+                        border_radius: UCornerRadius::all(9.0),
+                    }
                 ]
                 on(move |_event: On<PointerClick>, mut state: ResMut<GameSettingsState>| {
                     if is_raytracing {
@@ -786,7 +826,20 @@ fn toggle_control_row(
                     );
                     info!("{}", state.status_message);
                 })
-            )
+                on(move |_event: On<UFocusActivate>, mut state: ResMut<GameSettingsState>| {
+                    if is_raytracing {
+                        state.raytracing_enabled = !state.raytracing_enabled;
+                    } else {
+                        state.vsync_enabled = !state.vsync_enabled;
+                    }
+                    state.status_message = format!(
+                        "Configuration updated via Focus: Raytracing {} • V-Sync {}",
+                        if state.raytracing_enabled { "ENABLED" } else { "DISABLED" },
+                        if state.vsync_enabled { "ENABLED" } else { "DISABLED" },
+                    );
+                    info!("{}", state.status_message);
+                })
+            
         ]
     }
 }
@@ -806,14 +859,16 @@ fn game_action_buttons_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> 
         }
         Children [
             // Left: Restore Defaults Button with Rotate Icon
-            (
+            
                 UNode {
                     background_color: Color::srgba(0.12, 0.16, 0.24, 0.8),
                     border_radius: UCornerRadius::all(8.0),
                     padding: USides::axes(14.0, 10.0),
                 }
                 UFocusable::new()
-                UFocusVisual::border(Color::srgb(0.95, 0.75, 0.3), 2.0)
+                UFocusVisual::ring(Color::srgb(0.95, 0.75, 0.3))
+                    .with_contract(6.0, 0.0)
+                    .with_as_hover(true)
                 UInteraction::default()
                 UInteractionColors {
                     normal: Color::srgba(0.12, 0.16, 0.24, 0.8),
@@ -827,22 +882,32 @@ fn game_action_buttons_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> 
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::ROTATE_CCW.to_string() },
                         font_size: 12.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.7, 0.75, 0.85),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "RESTORE DEFAULTS".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.7, 0.75, 0.85),
-                    })
+                    }
                 ]
-            ),
+                on(|_event: On<PointerClick>, mut state: ResMut<GameSettingsState>| {
+                    state.status_message = "Settings restored to factory defaults.".to_string();
+                    info!("{}", state.status_message);
+                })
+                on(|_event: On<UFocusActivate>, mut state: ResMut<GameSettingsState>| {
+                    state.status_message = "Settings restored to factory defaults via Focus.".to_string();
+                    info!("{}", state.status_message);
+                })
+            
+                --
             // Right: Discard + Apply Changes
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -850,14 +915,16 @@ fn game_action_buttons_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> 
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             background_color: Color::srgba(0.15, 0.18, 0.26, 0.8),
                             border_radius: UCornerRadius::all(8.0),
                             padding: USides::axes(16.0, 10.0),
                         }
                         UFocusable::new()
-                        UFocusVisual::border(Color::srgb(0.95, 0.75, 0.3), 2.0)
+                        UFocusVisual::ring(Color::srgb(0.95, 0.75, 0.3))
+                            .with_contract(6.0, 0.0)
+                            .with_as_hover(true)
                         UInteraction::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -866,28 +933,38 @@ fn game_action_buttons_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> 
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::X.to_string() },
                                 font_size: 12.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.65, 0.7, 0.8),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "DISCARD".to_string() },
                                 font_size: 11.0,
                                 font: { text_font.clone() },
                                 color: Color::srgb(0.65, 0.7, 0.8),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                        on(|_event: On<PointerClick>, mut state: ResMut<GameSettingsState>| {
+                            state.status_message = "Pending graphical changes discarded.".to_string();
+                            info!("{}", state.status_message);
+                        })
+                        on(|_event: On<UFocusActivate>, mut state: ResMut<GameSettingsState>| {
+                            state.status_message = "Pending graphical changes discarded via Focus.".to_string();
+                            info!("{}", state.status_message);
+                        })
+                    
+                --
+                    
                         UNode {
                             background_color: Color::srgb(0.95, 0.75, 0.3),
                             border_radius: UCornerRadius::all(8.0),
                             padding: USides::axes(18.0, 10.0),
                         }
                         UFocusable::new()
-                        UFocusVisual::glow(Color::srgb(1.0, 0.9, 0.5))
+                        UFocusVisual::glow(Color::srgb(1.0, 0.9, 0.5)).with_as_hover(true)
                         UInteraction::default()
                         UInteractionColors {
                             normal: Color::srgb(0.95, 0.75, 0.3),
@@ -901,26 +978,31 @@ fn game_action_buttons_bar(icon_font: Handle<Font>, text_font: Handle<Font>) -> 
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::CHECK.to_string() },
                                 font_size: 13.0,
                                 font: { icon_font },
                                 color: Color::srgb(0.08, 0.08, 0.12),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "APPLY CONFIGURATION".to_string() },
                                 font_size: 11.0,
                                 font: { text_font },
                                 color: Color::srgb(0.08, 0.08, 0.12),
-                            })
+                            }
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<GameSettingsState>| {
                             state.status_message = "All graphical pipeline changes successfully applied to engine!".to_string();
                             info!("{}", state.status_message);
                         })
-                    )
+                        on(|_event: On<UFocusActivate>, mut state: ResMut<GameSettingsState>| {
+                            state.status_message = "All graphical pipeline changes applied via Keyboard/Gamepad Focus!".to_string();
+                            info!("{}", state.status_message);
+                        })
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -945,7 +1027,7 @@ fn game_bottom_controller_bar(icon_font: Handle<Font>, text_font: Handle<Font>) 
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -954,13 +1036,14 @@ fn game_bottom_controller_bar(icon_font: Handle<Font>, text_font: Handle<Font>) 
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::INFO.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: Color::srgb(0.95, 0.8, 0.4),
-                    }),
-                    (
+                    }
+                --
+                    
                         SettingsFeedbackText
                         UText {
                             text: { "Graphics Preset: ULTRA (1440p @ 144Hz) • Raytracing: ON • V-Sync: ON".to_string() },
@@ -968,15 +1051,16 @@ fn game_bottom_controller_bar(icon_font: Handle<Font>, text_font: Handle<Font>) 
                             font: { text_font.clone() },
                             color: Color::srgb(0.95, 0.8, 0.4),
                         }
-                    )
+                    
                 ]
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: { "Luma Focus Engine • UFocusable Spatial & Tab Navigation • UFocusVisual".to_string() },
                 font_size: 11.0,
                 font: { text_font },
                 color: Color::srgb(0.45, 0.5, 0.65),
-            })
+            }
         ]
     }
 }

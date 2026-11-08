@@ -37,7 +37,7 @@ use crate::layout::image::UImage;
 use crate::layout::query::ComputedSize;
 use crate::layout::render::clip_sync::UActiveClip;
 use crate::layout::univis_node::{UBorder, UClip, UNode};
-use crate::layout::visual::{UGradient, UInnerGlow, UShadow};
+use crate::layout::visual::{UGradient, UInnerGlow, UShader, UShadow};
 use crate::prelude::{UCornerRadius, UShapeMode};
 use crate::schedule::UiRolloutConfig;
 
@@ -303,6 +303,7 @@ fn extract_univis_nodes(
                 Without<UImage>,
                 Without<UGradient>,
                 Without<UInnerGlow>,
+                Without<UShader>,
             ),
         >,
     >,

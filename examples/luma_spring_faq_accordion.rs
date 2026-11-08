@@ -90,8 +90,11 @@ fn faq_portal_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             @faq_header_bar(icon_font.clone(), body_font.clone())
+            --
             @faq_search_and_categories_bar(icon_font.clone(), body_font.clone())
+            --
             @faq_accordion_container(icon_font.clone(), body_font.clone())
+            --
             @faq_footer_bar(body_font)
         ]
     }
@@ -123,7 +126,7 @@ fn faq_header_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scen
         }
         Children [
             // Left: Title and Subtitle with Icon
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -132,7 +135,7 @@ fn faq_header_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scen
                     gap: 14.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(38.0),
                             height: UVal::Px(38.0),
@@ -145,15 +148,16 @@ fn faq_header_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scen
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::CIRCLE_HELP.to_string() },
                                 font_size: 18.0,
                                 font: { icon_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -161,27 +165,29 @@ fn faq_header_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scen
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "DEVELOPER KNOWLEDGE BASE & RUNTIME FAQ".to_string() },
                                 font_size: 14.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
                                 outline_width: 1.2,
                                 outline_color: Color::srgba(0.25, 0.45, 0.9, 0.5),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Architecture guides, spring transitions, and zero-allocation engine principles".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.65),
                                 wrap_mode: UTextWrapMode::WrapToParent,
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
+            
+                --
             // Right: Portal Version Pill
-            (
+            
                 UNode {
                     padding: USides::axes(12.0, 6.0),
                     background_color: Color::srgba(0.12, 0.18, 0.28, 0.7),
@@ -193,14 +199,14 @@ fn faq_header_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scen
                     radius: UCornerRadius::all(6.0),
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "LUMA SPEC v0.3.1".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.4, 0.75, 1.0),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -223,7 +229,7 @@ fn faq_search_and_categories_bar(icon_font: Handle<Font>, body_font: Handle<Font
         }
         Children [
             // Left: Category Filter Pills
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -232,14 +238,19 @@ fn faq_search_and_categories_bar(icon_font: Handle<Font>, body_font: Handle<Font
                 }
                 Children [
                     @category_chip(body_font.clone(), "ALL QUESTIONS", true)
+                    --
                     @category_chip(body_font.clone(), "CORE ARCHITECTURE", false)
+                    --
                     @category_chip(body_font.clone(), "DECLARATIVE BSN", false)
+                    --
                     @category_chip(body_font.clone(), "SDF SHADERS", false)
+                    --
                     @category_chip(body_font.clone(), "SPRING PHYSICS", false)
                 ]
-            ),
+            
+                --
             // Right: Mock Search Input with Lucide Icon
-            (
+            
                 UNode {
                     padding: USides::axes(16.0, 8.0),
                     background_color: Color::srgba(0.08, 0.1, 0.15, 0.8),
@@ -257,20 +268,21 @@ fn faq_search_and_categories_bar(icon_font: Handle<Font>, body_font: Handle<Font
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::SEARCH.to_string() },
                         font_size: 13.0,
                         font: { icon_font },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Search documentation & FAQs...".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -301,12 +313,12 @@ fn category_chip(body_font: Handle<Font>, label: &'static str, active: bool) -> 
             pressed: Color::srgb(0.15, 0.28, 0.7),
         }
         Children [
-            (UText {
+            UText {
                 text: { label.to_string() },
                 font_size: 11.0,
                 font: { body_font.clone() },
                 color: text_color,
-            })
+            }
         ]
     }
 }
@@ -347,6 +359,7 @@ fn faq_accordion_container(icon_font: Handle<Font>, body_font: Handle<Font>) -> 
             )
 
             // Accordion Item 1
+            --
             @faq_accordion_item_collapsed(
                 icon_font.clone(),
                 body_font.clone(),
@@ -359,6 +372,7 @@ fn faq_accordion_container(icon_font: Handle<Font>, body_font: Handle<Font>) -> 
             )
 
             // Accordion Item 2
+            --
             @faq_accordion_item_collapsed(
                 icon_font.clone(),
                 body_font.clone(),
@@ -371,6 +385,7 @@ fn faq_accordion_container(icon_font: Handle<Font>, body_font: Handle<Font>) -> 
             )
 
             // Accordion Item 3
+            --
             @faq_accordion_item_collapsed(
                 icon_font,
                 body_font,
@@ -419,6 +434,7 @@ fn faq_accordion_item_expanded(
         }
         Children [
             @accordion_header_row(icon_font.clone(), body_font.clone(), idx, question, tag, tag_color, Icon::CHEVRON_DOWN)
+            --
             @accordion_body_expanded(icon_font, body_font, idx, answer, code_block)
         ]
     }
@@ -458,6 +474,7 @@ fn faq_accordion_item_collapsed(
         }
         Children [
             @accordion_header_row(icon_font.clone(), body_font.clone(), idx, question, tag, tag_color, Icon::CHEVRON_RIGHT)
+            --
             @accordion_body_collapsed(icon_font, body_font, idx, answer, code_block)
         ]
     }
@@ -485,7 +502,7 @@ fn accordion_header_row(
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 USelf {
                     flex_grow: { Some(1.0) },
@@ -498,7 +515,7 @@ fn accordion_header_row(
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             padding: USides::axes(8.0, 3.0),
                             background_color: tag_color,
@@ -508,24 +525,26 @@ fn accordion_header_row(
                             flex_shrink: { Some(0.0) },
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { tag.to_string() },
                                 font_size: 9.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { question.to_string() },
                         font_size: 13.0,
                         font: { body_font.clone() },
                         color: Color::WHITE,
                         wrap_mode: UTextWrapMode::WrapToParent,
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 AccordionChevronMarker(idx)
                 UNode {
                     width: UVal::Px(28.0),
@@ -542,14 +561,14 @@ fn accordion_header_row(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { chevron.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: Color::srgb(0.7, 0.8, 1.0),
-                    })
+                    }
                 ]
-            )
+            
         ]
         on(move |_event: On<PointerClick>, mut state: ResMut<FaqPortalState>| {
             state.expanded_items[idx] = !state.expanded_items[idx];
@@ -584,19 +603,20 @@ fn faq_code_box(icon_font: Handle<Font>, body_font: Handle<Font>, code: &'static
             gap: 8.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { Icon::CODE.to_string() },
                 font_size: 12.0,
                 font: { icon_font },
                 color: Color::srgb(0.35, 0.7, 0.6),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { code.to_string() },
                 font_size: 11.0,
                 font: { body_font.clone() },
                 color: Color::srgb(0.4, 0.85, 0.7),
                 wrap_mode: UTextWrapMode::WrapToParent,
-            })
+            }
         ]
     }
 }
@@ -700,13 +720,14 @@ fn accordion_feedback_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
             gap: 10.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { "Was this article helpful?".to_string() },
                 font_size: 11.0,
                 font: { body_font.clone() },
                 color: Color::srgb(0.5, 0.55, 0.65),
-            }),
-            (
+            }
+                --
+            
                 UNode {
                     padding: USides::axes(10.0, 4.0),
                     background_color: Color::srgba(0.1, 0.25, 0.18, 0.8),
@@ -720,26 +741,28 @@ fn accordion_feedback_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::THUMBS_UP.to_string() },
                         font_size: 11.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.3, 0.9, 0.6),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "YES".to_string() },
                         font_size: 10.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.3, 0.9, 0.6),
-                    })
+                    }
                 ]
                 on(|_event: On<PointerClick>, mut state: ResMut<FaqPortalState>| {
                     state.helpful_votes += 1;
                     state.feedback_message = format!("Thank you! Helpful score updated: {}", state.helpful_votes);
                     info!("{}", state.feedback_message);
                 })
-            ),
-            (
+            
+                --
+            
                 UNode {
                     padding: USides::axes(10.0, 4.0),
                     background_color: Color::srgba(0.2, 0.12, 0.15, 0.8),
@@ -753,20 +776,21 @@ fn accordion_feedback_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> i
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::THUMBS_DOWN.to_string() },
                         font_size: 11.0,
                         font: { icon_font },
                         color: Color::srgb(0.9, 0.45, 0.45),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "NO".to_string() },
                         font_size: 10.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.9, 0.45, 0.45),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -791,7 +815,7 @@ fn faq_footer_bar(body_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 FaqFeedbackText
                 UText {
                     text: { "Showing 4 high-priority architecture guides".to_string() },
@@ -799,8 +823,9 @@ fn faq_footer_bar(body_font: Handle<Font>) -> impl Scene {
                     font: { body_font.clone() },
                     color: Color::srgb(0.4, 0.85, 0.6),
                 }
-            ),
-            (
+            
+                --
+            
                 HelpfulCounterText
                 UText {
                     text: { "Community Rating: 142 helpful votes".to_string() },
@@ -808,7 +833,7 @@ fn faq_footer_bar(body_font: Handle<Font>) -> impl Scene {
                     font: { body_font.clone() },
                     color: Color::srgb(0.5, 0.55, 0.65),
                 }
-            )
+            
         ]
     }
 }

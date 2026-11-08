@@ -136,7 +136,7 @@ fn header_bar(
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -145,7 +145,7 @@ fn header_bar(
                     gap: 14.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(42.0),
                             height: UVal::Px(42.0),
@@ -158,15 +158,16 @@ fn header_bar(
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::ZAP.to_string() },
                                 font_size: 22.0,
                                 font: { icon_font },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -174,23 +175,25 @@ fn header_bar(
                             gap: 3.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "SPRING MOTION & HAPTICS ENGINE".to_string() },
                                 font_size: 19.0,
                                 font: { title_font },
                                 color: Color::srgb(0.95, 0.98, 1.0),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Real-time second-order spring dynamics • Staggered entrance • Recoil punch".to_string() },
                                 font_size: 12.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.60, 0.70, 0.85),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     background_color: Color::srgba(0.12, 0.18, 0.32, 0.85),
                     border_radius: UCornerRadius::all(8.0),
@@ -206,14 +209,14 @@ fn header_bar(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "[Space] Punch All  •  [R] Re-Enter  •  [C] Color Glide  •  [1-3] Presets".to_string() },
                         font_size: 12.0,
                         font: { body_font },
                         color: Color::srgb(0.80, 0.90, 1.0),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -266,7 +269,7 @@ fn card_bouncy(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -274,19 +277,21 @@ fn card_bouncy(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     gap: 12.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "BOUNCY SLIDE".to_string() },
                         font_size: 18.0,
                         font: { title_font },
                         color: accent,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "High elasticity with smooth overshoot.\nDamping: 0.75 | Stiffness: 220\nIdeal for modal popups, cards & drawers.".to_string() },
                         font_size: 13.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.70, 0.78, 0.88),
-                    }),
-                    (
+                    }
+                --
+                    
                         TelemetryLabel(0)
                         UText {
                             text: { "State: ENTERING...".to_string() },
@@ -294,10 +299,11 @@ fn card_bouncy(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                             font: { body_font.clone() },
                             color: Color::srgb(0.4, 0.75, 1.0),
                         }
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 CardPunchButton(0)
                 UInteraction::default()
                 UNode {
@@ -312,14 +318,14 @@ fn card_bouncy(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "CLICK TO PUNCH (BOUNCE)".to_string() },
                         font_size: 12.0,
                         font: { body_font },
                         color: Color::srgb(0.04, 0.06, 0.10),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -349,7 +355,7 @@ fn card_snappy(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -357,19 +363,21 @@ fn card_snappy(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     gap: 12.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "SNAPPY POP".to_string() },
                         font_size: 18.0,
                         font: { title_font },
                         color: accent,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Critical damping without overshoot.\nDamping: 1.00 | Stiffness: 380\nHigh precision responsive tactile feedback.".to_string() },
                         font_size: 13.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.70, 0.78, 0.88),
-                    }),
-                    (
+                    }
+                --
+                    
                         TelemetryLabel(1)
                         UText {
                             text: { "State: ENTERING...".to_string() },
@@ -377,10 +385,11 @@ fn card_snappy(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                             font: { body_font.clone() },
                             color: Color::srgb(0.75, 0.55, 1.0),
                         }
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 CardPunchButton(1)
                 UInteraction::default()
                 UNode {
@@ -395,14 +404,14 @@ fn card_snappy(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "CLICK TO PUNCH (SNAP)".to_string() },
                         font_size: 12.0,
                         font: { body_font },
                         color: Color::srgb(0.04, 0.06, 0.10),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -432,7 +441,7 @@ fn card_wobbly(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -440,19 +449,21 @@ fn card_wobbly(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     gap: 12.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "WOBBLY RECOIL".to_string() },
                         font_size: 18.0,
                         font: { title_font },
                         color: accent,
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Underdamped elastic recoil oscillation.\nDamping: 0.45 | Stiffness: 160\nGreat for haptics, game shakes & alerts.".to_string() },
                         font_size: 13.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.70, 0.78, 0.88),
-                    }),
-                    (
+                    }
+                --
+                    
                         TelemetryLabel(2)
                         UText {
                             text: { "State: ENTERING...".to_string() },
@@ -460,10 +471,11 @@ fn card_wobbly(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                             font: { body_font.clone() },
                             color: Color::srgb(0.35, 0.90, 0.65),
                         }
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 CardPunchButton(2)
                 UInteraction::default()
                 UNode {
@@ -478,14 +490,14 @@ fn card_wobbly(title_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "CLICK TO PUNCH (WOBBLE)".to_string() },
                         font_size: 12.0,
                         font: { body_font },
                         color: Color::srgb(0.04, 0.06, 0.10),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -508,7 +520,7 @@ fn footer_status_bar(body_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 StatusLabel
                 UText {
                     text: { "Active Preset: Bouncy (Stiffness: 220, Damping: 0.75)  •  Theme: Palette #1".to_string() },
@@ -516,7 +528,7 @@ fn footer_status_bar(body_font: Handle<Font>) -> impl Scene {
                     font: { body_font },
                     color: Color::srgb(0.8, 0.88, 1.0),
                 }
-            )
+            
         ]
     }
 }

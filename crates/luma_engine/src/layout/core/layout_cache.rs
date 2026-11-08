@@ -16,6 +16,7 @@ use crate::layout::invalidation::{
 use crate::layout::layout_system::*;
 use crate::layout::pbr::UPbr;
 use crate::layout::univis_node::*;
+use crate::layout::visual::{UGradient, UInnerGlow, UShader, UShadow};
 use crate::schedule::*;
 
 use self::invalidation::{
@@ -842,14 +843,43 @@ pub fn track_render_stage_changes(
                 Changed<UImage>,
                 Added<UPbr>,
                 Changed<UPbr>,
-                Changed<ChildOf>,
+                Added<UShadow>,
+                Changed<UShadow>,
+                Added<UGradient>,
+                Changed<UGradient>,
+                Or<(
+                    Added<UInnerGlow>,
+                    Changed<UInnerGlow>,
+                    Added<UShader>,
+                    Changed<UShader>,
+                    Changed<ChildOf>,
+                )>,
             )>,
         ),
     >,
     changed_clips: Query<(Entity, Ref<UClip>), Or<(Added<UClip>, Changed<UClip>)>>,
     children_query: Query<&Children>,
-    mut removed_clips: RemovedComponents<UClip>,
+    removed_components: (
+        RemovedComponents<UClip>,
+        RemovedComponents<UBorder>,
+        RemovedComponents<UImage>,
+        RemovedComponents<UPbr>,
+        RemovedComponents<UShadow>,
+        RemovedComponents<UGradient>,
+        RemovedComponents<UInnerGlow>,
+        RemovedComponents<UShader>,
+    ),
 ) {
+    let (
+        mut removed_clips,
+        mut removed_borders,
+        mut removed_images,
+        mut removed_pbrs,
+        mut removed_shadows,
+        mut removed_gradients,
+        mut removed_inner_glows,
+        mut removed_shaders,
+    ) = removed_components;
     if material_pool.is_none() {
         return;
     }
@@ -866,6 +896,48 @@ pub fn track_render_stage_changes(
             cache.mark_render_dirty(entity, current_generation);
         }
         return;
+    }
+
+    for entity in removed_borders.read() {
+        if all_nodes.get(entity).is_ok() {
+            cache.mark_render_dirty(entity, current_generation);
+        }
+    }
+
+    for entity in removed_images.read() {
+        if all_nodes.get(entity).is_ok() {
+            cache.mark_render_dirty(entity, current_generation);
+        }
+    }
+
+    for entity in removed_pbrs.read() {
+        if all_nodes.get(entity).is_ok() {
+            cache.mark_render_dirty(entity, current_generation);
+        }
+    }
+
+    for entity in removed_shadows.read() {
+        if all_nodes.get(entity).is_ok() {
+            cache.mark_render_dirty(entity, current_generation);
+        }
+    }
+
+    for entity in removed_gradients.read() {
+        if all_nodes.get(entity).is_ok() {
+            cache.mark_render_dirty(entity, current_generation);
+        }
+    }
+
+    for entity in removed_inner_glows.read() {
+        if all_nodes.get(entity).is_ok() {
+            cache.mark_render_dirty(entity, current_generation);
+        }
+    }
+
+    for entity in removed_shaders.read() {
+        if all_nodes.get(entity).is_ok() {
+            cache.mark_render_dirty(entity, current_generation);
+        }
     }
 
     for (entity, clip) in changed_clips.iter() {

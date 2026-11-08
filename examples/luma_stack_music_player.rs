@@ -83,6 +83,7 @@ fn player_root_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             @player_window_card(icon_font.clone(), text_font.clone())
+            --
             @player_footer_note(icon_font, text_font)
         ]
     }
@@ -110,9 +111,13 @@ fn player_window_card(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
         }
         Children [
             @top_player_header(icon_font.clone(), text_font.clone())
+            --
             @square_album_stack(icon_font.clone(), text_font.clone())
+            --
             @track_meta_info(icon_font.clone(), text_font.clone())
+            --
             @scrubber_timeline_bar(text_font.clone())
+            --
             @transport_controls_row(icon_font, text_font)
         ]
     }
@@ -131,7 +136,7 @@ fn top_player_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl S
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -141,41 +146,44 @@ fn top_player_header(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl S
                 }
                 Children [
                     // Vector Music Icon
-                    (
+                    
                         UText {
                             text: { Icon::MUSIC.to_string() },
                             font_size: 14.0,
                             font: { icon_font },
                             color: Color::srgb(0.1, 0.85, 0.5),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "AUDIO STREAMING // LOSSLESS MASTER".to_string() },
                             font_size: 12.0,
                             font: { text_font.clone() },
                             color: Color::WHITE,
                         }
-                    ),
+                    
+                --
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     background_color: Color::srgba(0.15, 0.2, 0.3, 0.6),
                     border_radius: UCornerRadius::all(6.0),
                     padding: USides::axes(10.0, 4.0),
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { "24-BIT / 192 kHz ALAC".to_string() },
                             font_size: 10.0,
                             font: { text_font },
                             color: Color::srgb(0.6, 0.8, 1.0),
                         }
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -205,12 +213,15 @@ fn square_album_stack(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
             @layer_album_art()
 
             // Layer 2: Gloss & Vignette Filter
+            --
             @layer_gloss_filter()
 
             // Layer 3: Pinned Top-Left "MASTER QUALITY" Badge with Headphones Icon
+            --
             @pinned_badge_top_left(icon_font.clone(), text_font)
 
             // Layer 4: Center Play/Pause Touch Orb with Vector Icon
+            --
             @center_play_button_orb(icon_font)
         ]
     }
@@ -231,7 +242,7 @@ fn layer_album_art() -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Px(240.0),
                     height: UVal::Px(240.0),
@@ -243,7 +254,7 @@ fn layer_album_art() -> impl Scene {
                     width: 2.0,
                     radius: UCornerRadius::all(120.0),
                 }
-            )
+            
         ]
     }
 }
@@ -285,22 +296,24 @@ fn pinned_badge_top_left(icon_font: Handle<Font>, text_font: Handle<Font>) -> im
             gap: 6.0,
         }
         Children [
-            (
+            
                 UText {
                     text: { Icon::HEADPHONES.to_string() },
                     font_size: 12.0,
                     font: { icon_font },
                     color: Color::srgb(0.85, 0.7, 1.0),
                 }
-            ),
-            (
+            
+                --
+            
                 UText {
                     text: { "STUDIO MASTER AUDIO".to_string() },
                     font_size: 10.0,
                     font: { text_font },
                     color: Color::srgb(0.85, 0.7, 1.0),
                 }
-            ),
+            
+                --
         ]
     }
 }
@@ -335,7 +348,7 @@ fn center_play_button_orb(icon_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 PlayStateIndicator
                 UText {
                     text: { Icon::PAUSE.to_string() },
@@ -343,7 +356,7 @@ fn center_play_button_orb(icon_font: Handle<Font>) -> impl Scene {
                     font: { icon_font },
                     color: Color::srgb(0.04, 0.05, 0.08),
                 }
-            )
+            
         ]
         on(|_event: On<PointerClick>, mut state: ResMut<PlayerState>| {
             state.is_playing = !state.is_playing;
@@ -365,7 +378,7 @@ fn track_meta_info(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 USelf {
                     flex_grow: { Some(1.0) },
@@ -377,7 +390,7 @@ fn track_meta_info(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                     gap: 3.0,
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { "Midnight Horizon".to_string() },
                             font_size: 18.0,
@@ -387,8 +400,9 @@ fn track_meta_info(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                             outline_color: Color::srgba(0.65, 0.3, 0.95, 0.4),
                             wrap_mode: UTextWrapMode::WrapToParent,
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "Solar Waves • Synthwave Symphony (2026)".to_string() },
                             font_size: 13.0,
@@ -396,10 +410,12 @@ fn track_meta_info(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                             color: Color::srgb(0.6, 0.6, 0.75),
                             wrap_mode: UTextWrapMode::WrapToParent,
                         }
-                    ),
+                    
+                --
                 ]
-            ),
-            (
+            
+                --
+            
                 // Interactive Heart / Like Button
                 UNode {
                     width: UVal::Px(42.0),
@@ -427,7 +443,7 @@ fn track_meta_info(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                     pressed: Color::srgba(0.4, 0.2, 0.45, 0.9),
                 }
                 Children [
-                    (
+                    
                         LikeStateIndicator
                         UText {
                             text: { Icon::HEART.to_string() },
@@ -435,12 +451,12 @@ fn track_meta_info(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl Sce
                             font: { icon_font },
                             color: Color::srgb(0.95, 0.35, 0.55),
                         }
-                    )
+                    
                 ]
                 on(|_event: On<PointerClick>, mut state: ResMut<PlayerState>| {
                     state.is_liked = !state.is_liked;
                 })
-            )
+            
         ]
     }
 }
@@ -457,7 +473,7 @@ fn scrubber_timeline_bar(text_font: Handle<Font>) -> impl Scene {
             gap: 6.0,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     height: UVal::Px(6.0),
@@ -468,17 +484,18 @@ fn scrubber_timeline_bar(text_font: Handle<Font>) -> impl Scene {
                     display: UDisplay::Flex,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Percent(0.58),
                             height: UVal::Percent(1.0),
                             background_color: Color::srgb(0.1, 0.85, 0.5),
                             border_radius: UCornerRadius::all(3.0),
                         }
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -488,24 +505,26 @@ fn scrubber_timeline_bar(text_font: Handle<Font>) -> impl Scene {
                     justify_content: UJustifyContent::SpaceBetween,
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { "02:34".to_string() },
                             font_size: 11.0,
                             font: { text_font.clone() },
                             color: Color::srgb(0.55, 0.6, 0.7),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "04:18".to_string() },
                             font_size: 11.0,
                             font: { text_font },
                             color: Color::srgb(0.55, 0.6, 0.7),
                         }
-                    ),
+                    
+                --
                 ]
-            )
+            
         ]
     }
 }
@@ -594,14 +613,14 @@ fn icon_control_pill(icon_code: &str, icon_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UText {
                     text: icon_str,
                     font_size: 16.0,
                     font: { icon_font },
                     color: Color::srgb(0.85, 0.88, 0.95),
                 }
-            )
+            
         ]
     }
 }
@@ -658,7 +677,7 @@ fn player_footer_note(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -667,26 +686,28 @@ fn player_footer_note(icon_font: Handle<Font>, text_font: Handle<Font>) -> impl 
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::INFO.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "UDisplay::Stack overlays 1:1 square canvas, gloss filters, and floating controls.".to_string() },
                         font_size: 11.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    })
+                    }
                 ]
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: { "Luma Audio UI".to_string() },
                 font_size: 11.0,
                 font: { text_font },
                 color: Color::srgb(0.1, 0.85, 0.5),
-            })
+            }
         ]
     }
 }

@@ -13,6 +13,7 @@ use crate::layout::layout_system::{
 use crate::layout::pbr::UPbr;
 use crate::layout::profiling::LayoutProfiler;
 use crate::layout::univis_node::{UBorder, UClip, ULayout, UNode, USelf};
+use crate::layout::visual::{UGradient, UInnerGlow, UShader, UShadow};
 use crate::schedule::{
     UiPendingStages, UiSettlementConfig, UiSettlementSchedule, UiWorkStage, UiWorkState,
 };
@@ -98,11 +99,41 @@ pub(super) fn begin_ui_settlement_work(
             Changed<UPbr>,
             Added<UClip>,
             Changed<UClip>,
+            Added<UShadow>,
+            Changed<UShadow>,
+            Added<UGradient>,
+            Changed<UGradient>,
+            Or<(
+                Added<UInnerGlow>,
+                Changed<UInnerGlow>,
+                Added<UShader>,
+                Changed<UShader>,
+            )>,
         )>,
     >,
     mut removed_nodes: RemovedComponents<UNode>,
     mut removed_children: RemovedComponents<ChildOf>,
+    removed_render: (
+        RemovedComponents<UBorder>,
+        RemovedComponents<UImage>,
+        RemovedComponents<UPbr>,
+        RemovedComponents<UClip>,
+        RemovedComponents<UShadow>,
+        RemovedComponents<UGradient>,
+        RemovedComponents<UInnerGlow>,
+        RemovedComponents<UShader>,
+    ),
 ) {
+    let (
+        mut removed_borders,
+        mut removed_images,
+        mut removed_pbrs,
+        mut removed_clips,
+        mut removed_shadows,
+        mut removed_gradients,
+        mut removed_inner_glows,
+        mut removed_shaders,
+    ) = removed_render;
     // Window/camera changes (e.g. the compositor resizing the window after the first
     // frame) alter the resolved canvas size and must start a new settlement generation.
     // We only trigger this on the first iteration pass of the frame to avoid infinite loops,
@@ -126,7 +157,15 @@ pub(super) fn begin_ui_settlement_work(
     let removed_any_nodes = removed_nodes.read().count() > 0;
     let structure_changed = removed_any_nodes || removed_layout_children || layout_children_changed;
     let layout_changed = !layout_mutations.is_empty() || structure_changed;
-    let render_changed = !render_mutations.is_empty();
+    let removed_render_components = removed_borders.read().count() > 0
+        || removed_images.read().count() > 0
+        || removed_pbrs.read().count() > 0
+        || removed_clips.read().count() > 0
+        || removed_shadows.read().count() > 0
+        || removed_gradients.read().count() > 0
+        || removed_inner_glows.read().count() > 0
+        || removed_shaders.read().count() > 0;
+    let render_changed = !render_mutations.is_empty() || removed_render_components;
 
     let pending = UiPendingStages {
         root_resolve: roots_changed,

@@ -107,7 +107,7 @@ pub(super) struct UTextLabelSdfMaterial3d {
 
 impl Material for UTextLabelSdfMaterial3d {
     fn fragment_shader() -> ShaderRef {
-        "embedded://luma_engine/layout/render/shaders/text_label_sdf_3d.wgsl".into()
+        "embedded://luma_engine/layout/render/shaders/text_label_sdf_3d.wesl".into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {

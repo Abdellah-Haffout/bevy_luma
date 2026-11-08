@@ -4,6 +4,81 @@ use crate::internal_prelude::*;
 use bevy::{ecs::relationship::Relationship, prelude::*};
 use std::collections::HashMap;
 
+const UNODE_HOST_SHADER_TEMPLATE: &str = include_str!("shaders/unode.wgsl");
+const HOOK_START_MARKER: &str = "// __LUMA_CUSTOM_SHADER_HOOK_START__";
+const HOOK_END_MARKER: &str = "// __LUMA_CUSTOM_SHADER_HOOK_END__";
+
+/// Caches compiled `Handle<Shader>` instances for inline WGSL and asset-path [`UShader`] components.
+#[derive(Resource, Default)]
+pub struct UShaderCache {
+    by_hash: HashMap<u64, Handle<Shader>>,
+    by_path: HashMap<String, Handle<Shader>>,
+}
+
+impl UShaderCache {
+    /// Resolves or compiles a custom fragment shader handle for the given [`UShaderSource`].
+    pub fn resolve(
+        &mut self,
+        source: &UShaderSource,
+        shaders: &mut Assets<Shader>,
+        asset_server: Option<&AssetServer>,
+    ) -> Option<Handle<Shader>> {
+        match source {
+            UShaderSource::Handle(handle) => Some(handle.clone()),
+            UShaderSource::AssetPath(path) => {
+                if let Some(existing) = self.by_path.get(path) {
+                    return Some(existing.clone());
+                }
+                let server = asset_server?;
+                let handle: Handle<Shader> = server.load(path.clone());
+                self.by_path.insert(path.clone(), handle.clone());
+                Some(handle)
+            }
+            UShaderSource::Wgsl(snippet) => {
+                use std::hash::{Hash, Hasher};
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                snippet.hash(&mut hasher);
+                let hash = hasher.finish();
+
+                if let Some(existing) = self.by_hash.get(&hash) {
+                    return Some(existing.clone());
+                }
+
+                let injected_hook = if snippet.contains("fn sample_custom_shader") {
+                    snippet.clone()
+                } else {
+                    format!(
+                        "fn sample_custom_shader(\n    uv: vec2<f32>,\n    size: vec2<f32>,\n    time: f32,\n    params: array<vec4<f32>, 4>,\n) -> vec4<f32> {{\n{}\n}}",
+                        snippet
+                    )
+                };
+
+                let full_wgsl = if let (Some(start), Some(end)) = (
+                    UNODE_HOST_SHADER_TEMPLATE.find(HOOK_START_MARKER),
+                    UNODE_HOST_SHADER_TEMPLATE.find(HOOK_END_MARKER),
+                ) {
+                    let mut composed = String::with_capacity(
+                        UNODE_HOST_SHADER_TEMPLATE.len() + injected_hook.len(),
+                    );
+                    composed.push_str(&UNODE_HOST_SHADER_TEMPLATE[..start]);
+                    composed.push_str(&injected_hook);
+                    composed.push_str(&UNODE_HOST_SHADER_TEMPLATE[end + HOOK_END_MARKER.len()..]);
+                    composed
+                } else {
+                    UNODE_HOST_SHADER_TEMPLATE.to_string()
+                };
+
+                let handle = shaders.add(Shader::from_wgsl(
+                    full_wgsl,
+                    format!("luma://ushader/inline_{hash:016x}.wgsl"),
+                ));
+                self.by_hash.insert(hash, handle.clone());
+                Some(handle)
+            }
+        }
+    }
+}
+
 /// Cached material handles attached to a rendered node.
 #[derive(Component, Default)]
 pub struct MaterialHandles {
@@ -112,23 +187,40 @@ pub fn update_materials_optimized(
         Option<&UGradient>,
         Option<&UShadow>,
         Option<&UInnerGlow>,
+        Option<&UShader>,
     )>,
     // Clipping queries
     parents_query: Query<&ChildOf>,
     clipper_query: Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
     root_query: Query<&ResolvedRootUi>,
 
-    // Render resources
-    meshes: Option<ResMut<Assets<Mesh>>>,
-    materials_2d: Option<ResMut<Assets<UNodeMaterial>>>,
-    materials_3d: Option<ResMut<Assets<UNodeMaterial3d>>>,
+    // Render resources grouped to stay within Bevy's 16-parameter system limit
+    render_assets: (
+        Option<ResMut<Assets<Mesh>>>,
+        Option<ResMut<Assets<UNodeMaterial>>>,
+        Option<ResMut<Assets<UNodeMaterial3d>>>,
+        Option<ResMut<UShaderCache>>,
+        Option<ResMut<Assets<Shader>>>,
+        Option<Res<AssetServer>>,
+        Option<Res<Time>>,
+    ),
 ) {
+    let (
+        meshes,
+        materials_2d,
+        materials_3d,
+        mut shader_cache,
+        mut shaders,
+        asset_server,
+        time,
+    ) = render_assets;
     let (Some(mut meshes), Some(mut materials_2d), Some(mut materials_3d)) =
         (meshes, materials_2d, materials_3d)
     else {
         return;
     };
 
+    let elapsed_secs = time.as_ref().map_or(0.0, |t| t.elapsed_secs());
     let start = std::time::Instant::now();
     let use_cached_ui_context = rollout
         .as_ref()
@@ -163,6 +255,7 @@ pub fn update_materials_optimized(
             gradient_opt,
             shadow_opt,
             inner_glow_opt,
+            shader_opt,
         )) = nodes.get_mut(entity)
         else {
             continue;
@@ -182,6 +275,11 @@ pub fn update_materials_optimized(
             gradient_opt,
             shadow_opt,
             inner_glow_opt,
+            shader_opt,
+            elapsed_secs,
+            shader_cache.as_deref_mut(),
+            shaders.as_deref_mut(),
+            asset_server.as_deref(),
             &parents_query,
             &clipper_query,
             &root_query,
@@ -219,6 +317,11 @@ fn sync_entity_material(
     gradient_opt: Option<&UGradient>,
     shadow_opt: Option<&UShadow>,
     inner_glow_opt: Option<&UInnerGlow>,
+    shader_opt: Option<&UShader>,
+    elapsed_secs: f32,
+    shader_cache: Option<&mut UShaderCache>,
+    shaders: Option<&mut Assets<Shader>>,
+    asset_server: Option<&AssetServer>,
     parents_query: &Query<&ChildOf>,
     clipper_query: &Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
     root_query: &Query<&ResolvedRootUi>,
@@ -242,13 +345,14 @@ fn sync_entity_material(
     };
     let render_context = resolve_render_context(entity, cached_context, parents_query, root_query);
 
-    // Fast-path: Pure 2D SDF nodes without textures or gradients are rendered
+    // Fast-path: Pure 2D SDF nodes without textures, gradients, or custom shaders are rendered
     // entirely via the single-draw instanced batch pipeline!
     if use_instanced_batching
         && render_context.mode == ResolvedRenderMode::Flat2d
         && image.is_none()
         && gradient_opt.is_none()
         && inner_glow_opt.is_none()
+        && shader_opt.is_none()
     {
         if handles_opt.is_some() {
             if let Ok(mut cmd) = commands.get_entity(entity) {
@@ -370,6 +474,23 @@ fn sync_entity_material(
         (LinearRgba::NONE, Vec4::ZERO)
     };
 
+    let (custom_params, custom_meta, custom_shader) = if let Some(shader) = shader_opt {
+        let t = if shader.animate {
+            elapsed_secs * shader.speed + shader.time_offset
+        } else {
+            shader.time_offset
+        };
+        let meta = Vec4::new(t, shader.blend_mode.as_f32(), shader.opacity, 1.0);
+        let handle = if let (Some(cache), Some(shader_assets)) = (shader_cache, shaders) {
+            cache.resolve(&shader.source, shader_assets, asset_server)
+        } else {
+            None
+        };
+        (shader.params, meta, handle)
+    } else {
+        ([Vec4::ZERO; 4], Vec4::ZERO, None)
+    };
+
     let shadow_blur = shadow_params.z;
     let shadow_spread = shadow_params.w;
     let shadow_offset = shadow_params.xy();
@@ -417,6 +538,8 @@ fn sync_entity_material(
                         existing_mat.shadow_params = shadow_params;
                         existing_mat.inner_glow_color = inner_glow_color.to_vec4();
                         existing_mat.inner_glow_params = inner_glow_params;
+                        existing_mat.custom_params = custom_params;
+                        existing_mat.custom_meta = custom_meta;
 
                         pool.reused_count += 1;
                         existing_handle.clone()
@@ -442,6 +565,8 @@ fn sync_entity_material(
                             shadow_params,
                             inner_glow_color.to_vec4(),
                             inner_glow_params,
+                            custom_params,
+                            custom_meta,
                         ));
                         handles.material_3d = Some(new_mat.clone());
                         pool.created_count += 1;
@@ -469,6 +594,8 @@ fn sync_entity_material(
                         shadow_params,
                         inner_glow_color.to_vec4(),
                         inner_glow_params,
+                        custom_params,
+                        custom_meta,
                     ));
                     handles.material_3d = Some(new_mat.clone());
                     pool.created_count += 1;
@@ -496,6 +623,8 @@ fn sync_entity_material(
                     shadow_params,
                     inner_glow_color.to_vec4(),
                     inner_glow_params,
+                    custom_params,
+                    custom_meta,
                 ));
                 if let Ok(mut cmd) = commands.get_entity(entity) {
                     cmd.try_insert(MaterialHandles {
@@ -538,6 +667,9 @@ fn sync_entity_material(
                         existing_mat.shadow_params = shadow_params;
                         existing_mat.inner_glow_color = inner_glow_color;
                         existing_mat.inner_glow_params = inner_glow_params;
+                        existing_mat.custom_params = custom_params;
+                        existing_mat.custom_meta = custom_meta;
+                        existing_mat.custom_shader = custom_shader.clone();
 
                         pool.reused_count += 1;
                         existing_handle.clone()
@@ -565,6 +697,9 @@ fn sync_entity_material(
                             shadow_params,
                             inner_glow_color,
                             inner_glow_params,
+                            custom_params,
+                            custom_meta,
+                            custom_shader.clone(),
                         ));
                         handles.material_2d = Some(new_mat.clone());
                         pool.created_count += 1;
@@ -594,6 +729,9 @@ fn sync_entity_material(
                         shadow_params,
                         inner_glow_color,
                         inner_glow_params,
+                        custom_params,
+                        custom_meta,
+                        custom_shader.clone(),
                     ));
                     handles.material_2d = Some(new_mat.clone());
                     pool.created_count += 1;
@@ -623,6 +761,9 @@ fn sync_entity_material(
                     shadow_params,
                     inner_glow_color,
                     inner_glow_params,
+                    custom_params,
+                    custom_meta,
+                    custom_shader,
                 ));
                 if let Ok(mut cmd) = commands.get_entity(entity) {
                     cmd.try_insert(MaterialHandles {
@@ -769,6 +910,9 @@ fn create_2d_material(
     shadow_params: Vec4,
     inner_glow_color: LinearRgba,
     inner_glow_params: Vec4,
+    custom_params: [Vec4; 4],
+    custom_meta: Vec4,
+    custom_shader: Option<Handle<Shader>>,
 ) -> UNodeMaterial {
     UNodeMaterial {
         color: base_color,
@@ -797,6 +941,10 @@ fn create_2d_material(
         shadow_params,
         inner_glow_color,
         inner_glow_params,
+        custom_params,
+        custom_meta,
+        custom_cursor: Vec4::new(0.5, 0.5, 0.0, 0.0),
+        custom_shader,
     }
 }
 
@@ -822,6 +970,8 @@ fn create_3d_material(
     shadow_params: Vec4,
     inner_glow_color: Vec4,
     inner_glow_params: Vec4,
+    custom_params: [Vec4; 4],
+    custom_meta: Vec4,
 ) -> UNodeMaterial3d {
     UNodeMaterial3d {
         color: base_color.to_vec4(),
@@ -844,5 +994,102 @@ fn create_3d_material(
         shadow_params,
         inner_glow_color,
         inner_glow_params,
+        custom_params,
+        custom_meta,
+        custom_cursor: Vec4::new(0.5, 0.5, 0.0, 0.0),
+    }
+}
+
+/// Lightweight frame-by-frame time and mouse cursor updater for [`UShader`] nodes.
+/// Updates `custom_meta.x` and `custom_cursor` directly in `Assets<UNodeMaterial>`
+/// without dirtying UI layout.
+pub fn sync_animated_ushaders(
+    time: Res<Time>,
+    windows: Query<&Window>,
+    cameras: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    mouse_buttons: Option<Res<ButtonInput<MouseButton>>>,
+    query: Query<(
+        &UShader,
+        &MaterialHandles,
+        Option<&GlobalTransform>,
+        Option<&ComputedSize>,
+    )>,
+    mut materials_2d: Option<ResMut<Assets<UNodeMaterial>>>,
+    mut materials_3d: Option<ResMut<Assets<UNodeMaterial3d>>>,
+) {
+    let elapsed = time.elapsed_secs();
+    let dt = time.delta_secs().clamp(0.001, 0.1);
+    let is_mouse_pressed = mouse_buttons
+        .as_ref()
+        .is_some_and(|btn| btn.pressed(MouseButton::Left));
+
+    let cursor_world_2d = windows
+        .iter()
+        .find_map(|w| w.cursor_position())
+        .and_then(|screen_pos| {
+            cameras
+                .iter()
+                .find_map(|(cam, tf)| cam.viewport_to_world_2d(tf, screen_pos).ok())
+        });
+
+    for (shader, handles, global_tf, computed_size) in query.iter() {
+        let t = if shader.animate {
+            elapsed * shader.speed + shader.time_offset
+        } else {
+            shader.time_offset
+        };
+
+        // Compute normalized local cursor UV (0.0..1.0) and hover/press state
+        let mut target_uv = Vec2::new(
+            0.5 + 0.26 * (t * 0.85).cos(),
+            0.5 + 0.22 * (t * 1.15).sin(),
+        );
+        let mut is_hovered = false;
+
+        if let (Some(world_pos), Some(tf), Some(size)) = (cursor_world_2d, global_tf, computed_size)
+            && size.width > 1.0
+            && size.height > 1.0
+        {
+            let center = tf.translation().truncate();
+            let uv_x = (world_pos.x - center.x) / size.width + 0.5;
+            let uv_y = (center.y - world_pos.y) / size.height + 0.5;
+            if (-0.15..=1.15).contains(&uv_x) && (-0.15..=1.15).contains(&uv_y) {
+                target_uv = Vec2::new(uv_x.clamp(0.0, 1.0), uv_y.clamp(0.0, 1.0));
+                is_hovered = (0.0..=1.0).contains(&uv_x) && (0.0..=1.0).contains(&uv_y);
+            }
+        }
+
+        let target_hover = if is_hovered { 1.0 } else { 0.0 };
+        let target_press = if is_hovered && is_mouse_pressed {
+            1.0
+        } else {
+            0.0
+        };
+        let smooth_rate = (dt * 12.0).clamp(0.0, 1.0);
+
+        if let (Some(h2d), Some(mats2d)) = (&handles.material_2d, materials_2d.as_mut())
+            && let Some(mut mat) = mats2d.get_mut(h2d)
+        {
+            if shader.animate {
+                mat.custom_meta.x = t;
+            }
+            let prev = mat.custom_cursor;
+            let next_uv = prev.xy().lerp(target_uv, smooth_rate);
+            let next_hover = prev.z + (target_hover - prev.z) * smooth_rate;
+            let next_press = prev.w + (target_press - prev.w) * smooth_rate;
+            mat.custom_cursor = Vec4::new(next_uv.x, next_uv.y, next_hover, next_press);
+        }
+        if let (Some(h3d), Some(mats3d)) = (&handles.material_3d, materials_3d.as_mut())
+            && let Some(mut mat) = mats3d.get_mut(h3d)
+        {
+            if shader.animate {
+                mat.custom_meta.x = t;
+            }
+            let prev = mat.custom_cursor;
+            let next_uv = prev.xy().lerp(target_uv, smooth_rate);
+            let next_hover = prev.z + (target_hover - prev.z) * smooth_rate;
+            let next_press = prev.w + (target_press - prev.w) * smooth_rate;
+            mat.custom_cursor = Vec4::new(next_uv.x, next_uv.y, next_hover, next_press);
+        }
     }
 }

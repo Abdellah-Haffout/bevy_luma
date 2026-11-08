@@ -280,7 +280,7 @@ fn terminal_header(title_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -288,21 +288,23 @@ fn terminal_header(title_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                     gap: 2.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "QUANTUM PBR HUD // WORLD-SPACE 3D".to_string() },
                         font_size: 16.0,
                         font: { title_font },
                         color: Color::srgb(0.35, 0.88, 1.0),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Orbital Light Orbs & Panel Projector Emitter".to_string() },
                         font_size: 12.0,
                         font: { text_font.clone() },
                         color: Color::srgb(0.65, 0.75, 0.85),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     padding: USides::axes(12.0, 6.0),
                     background_color: Color::srgba(0.1, 0.9, 0.5, 0.2),
@@ -320,14 +322,14 @@ fn terminal_header(title_font: Handle<Font>, text_font: Handle<Font>) -> impl Sc
                     emissive: LinearRgba::new(0.2, 2.2, 1.2, 1.0),
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "EMITTER: TARGET LOCKED".to_string() },
                         font_size: 11.0,
                         font: { text_font },
                         color: Color::WHITE,
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -351,19 +353,21 @@ fn terminal_content(title_font: Handle<Font>, text_font: Handle<Font>) -> impl S
             gap: 12.0,
         }
         Children [
-            (UText {
+            UText {
                 text: { "Interactive Photometric Material Demonstration".to_string() },
                 font_size: 20.0,
                 font: { title_font },
                 color: Color::WHITE,
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { "1. The Cyan & Gold glowing orbs orbit 360° completely in front of and behind the UI panel.\n2. The panel's right emitter projects an emerald spotlight directly striking the external rotating cube.\n3. UPbr on the panel captures true microfacet specular highlights as lights pass across its SDF borders.".to_string() },
                 font_size: 13.0,
                 font: { text_font.clone() },
                 color: Color::srgb(0.75, 0.82, 0.92),
-            }),
-            (
+            }
+                --
+            
                 StatusLabel
                 UNode {
                     width: UVal::Percent(1.0),
@@ -382,14 +386,14 @@ fn terminal_content(title_font: Handle<Font>, text_font: Handle<Font>) -> impl S
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "METALLIC: 0.85 | ROUGHNESS: 0.18 | STATUS: ORBITING".to_string() },
                         font_size: 13.0,
                         font: { text_font },
                         color: Color::srgb(1.0, 0.85, 0.4),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -405,18 +409,19 @@ fn terminal_footer(text_font: Handle<Font>) -> impl Scene {
             justify_content: UJustifyContent::SpaceBetween,
         }
         Children [
-            (UText {
+            UText {
                 text: { "[Space] Pause   [M] Metallic Mode   [R] Roughness Mode".to_string() },
                 font_size: 12.0,
                 font: { text_font.clone() },
                 color: Color::srgb(0.45, 0.6, 0.75),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: { "Luma UI Spatial Engine".to_string() },
                 font_size: 12.0,
                 font: { text_font },
                 color: Color::srgb(0.3, 0.45, 0.6),
-            })
+            }
         ]
     }
 }

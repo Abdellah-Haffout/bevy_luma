@@ -71,8 +71,11 @@ fn dashboard_root_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             @top_navbar(icon_font.clone(), body_font.clone())
+            --
             @metrics_kpi_row(icon_font.clone(), body_font.clone())
+            --
             @middle_split_area(icon_font.clone(), body_font.clone())
+            --
             @footer_status_bar(icon_font, body_font)
         ]
     }
@@ -103,7 +106,7 @@ fn top_navbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 // Brand Logo & Org
                 UNode::default()
                 ULayout {
@@ -113,7 +116,7 @@ fn top_navbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(34.0),
                             height: UVal::Px(34.0),
@@ -126,15 +129,16 @@ fn top_navbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::SERVER.to_string() },
                                 font_size: 18.0,
                                 font: { icon_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -142,25 +146,27 @@ fn top_navbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "LUMA CLOUD PLATFORM".to_string() },
                                 font_size: 14.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
                                 outline_width: 1.0,
                                 outline_color: Color::srgba(0.38, 0.35, 0.95, 0.4),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Production Enterprise Cluster • US-East Fleet".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.5, 0.55, 0.7),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 // Right Nav Actions
                 UNode::default()
                 ULayout {
@@ -170,7 +176,7 @@ fn top_navbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         // Live Status Pill
                         UNode {
                             background_color: Color::srgba(0.05, 0.3, 0.15, 0.5),
@@ -189,21 +195,23 @@ fn top_navbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::CHECK.to_string() },
                                 font_size: 11.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.2, 0.9, 0.4),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "ALL SYSTEMS OPERATIONAL".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.25, 0.95, 0.5),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         // Refresh button
                         UNode {
                             background_color: Color::srgb(0.38, 0.35, 0.95),
@@ -224,13 +232,14 @@ fn top_navbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                             gap: 8.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::REFRESH_CW.to_string() },
                                 font_size: 12.0,
                                 font: { icon_font },
                                 color: Color::WHITE,
-                            }),
-                            (
+                            }
+                --
+                            
                                 RefreshFeedbackText
                                 UText {
                                     text: { "REFRESH METRICS".to_string() },
@@ -238,15 +247,15 @@ fn top_navbar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene {
                                     font: { body_font },
                                     color: Color::WHITE,
                                 }
-                            )
+                            
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<DashboardState>| {
                             state.refresh_count += 1;
                             info!("Dashboard Metrics Refreshed #{}", state.refresh_count);
                         })
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -268,8 +277,11 @@ fn metrics_kpi_row(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sce
         }
         Children [
             @kpi_card(icon_font.clone(), body_font.clone(), Icon::USERS, "ACTIVE CONCURRENT USERS", "48,290", "+14.2% vs yesterday", Color::srgb(0.2, 0.8, 0.5))
+            --
             @kpi_card(icon_font.clone(), body_font.clone(), Icon::ZAP, "API INGESTION RATE", "18.4k req/s", "Avg Latency 14.2ms", Color::srgb(0.38, 0.65, 1.0))
+            --
             @kpi_card(icon_font.clone(), body_font.clone(), Icon::CIRCLE_ALERT, "HTTP ERROR RATE", "0.018%", "Target < 0.05%", Color::srgb(0.9, 0.7, 0.2))
+            --
             @kpi_card(icon_font, body_font, Icon::BANKNOTE, "CURRENT CLOUD RUN-RATE", "$1,420 / mo", "Within Budget (-8%)", Color::srgb(0.65, 0.45, 1.0))
         ]
     }
@@ -291,6 +303,7 @@ fn middle_split_area(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
         }
         Children [
             @cluster_nodes_card(icon_font.clone(), body_font.clone())
+            --
             @regions_sidebar(icon_font, body_font)
         ]
     }
@@ -319,7 +332,7 @@ fn cluster_nodes_card(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl 
             gap: 14.0,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -330,7 +343,7 @@ fn cluster_nodes_card(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl 
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -339,38 +352,41 @@ fn cluster_nodes_card(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl 
                             gap: 8.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::SERVER.to_string() },
                                 font_size: 15.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.38, 0.65, 1.0),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "COMPUTE CLUSTER NODES (4 ACTIVE)".to_string() },
                                 font_size: 14.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode {
                             padding: USides::axes(10.0, 4.0),
                             background_color: Color::srgba(0.1, 0.3, 0.2, 0.5),
                             border_radius: UCornerRadius::all(6.0),
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "AUTO-SCALING: 2-16 NODES".to_string() },
                                 font_size: 10.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.3, 0.9, 0.55),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -381,12 +397,16 @@ fn cluster_nodes_card(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl 
                 }
                 Children [
                     @node_row(icon_font.clone(), body_font.clone(), "node-prod-east-01", "8 vCPU / 32 GB RAM", 0.62, "62% LOAD", Color::srgb(0.35, 0.65, 1.0))
+                    --
                     @node_row(icon_font.clone(), body_font.clone(), "node-prod-east-02", "8 vCPU / 32 GB RAM", 0.74, "74% LOAD", Color::srgb(0.35, 0.65, 1.0))
+                    --
                     @node_row(icon_font.clone(), body_font.clone(), "node-prod-east-03", "16 vCPU / 64 GB RAM", 0.41, "41% LOAD", Color::srgb(0.2, 0.8, 0.5))
+                    --
                     @node_row(icon_font.clone(), body_font.clone(), "node-prod-east-04", "16 vCPU / 64 GB RAM", 0.88, "88% LOAD", Color::srgb(0.95, 0.55, 0.2))
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.04, 0.06, 0.1, 0.6),
@@ -394,15 +414,15 @@ fn cluster_nodes_card(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl 
                     padding: USides::all(10.0),
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { "Flexbox Solver dynamically balances container space across nodes with zero allocations per frame.".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.7),
                         wrap_mode: UTextWrapMode::WrapToParent,
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -430,7 +450,7 @@ fn regions_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sce
             gap: 12.0,
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -441,21 +461,23 @@ fn regions_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sce
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::GLOBE.to_string() },
                         font_size: 15.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.4, 0.7, 1.0),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "REGIONAL EDGE POPS".to_string() },
                         font_size: 14.0,
                         font: { body_font.clone() },
                         color: Color::WHITE,
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Percent(1.0),
                 }
@@ -466,12 +488,16 @@ fn regions_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sce
                 }
                 Children [
                     @region_card(icon_font.clone(), body_font.clone(), "us-east-1 (N. Virginia)", "12ms", "HEALTHY", Color::srgb(0.2, 0.85, 0.5))
+                    --
                     @region_card(icon_font.clone(), body_font.clone(), "eu-west-1 (Frankfurt)", "34ms", "HEALTHY", Color::srgb(0.2, 0.85, 0.5))
+                    --
                     @region_card(icon_font.clone(), body_font.clone(), "ap-northeast-1 (Tokyo)", "112ms", "HEALTHY", Color::srgb(0.2, 0.85, 0.5))
+                    --
                     @region_card(icon_font.clone(), body_font.clone(), "sa-east-1 (São Paulo)", "148ms", "ELEVATED", Color::srgb(0.9, 0.7, 0.2))
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.38, 0.35, 0.95, 0.15),
@@ -490,20 +516,21 @@ fn regions_sidebar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Sce
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::SHIELD.to_string() },
                         font_size: 11.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.65, 0.6, 1.0),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "DNS GLOBAL ANYCAST ROUTING: OPTIMAL".to_string() },
                         font_size: 10.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.65, 0.6, 1.0),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -528,7 +555,7 @@ fn footer_status_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -537,21 +564,23 @@ fn footer_status_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::INFO.to_string() },
                         font_size: 12.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.65),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Luma UI Flexbox Layout Engine • Declarative BSN Architecture".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.45, 0.5, 0.65),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -560,20 +589,21 @@ fn footer_status_bar(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl S
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::CHECK.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: Color::srgb(0.3, 0.8, 0.5),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Cluster v3.2.1 • 99.99% SLA".to_string() },
                         font_size: 11.0,
                         font: { body_font },
                         color: Color::srgb(0.3, 0.8, 0.5),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -613,7 +643,7 @@ fn kpi_card(
             gap: 6.0,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -622,34 +652,37 @@ fn kpi_card(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: title,
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.7),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { icon.to_string() },
                         font_size: 13.0,
                         font: { icon_font },
                         color: Color::srgb(0.5, 0.55, 0.7),
-                    })
+                    }
                 ]
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: val,
                 font_size: 22.0,
                 font: { body_font.clone() },
                 color: Color::WHITE,
                 outline_width: 1.0,
                 outline_color: Color::srgba(0.38, 0.35, 0.95, 0.35),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: note,
                 font_size: 11.0,
                 font: { body_font },
                 color: note_color,
-            })
+            }
         ]
     }
 }
@@ -682,7 +715,7 @@ fn node_row(
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -691,13 +724,14 @@ fn node_row(
                     gap: 10.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::CPU.to_string() },
                         font_size: 14.0,
                         font: { icon_font },
                         color: bar_color,
-                    }),
-                    (
+                    }
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -705,23 +739,25 @@ fn node_row(
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: name,
                                 font_size: 13.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: specs,
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.45, 0.5, 0.65),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode::default()
                 USelf {
                     flex_shrink: { Some(0.0) },
@@ -733,7 +769,7 @@ fn node_row(
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(120.0),
                             height: UVal::Px(8.0),
@@ -744,24 +780,25 @@ fn node_row(
                             display: UDisplay::Flex,
                         }
                         Children [
-                            (
+                            
                                 UNode {
                                     width: UVal::Percent(bar_pct),
                                     height: UVal::Percent(1.0),
                                     background_color: bar_color,
                                     border_radius: UCornerRadius::all(4.0),
                                 }
-                            )
+                            
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: load_text,
                         font_size: 12.0,
                         font: { body_font },
                         color: Color::srgb(0.8, 0.85, 0.95),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }
@@ -791,7 +828,7 @@ fn region_card(
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -800,13 +837,14 @@ fn region_card(
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::WIFI.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: status_color,
-                    }),
-                    (
+                    }
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -814,23 +852,25 @@ fn region_card(
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: name,
                                 font_size: 12.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { format!("Latency: {}", latency) },
                                 font_size: 10.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.45, 0.5, 0.65),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     background_color: Color::srgba(0.05, 0.25, 0.15, 0.4),
                     border_radius: UCornerRadius::all(4.0),
@@ -840,14 +880,14 @@ fn region_card(
                     flex_shrink: { Some(0.0) },
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: status,
                         font_size: 10.0,
                         font: { body_font },
                         color: status_color,
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }

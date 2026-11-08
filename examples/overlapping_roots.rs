@@ -108,7 +108,7 @@ fn hud_scene(font: Handle<Font>) -> impl Scene {
         }
         Children [
             // Top Header Banner
-            (
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     background_color: Color::srgba(0.06, 0.08, 0.12, 0.92),
@@ -134,7 +134,7 @@ fn hud_scene(font: Handle<Font>) -> impl Scene {
                 }
                 Children [
                     // Title and Description
-                    (
+                    
                         UNode {}
                         ULayout {
                             display: UDisplay::Flex,
@@ -142,22 +142,25 @@ fn hud_scene(font: Handle<Font>) -> impl Scene {
                             gap: 4.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "Luma UI — Multi-Root Layering & Depth Stacking".to_string() },
                                 font_size: 18.0,
                                 font: { font.clone() },
                                 color: Color::WHITE,
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Per-Root Batching: When roots overlap, child UNode panels & UText labels never interleave.".to_string() },
                                 font_size: 13.0,
                                 font: { font.clone() },
                                 color: Color::srgb(0.60, 0.65, 0.78),
-                            }),
+                            }
+                --
                         ]
-                    ),
+                    
+                --
                     // Action Buttons / Shortcuts
-                    (
+                    
                         UNode {}
                         ULayout {
                             display: UDisplay::Flex,
@@ -181,11 +184,13 @@ fn hud_scene(font: Handle<Font>) -> impl Scene {
                                 state.auto_slide = !state.auto_slide;
                             })
                         ]
-                    ),
+                    
+                --
                 ]
-            ),
+            
+                --
             // Bottom Status Legend Bar
-            (
+            
                 UNode {
                     background_color: Color::srgba(0.06, 0.08, 0.12, 0.85),
                     border_radius: UCornerRadius::all(10.0),
@@ -197,7 +202,7 @@ fn hud_scene(font: Handle<Font>) -> impl Scene {
                     radius: UCornerRadius::all(10.0),
                 }
                 Children [
-                    (
+                    
                         StatusText
                         UText {
                             text: { "Top Window: Window 2 (Emerald) | Motion: Active | Shortcuts: [1], [2], [Space]".to_string() },
@@ -205,9 +210,9 @@ fn hud_scene(font: Handle<Font>) -> impl Scene {
                             font: { font.clone() },
                             color: Color::srgb(0.75, 0.80, 0.90),
                         }
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -223,7 +228,7 @@ fn window_1_scene(font_body: Handle<Font>, font_code: Handle<Font>) -> impl Scen
             display: UDisplay::Flex,
         }
         Children [
-            (
+            
                 USelf {
                     position_type: UPositionType::Absolute,
                     left: UVal::Px(100.0),
@@ -257,7 +262,7 @@ fn window_1_scene(font_body: Handle<Font>, font_code: Handle<Font>) -> impl Scen
                 })
                 Children [
                     // Window Title Bar
-                    (
+                    
                         UNode {
                             width: UVal::Percent(1.0),
                         }
@@ -268,7 +273,7 @@ fn window_1_scene(font_body: Handle<Font>, font_code: Handle<Font>) -> impl Scen
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (
+                            
                                 UNode {}
                                 ULayout {
                                     display: UDisplay::Flex,
@@ -277,41 +282,46 @@ fn window_1_scene(font_body: Handle<Font>, font_code: Handle<Font>) -> impl Scen
                                     align_items: UAlignItems::Center,
                                 }
                                 Children [
-                                    (
+                                    
                                         UNode {
                                             width: UVal::Px(12.0),
                                             height: UVal::Px(12.0),
                                             background_color: Color::srgb(0.30, 0.55, 0.95),
                                             border_radius: UCornerRadius::all(6.0),
                                         }
-                                    ),
-                                    (UText {
+                                    
+                --
+                                    UText {
                                         text: { "Root 1: Engine Diagnostics & Code".to_string() },
                                         font_size: 16.0,
                                         font: { font_body.clone() },
                                         color: Color::WHITE,
-                                    }),
+                                    }
+                --
                                 ]
-                            ),
-                            (
+                            
+                --
+                            
                                 UNode {
                                     background_color: Color::srgba(0.24, 0.38, 0.65, 0.30),
                                     border_radius: UCornerRadius::all(6.0),
                                     padding: USides::axes(8.0, 4.0),
                                 }
                                 Children [
-                                    (UText {
+                                    UText {
                                         text: { "LAYER 1".to_string() },
                                         font_size: 11.0,
                                         font: { font_body.clone() },
                                         color: Color::srgb(0.60, 0.75, 1.0),
-                                    })
+                                    }
                                 ]
-                            ),
+                            
+                --
                         ]
-                    ),
+                    
+                --
                     // Inner Panel 1: Code preview
-                    (
+                    
                         UNode {
                             width: UVal::Percent(1.0),
                             background_color: Color::srgb(0.05, 0.06, 0.10),
@@ -329,40 +339,46 @@ fn window_1_scene(font_body: Handle<Font>, font_code: Handle<Font>) -> impl Scen
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "// Transparent2d Batching Phase".to_string() },
                                 font_size: 13.0,
                                 font: { font_code.clone() },
                                 color: Color::srgb(0.40, 0.50, 0.65),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "fn prepare_univis_nodes(mut meta: ResMut<UnivisBatchMeta>) {".to_string() },
                                 font_size: 13.0,
                                 font: { font_code.clone() },
                                 color: Color::srgb(0.85, 0.70, 0.40),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "    // Slices are partitioned strictly per root_entity".to_string() },
                                 font_size: 13.0,
                                 font: { font_code.clone() },
                                 color: Color::srgb(0.50, 0.75, 0.55),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "    meta.slices.push(UnivisBatchSlice { root_entity, range });".to_string() },
                                 font_size: 13.0,
                                 font: { font_code.clone() },
                                 color: Color::srgb(0.70, 0.85, 1.0),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "}".to_string() },
                                 font_size: 13.0,
                                 font: { font_code.clone() },
                                 color: Color::srgb(0.85, 0.70, 0.40),
-                            }),
+                            }
+                --
                         ]
-                    ),
+                    
+                --
                     // Inner Panel 2: Stats & Metrics Grid
-                    (
+                    
                         UNode {
                             width: UVal::Percent(1.0),
                         }
@@ -378,9 +394,10 @@ fn window_1_scene(font_body: Handle<Font>, font_code: Handle<Font>) -> impl Scen
                             --
                             @info_card("Z-Buffer Loss", "0.00 %", Color::srgb(0.40, 0.80, 0.60), font_body.clone())
                         ]
-                    ),
+                    
+                --
                     // Bottom Bar
-                    (
+                    
                         UNode {
                             width: UVal::Percent(1.0),
                         }
@@ -403,9 +420,9 @@ fn window_1_scene(font_body: Handle<Font>, font_code: Handle<Font>) -> impl Scen
                                 state.top_window = 1;
                             })
                         ]
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -421,7 +438,7 @@ fn window_2_scene(font: Handle<Font>) -> impl Scene {
             display: UDisplay::Flex,
         }
         Children [
-            (
+            
                 SlidingWindow
                 USelf {
                     position_type: UPositionType::Absolute,
@@ -456,7 +473,7 @@ fn window_2_scene(font: Handle<Font>) -> impl Scene {
                 })
                 Children [
                     // Window Title Bar
-                    (
+                    
                         UNode {
                             width: UVal::Percent(1.0),
                         }
@@ -467,7 +484,7 @@ fn window_2_scene(font: Handle<Font>) -> impl Scene {
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (
+                            
                                 UNode {}
                                 ULayout {
                                     display: UDisplay::Flex,
@@ -476,41 +493,46 @@ fn window_2_scene(font: Handle<Font>) -> impl Scene {
                                     align_items: UAlignItems::Center,
                                 }
                                 Children [
-                                    (
+                                    
                                         UNode {
                                             width: UVal::Px(12.0),
                                             height: UVal::Px(12.0),
                                             background_color: Color::srgb(0.25, 0.85, 0.55),
                                             border_radius: UCornerRadius::all(6.0),
                                         }
-                                    ),
-                                    (UText {
+                                    
+                --
+                                    UText {
                                         text: { "Root 2: Live Inspector & Metrics".to_string() },
                                         font_size: 16.0,
                                         font: { font.clone() },
                                         color: Color::WHITE,
-                                    }),
+                                    }
+                --
                                 ]
-                            ),
-                            (
+                            
+                --
+                            
                                 UNode {
                                     background_color: Color::srgba(0.20, 0.65, 0.45, 0.30),
                                     border_radius: UCornerRadius::all(6.0),
                                     padding: USides::axes(8.0, 4.0),
                                 }
                                 Children [
-                                    (UText {
+                                    UText {
                                         text: { "LAYER 2".to_string() },
                                         font_size: 11.0,
                                         font: { font.clone() },
                                         color: Color::srgb(0.55, 0.95, 0.75),
-                                    })
+                                    }
                                 ]
-                            ),
+                            
+                --
                         ]
-                    ),
+                    
+                --
                     // Description callout
-                    (
+                    
                         UNode {
                             width: UVal::Percent(1.0),
                             background_color: Color::srgb(0.05, 0.09, 0.08),
@@ -528,22 +550,25 @@ fn window_2_scene(font: Handle<Font>) -> impl Scene {
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "Layer Separation Guarantee".to_string() },
                                 font_size: 14.0,
                                 font: { font.clone() },
                                 color: Color::srgb(0.35, 0.85, 0.60),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "This entire window (background, borders, text, and sub-panels) belongs to a distinct URootUi. Notice how its dark background cleanly occludes Window 1's code text below with zero bleeding!".to_string() },
                                 font_size: 13.0,
                                 font: { font.clone() },
                                 color: Color::srgb(0.70, 0.82, 0.78),
-                            }),
+                            }
+                --
                         ]
-                    ),
+                    
+                --
                     // Inspector metrics cards
-                    (
+                    
                         UNode {
                             width: UVal::Percent(1.0),
                         }
@@ -559,9 +584,10 @@ fn window_2_scene(font: Handle<Font>) -> impl Scene {
                             --
                             @info_card("Z Ordering", "Isolated", Color::srgb(0.40, 0.90, 0.55), font.clone())
                         ]
-                    ),
+                    
+                --
                     // Bottom Bar
-                    (
+                    
                         UNode {
                             width: UVal::Percent(1.0),
                         }
@@ -584,9 +610,9 @@ fn window_2_scene(font: Handle<Font>) -> impl Scene {
                                 state.top_window = 2;
                             })
                         ]
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -609,12 +635,12 @@ fn control_button(label: &str, bg: Color, font: Handle<Font>) -> impl Scene {
             radius: UCornerRadius::all(8.0),
         }
         Children [
-            (UText {
+            UText {
                 text: label,
                 font_size: 13.0,
                 font: font,
                 color: Color::WHITE,
-            })
+            }
         ]
     }
 }
@@ -639,18 +665,19 @@ fn info_card(title: &str, value: &str, accent: Color, font: Handle<Font>) -> imp
             gap: 4.0,
         }
         Children [
-            (UText {
+            UText {
                 text: title,
                 font_size: 11.0,
                 font: { font.clone() },
                 color: Color::srgb(0.55, 0.60, 0.70),
-            }),
-            (UText {
+            }
+                --
+            UText {
                 text: value,
                 font_size: 16.0,
                 font: { font.clone() },
                 color: accent,
-            })
+            }
         ]
     }
 }

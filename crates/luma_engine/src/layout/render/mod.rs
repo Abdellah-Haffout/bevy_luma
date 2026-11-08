@@ -17,7 +17,9 @@ use crate::layout::pbr::UPbr;
 use crate::layout::render::batch::UnivisBatchPlugin;
 use crate::layout::render::material::UNodeMaterial;
 use crate::layout::render::material_3d::UNodeMaterial3d;
-use crate::layout::render::system::{MaterialPool, MeshPool, update_materials_optimized};
+use crate::layout::render::system::{
+    MaterialPool, MeshPool, UShaderCache, sync_animated_ushaders, update_materials_optimized,
+};
 use crate::schedule::{UiSettlementSchedule, UnivisPostUpdateSet};
 
 /// Convenience exports for Univis UI rendering.
@@ -34,9 +36,9 @@ impl Plugin for UnivisRenderPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/unode.wgsl");
         embedded_asset!(app, "shaders/unode_batch.wgsl");
-        embedded_asset!(app, "shaders/unode_3d.wgsl");
+        embedded_asset!(app, "shaders/unode_3d.wesl");
         embedded_asset!(app, "shaders/text_label_sdf.wgsl");
-        embedded_asset!(app, "shaders/text_label_sdf_3d.wgsl");
+        embedded_asset!(app, "shaders/text_label_sdf_3d.wesl");
 
         app.add_plugins(UnivisBatchPlugin)
             .add_plugins(Material2dPlugin::<UNodeMaterial>::default())
@@ -46,6 +48,8 @@ impl Plugin for UnivisRenderPlugin {
             .register_type::<clip_sync::UActiveClip>()
             .init_resource::<MaterialPool>()
             .init_resource::<MeshPool>()
+            .init_resource::<UShaderCache>()
+            .add_systems(Update, sync_animated_ushaders)
             .add_systems(
                 UiSettlementSchedule,
                 sync_cached_ui3d

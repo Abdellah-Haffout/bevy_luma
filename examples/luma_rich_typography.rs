@@ -172,7 +172,7 @@ fn studio_header(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene
         }
         Children [
             // Left branding
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -181,7 +181,7 @@ fn studio_header(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(36.0),
                             height: UVal::Px(36.0),
@@ -199,17 +199,18 @@ fn studio_header(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { Icon::TYPE.to_string() },
                                     font_size: 18.0,
                                     font: { icon_font },
                                     color: Color::srgb(0.38, 0.72, 0.98),
                                 }
-                            )
+                            
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -217,29 +218,31 @@ fn studio_header(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene
                             gap: 1.0,
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { "LUMA TYPOGRAPHY STUDIO".to_string() },
                                     font_size: 16.0,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.96, 0.97, 0.99),
                                 }
-                            ),
-                            (
+                            
+                --
+                            
                                 UText {
                                     text: { "SDF Outlines, Multi-Span Inline Formatting & Selectable Text Architecture".to_string() },
                                     font_size: 11.0,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.52, 0.58, 0.68),
                                 }
-                            ),
+                            
                         ]
-                    )
+                    
                 ]
-            ),
+            
+                --
 
             // Right badges & Toast Area
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -248,7 +251,7 @@ fn studio_header(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene
                     gap: 10.0,
                 }
                 Children [
-                    (
+                    
                         ToastBadge
                         UNode {
                             height: UVal::Px(28.0),
@@ -261,17 +264,18 @@ fn studio_header(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { String::new() },
                                     font_size: 11.5,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.35, 0.92, 0.55),
                                 }
-                            )
+                            
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode {
                             height: UVal::Px(28.0),
                             background_color: Color::srgb(0.12, 0.14, 0.18),
@@ -288,18 +292,18 @@ fn studio_header(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Scene
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { "BEVY 0.19 + PARLEY + SDF".to_string() },
                                     font_size: 10.5,
                                     font: { body_font },
                                     color: Color::srgb(0.68, 0.74, 0.84),
                                 }
-                            )
+                            
                         ]
-                    ),
+                    
                 ]
-            ),
+            
         ]
     }
 }
@@ -386,7 +390,7 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
         }
         Children [
             // Card Header
-            (
+            
                 UNode {
                     width: UVal::Px(573.0),
                 }
@@ -397,7 +401,7 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -406,25 +410,27 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                             gap: 8.0,
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { Icon::PEN_TOOL.to_string() },
                                     font_size: 15.0,
                                     font: { icon_font.clone() },
                                     color: Color::srgb(0.96, 0.78, 0.28),
                                 }
-                            ),
-                            (
+                            
+                --
+                            
                                 UText {
                                     text: { "REAL-TIME SDF TEXT OUTLINES".to_string() },
                                     font_size: 13.0,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.92, 0.94, 0.98),
                                 }
-                            ),
+                            
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         OutlineThicknessLabel
                         UText {
                             text: { "Stroke: 3.0px (Medium)".to_string() },
@@ -432,12 +438,13 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                             font: { body_font.clone() },
                             color: Color::srgb(0.65, 0.72, 0.82),
                         }
-                    )
+                    
                 ]
-            ),
+            
+                --
 
             // Hero Outline Display Area
-            (
+            
                 UNode {
                     width: UVal::Px(573.0),
                     height: UVal::Px(190.0),
@@ -458,7 +465,7 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                     gap: 8.0,
                 }
                 Children [
-                    (
+                    
                         HeroOutlineText
                         UText {
                             text: { "LUMA 2026".to_string() },
@@ -468,20 +475,22 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                             outline_width: 3.0,
                             outline_color: Color::srgb(0.96, 0.78, 0.28),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "Zero Extra Draw Calls * Single-Pass SDF Edge Distance in WGSL".to_string() },
                             font_size: 11.0,
                             font: { body_font.clone() },
                             color: Color::srgb(0.55, 0.60, 0.70),
                         }
-                    ),
+                    
                 ]
-            ),
+            
+                --
 
             // Thickness Interactive Controls
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -489,15 +498,16 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                     gap: 6.0,
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { "OUTLINE STROKE THICKNESS:".to_string() },
                             font_size: 10.5,
                             font: { body_font.clone() },
                             color: Color::srgb(0.55, 0.60, 0.70),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -513,12 +523,13 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                             --
                             @outline_thickness_btn("Bold (5.0px)", OutlineThickness::Bold, body_font.clone())
                         ]
-                    )
+                    
                 ]
-            ),
+            
+                --
 
             // Color Interactive Controls
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -526,7 +537,7 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                     gap: 6.0,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -534,15 +545,16 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                             justify_content: UJustifyContent::SpaceBetween,
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { "OUTLINE STROKE COLOR:".to_string() },
                                     font_size: 10.5,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.55, 0.60, 0.70),
                                 }
-                            ),
-                            (
+                            
+                --
+                            
                                 OutlineColorLabel
                                 UText {
                                     text: { "Amber Gold".to_string() },
@@ -550,10 +562,11 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.96, 0.78, 0.28),
                                 }
-                            )
+                            
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -569,12 +582,13 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                             --
                             @outline_color_btn("Emerald", OutlineColorChoice::Emerald, Color::srgb(0.25, 0.92, 0.55), body_font.clone())
                         ]
-                    )
+                    
                 ]
-            ),
+            
+                --
 
             // Tech specs callout
-            (
+            
                 UNode {
                     width: UVal::Px(573.0),
                     background_color: Color::srgb(0.07, 0.08, 0.11),
@@ -588,24 +602,25 @@ fn outline_lab_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sc
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { "Uniform: vec4 outline_color + f32 outline_width | 16-byte aligned".to_string() },
                             font_size: 10.0,
                             font: { body_font.clone() },
                             color: Color::srgb(0.46, 0.50, 0.60),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "Pipeline: text_label_sdf.wgsl".to_string() },
                             font_size: 10.0,
                             font: { body_font.clone() },
                             color: Color::srgb(0.38, 0.65, 0.85),
                         }
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -636,14 +651,14 @@ fn outline_thickness_btn(label: &'static str, thickness: OutlineThickness, body_
             pressed: Color::srgb(0.28, 0.36, 0.52),
         }
         Children [
-            (
+            
                 UText {
                     text: { label.to_string() },
                     font_size: 11.0,
                     font: { body_font },
                     color: Color::srgb(0.85, 0.88, 0.94),
                 }
-            )
+            
         ]
         on(move |_event: On<PointerClick>, mut state: ResMut<TypographyLabState>| {
             state.thickness = thickness;
@@ -684,22 +699,23 @@ fn outline_color_btn(
             pressed: Color::srgb(0.28, 0.36, 0.52),
         }
         Children [
-            (
+            
                 UNode {
                     width: UVal::Px(8.0),
                     height: UVal::Px(8.0),
                     background_color: swatch,
                     border_radius: UCornerRadius::all(4.0),
                 }
-            ),
-            (
+            
+                --
+            
                 UText {
                     text: { label.to_string() },
                     font_size: 11.0,
                     font: { body_font },
                     color: Color::srgb(0.88, 0.90, 0.95),
                 }
-            )
+            
         ]
         on(move |_event: On<PointerClick>, mut state: ResMut<TypographyLabState>| {
             state.color_choice = choice;
@@ -730,7 +746,7 @@ fn selectable_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sce
         }
         Children [
             // Header with Copy Button
-            (
+            
                 UNode {
                     width: UVal::Px(573.0),
                 }
@@ -741,7 +757,7 @@ fn selectable_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sce
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -750,25 +766,27 @@ fn selectable_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sce
                             gap: 8.0,
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { Icon::COPY.to_string() },
                                     font_size: 14.0,
                                     font: { icon_font.clone() },
                                     color: Color::srgb(0.38, 0.72, 0.98),
                                 }
-                            ),
-                            (
+                            
+                --
+                            
                                 UText {
                                     text: { "SELECTABLE & COPYABLE TEXT (USelectableText)".to_string() },
                                     font_size: 12.0,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.92, 0.94, 0.98),
                                 }
-                            ),
+                            
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode {
                             height: UVal::Px(26.0),
                             background_color: Color::srgb(0.14, 0.18, 0.26),
@@ -793,22 +811,23 @@ fn selectable_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sce
                             pressed: Color::srgb(0.30, 0.38, 0.58),
                         }
                         Children [
-                            (
+                            
                                 UText {
                                     text: { Icon::COPY.to_string() },
                                     font_size: 11.0,
                                     font: { icon_font },
                                     color: Color::srgb(0.85, 0.90, 0.98),
                                 }
-                            ),
-                            (
+                            
+                --
+                            
                                 UText {
                                     text: { "Copy Code Snippet".to_string() },
                                     font_size: 10.5,
                                     font: { body_font.clone() },
                                     color: Color::srgb(0.85, 0.90, 0.98),
                                 }
-                            ),
+                            
                         ]
                         on(|_event: On<PointerClick>,
                             mut state: ResMut<TypographyLabState>,
@@ -822,12 +841,13 @@ fn selectable_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sce
                                 state.toast_message = "Snippet copied to clipboard!".to_string();
                             }
                         })
-                    )
+                    
                 ]
-            ),
+            
+                --
 
             // Selectable Code Snippet Box
-            (
+            
                 UNode {
                     width: UVal::Px(573.0),
                     height: UVal::Px(136.0),
@@ -846,7 +866,7 @@ fn selectable_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sce
                     justify_content: UJustifyContent::Center,
                 }
                 Children [
-                    (
+                    
                         SelectableCodeSnippet
                         USelectableText::default()
                         UText {
@@ -862,19 +882,20 @@ fn selectable_card(body_font: Handle<Font>, icon_font: Handle<Font>) -> impl Sce
                             font: { body_font.clone() },
                             color: Color::srgb(0.80, 0.85, 0.92),
                         }
-                    )
+                    
                 ]
-            ),
+            
+                --
 
             // Information note
-            (
+            
                 UText {
                     text: { "Tip: Click and drag or trigger programmatic selection. USelectableText tracks active ranges with custom highlight colors.".to_string() },
                     font_size: 10.5,
                     font: { body_font },
                     color: Color::srgb(0.48, 0.54, 0.64),
                 }
-            )
+            
         ]
     }
 }
@@ -934,7 +955,7 @@ fn rich_spans_card(
         }
         Children [
             // Header
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -943,27 +964,29 @@ fn rich_spans_card(
                     gap: 8.0,
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { Icon::FEATHER.to_string() },
                             font_size: 15.0,
                             font: { icon_font.clone() },
                             color: Color::srgb(0.38, 0.82, 0.98),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "INLINE MULTI-SPAN FORMATTING (UTextSpan)".to_string() },
                             font_size: 13.0,
                             font: { body_font.clone() },
                             color: Color::srgb(0.92, 0.94, 0.98),
                         }
-                    ),
+                    
                 ]
-            ),
+            
+                --
 
             // Main Rich Text Paragraph
-            (
+            
                 UNode {
                     width: UVal::Px(573.0),
                     background_color: Color::srgb(0.05, 0.06, 0.08),
@@ -976,7 +999,7 @@ fn rich_spans_card(
                     radius: UCornerRadius::all(8.0),
                 }
                 Children [
-                    (
+                    
                         UText {
                             wrap_mode: UTextWrapMode::WrapToParent,
                             overflow: UTextOverflow::Visible,
@@ -998,12 +1021,13 @@ fn rich_spans_card(
                                 ]
                             },
                         }
-                    )
+                    
                 ]
-            ),
+            
+                --
 
             // Feature Highlights Pills
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -1017,7 +1041,7 @@ fn rich_spans_card(
                     --
                     @rich_feature_pill(Icon::HEART, "Zero runtime overhead for plain labels, instant scaling for rich text", Color::srgb(0.96, 0.78, 0.28), icon_font, body_font.clone())
                 ]
-            )
+            
         ]
     }
 }
@@ -1044,22 +1068,23 @@ fn rich_feature_pill(
             gap: 8.0,
         }
         Children [
-            (
+            
                 UText {
                     text: { icon.to_string() },
                     font_size: 12.0,
                     font: { icon_font },
                     color: accent,
                 }
-            ),
-            (
+            
+                --
+            
                 UText {
                     text: { text.to_string() },
                     font_size: 10.5,
                     font: { body_font },
                     color: Color::srgb(0.72, 0.76, 0.85),
                 }
-            )
+            
         ]
     }
 }
@@ -1091,7 +1116,7 @@ fn bilingual_card(
         }
         Children [
             // Header
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -1100,27 +1125,29 @@ fn bilingual_card(
                     gap: 8.0,
                 }
                 Children [
-                    (
+                    
                         UText {
                             text: { Icon::GLOBE.to_string() },
                             font_size: 15.0,
                             font: { icon_font },
                             color: Color::srgb(0.40, 0.85, 0.65),
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             text: { "BILINGUAL DUAL-SCRIPT MULTI-SPAN (ARABIC + LATIN)".to_string() },
                             font_size: 12.0,
                             font: { body_font.clone() },
                             color: Color::srgb(0.92, 0.94, 0.98),
                         }
-                    ),
+                    
                 ]
-            ),
+            
+                --
 
             // Bilingual paragraph box
-            (
+            
                 UNode {
                     width: UVal::Px(573.0),
                     height: UVal::Px(160.0),
@@ -1140,7 +1167,7 @@ fn bilingual_card(
                     gap: 8.0,
                 }
                 Children [
-                    (
+                    
                         UText {
                             wrap_mode: UTextWrapMode::WrapToParent,
                             overflow: UTextOverflow::Visible,
@@ -1154,8 +1181,9 @@ fn bilingual_card(
                                 ]
                             },
                         }
-                    ),
-                    (
+                    
+                --
+                    
                         UText {
                             wrap_mode: UTextWrapMode::WrapToParent,
                             overflow: UTextOverflow::Visible,
@@ -1170,19 +1198,20 @@ fn bilingual_card(
                                 ]
                             },
                         }
-                    ),
+                    
                 ]
-            ),
+            
+                --
 
             // Colophon annotation
-            (
+            
                 UText {
                     text: { "Rendered with Noto Sans Arabic Regular + Inter Regular embedded fonts".to_string() },
                     font_size: 10.5,
                     font: { body_font },
                     color: Color::srgb(0.48, 0.54, 0.64),
                 }
-            )
+            
         ]
     }
 }
@@ -1202,22 +1231,23 @@ fn studio_footer(body_font: Handle<Font>) -> impl Scene {
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UText {
                     text: { "Luma UI v0.3.1 * High-Performance SDF Hybrid World-Space UI Framework".to_string() },
                     font_size: 10.5,
                     font: { body_font.clone() },
                     color: Color::srgb(0.44, 0.48, 0.56),
                 }
-            ),
-            (
+            
+                --
+            
                 UText {
                     text: { "Architecture Path 1: Advanced Text Pipeline Complete".to_string() },
                     font_size: 10.5,
                     font: { body_font },
                     color: Color::srgb(0.35, 0.75, 0.55),
                 }
-            ),
+            
         ]
     }
 }

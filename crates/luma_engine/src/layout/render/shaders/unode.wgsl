@@ -37,6 +37,10 @@ struct UNodeMaterial {
 
     inner_glow_color: vec4<f32>, // Offset 352
     inner_glow_params: vec4<f32>,// Offset 368: x = blur, y = active (1.0 or 0.0), z = spread, w = 0.0
+
+    custom_params: array<vec4<f32>, 4>, // Offset 384 (4 * 16 = 64 bytes)
+    custom_meta: vec4<f32>,             // Offset 448: x = time, y = blend_mode, z = opacity, w = active
+    custom_cursor: vec4<f32>,           // Offset 464: xy = local cursor UV, z = hover (0..1), w = press (0..1)
 };
 
 @group(2) @binding(0) var<uniform> material: UNodeMaterial;
@@ -152,6 +156,75 @@ fn sample_gradient(t_in: f32) -> vec4<f32> {
 }
 
 // -----------------------------------------------------------------------------
+// Procedural Noise & Custom Shader Hook (UShader)
+// -----------------------------------------------------------------------------
+
+fn luma_hash21(p_in: vec2<f32>) -> f32 {
+    var p = fract(p_in * vec2<f32>(123.34, 456.21));
+    p = p + dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+fn luma_hash22(p_in: vec2<f32>) -> vec2<f32> {
+    let n = sin(dot(p_in, vec2<f32>(41.0, 289.0)));
+    return fract(vec2<f32>(262144.0, 32768.0) * n);
+}
+
+fn luma_noise(p: vec2<f32>) -> f32 {
+    let i = floor(p);
+    let f = fract(p);
+    let u = f * f * (3.0 - 2.0 * f);
+    let a = luma_hash21(i);
+    let b = luma_hash21(i + vec2<f32>(1.0, 0.0));
+    let c = luma_hash21(i + vec2<f32>(0.0, 1.0));
+    let d = luma_hash21(i + vec2<f32>(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+fn luma_fbm(p_in: vec2<f32>) -> f32 {
+    var v = 0.0;
+    var a = 0.5;
+    var p = p_in;
+    let rot = mat2x2<f32>(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
+    for (var i = 0; i < 4; i = i + 1) {
+        v = v + a * luma_noise(p);
+        p = rot * p * 2.02 + vec2<f32>(100.0, 100.0);
+        a = a * 0.5;
+    }
+    return v;
+}
+
+// Built-in Mouse / Pointer helpers for UShader
+fn luma_cursor_uv() -> vec2<f32> {
+    return material.custom_cursor.xy;
+}
+
+fn luma_cursor_hover() -> f32 {
+    return material.custom_cursor.z;
+}
+
+fn luma_cursor_press() -> f32 {
+    return material.custom_cursor.w;
+}
+
+fn luma_cursor_dist(uv: vec2<f32>, size: vec2<f32>) -> f32 {
+    let aspect = size.x / max(size.y, 1.0);
+    let diff = (uv - material.custom_cursor.xy) * vec2<f32>(aspect, 1.0);
+    return length(diff);
+}
+
+// __LUMA_CUSTOM_SHADER_HOOK_START__
+fn sample_custom_shader(
+    uv: vec2<f32>,
+    size: vec2<f32>,
+    time: f32,
+    params: array<vec4<f32>, 4>,
+) -> vec4<f32> {
+    return params[0];
+}
+// __LUMA_CUSTOM_SHADER_HOOK_END__
+
+// -----------------------------------------------------------------------------
 // Fragment Shader
 // -----------------------------------------------------------------------------
 @fragment
@@ -239,6 +312,42 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     if (material.use_texture == 1u) {
         body_color = textureSample(texture, texture_sampler, body_uv) * body_color;
+    }
+
+    // Custom UShader background injection / replacement
+    if (material.custom_meta.w > 0.5) {
+        let shader_col = sample_custom_shader(
+            clamp(body_uv, vec2<f32>(0.0), vec2<f32>(1.0)),
+            material.size,
+            material.custom_meta.x,
+            material.custom_params,
+        );
+        let blend_mode = u32(material.custom_meta.y + 0.5);
+        let opacity = clamp(material.custom_meta.z, 0.0, 1.0);
+        let eff_alpha = clamp(shader_col.a * opacity, 0.0, 1.0);
+
+        if (blend_mode == 0u) {
+            body_color = vec4<f32>(
+                mix(body_color.rgb, shader_col.rgb, opacity),
+                mix(body_color.a, shader_col.a, opacity)
+            );
+        } else if (blend_mode == 1u) {
+            body_color = vec4<f32>(
+                mix(body_color.rgb, shader_col.rgb, eff_alpha),
+                max(body_color.a, eff_alpha)
+            );
+        } else if (blend_mode == 2u) {
+            let mult_rgb = body_color.rgb * shader_col.rgb;
+            body_color = vec4<f32>(
+                mix(body_color.rgb, mult_rgb, eff_alpha),
+                body_color.a
+            );
+        } else {
+            body_color = vec4<f32>(
+                clamp(body_color.rgb + shader_col.rgb * eff_alpha, vec3<f32>(0.0), vec3<f32>(1.0)),
+                max(body_color.a, eff_alpha)
+            );
+        }
     }
 
     // Holographic inner edge glow along chamfers and rounded edges

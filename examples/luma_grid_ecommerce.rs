@@ -71,7 +71,9 @@ fn store_root_scene(theme: &Theme) -> impl Scene {
         }
         Children [
             @store_header(icon_font.clone(), body_font.clone())
+            --
             @product_grid_bento(icon_font.clone(), body_font.clone())
+            --
             @store_footer(icon_font, body_font)
         ]
     }
@@ -102,7 +104,7 @@ fn store_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -111,7 +113,7 @@ fn store_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     gap: 14.0,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             width: UVal::Px(34.0),
                             height: UVal::Px(34.0),
@@ -129,15 +131,16 @@ fn store_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                             align_items: UAlignItems::Center,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::BOX.to_string() },
                                 font_size: 18.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.95, 0.8, 0.5),
-                            })
+                            }
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         UNode::default()
                         ULayout {
                             display: UDisplay::Flex,
@@ -145,25 +148,27 @@ fn store_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                             gap: 2.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "NORDIC OBJECTS".to_string() },
                                 font_size: 16.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
                                 outline_width: 1.0,
                                 outline_color: Color::srgba(0.85, 0.65, 0.35, 0.35),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "Furniture • Lighting • Ceramics • Textiles".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.55, 0.55, 0.65),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 // Shopping Bag Cart Pill
                 UNode {
                     background_color: Color::srgba(0.18, 0.18, 0.24, 0.8),
@@ -188,13 +193,14 @@ fn store_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::SHOPPING_BAG.to_string() },
                         font_size: 14.0,
                         font: { icon_font },
                         color: Color::srgb(0.95, 0.8, 0.5),
-                    }),
-                    (
+                    }
+                --
+                    
                         CartBadgeText
                         UText {
                             text: { "BAG (2 ITEMS • $420)".to_string() },
@@ -202,9 +208,9 @@ fn store_header(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                             font: { body_font.clone() },
                             color: Color::srgb(0.95, 0.8, 0.5),
                         }
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -236,9 +242,13 @@ fn product_grid_bento(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl 
         }
         Children [
             @featured_hero_product(icon_font.clone(), body_font.clone())
+            --
             @product_card(icon_font.clone(), body_font.clone(), Icon::DROPLET, "MATTE CERAMIC VASE", "Hand-thrown sand stoneware with subtle ribbed organic finish.", "$110", Color::srgb(0.85, 0.6, 0.4))
+            --
             @product_card(icon_font.clone(), body_font.clone(), Icon::SUN, "BRASS ARC DESK LAMP", "Spun brass shade with woven warm fabric power cable.", "$310", Color::srgb(0.9, 0.75, 0.4))
+            --
             @product_card(icon_font.clone(), body_font.clone(), Icon::FEATHER, "MERINO WOOL BLANKET", "100% fine spun merino wool woven in charcoal herringbone.", "$185", Color::srgb(0.6, 0.7, 0.8))
+            --
             @product_card(icon_font, body_font, Icon::COFFEE, "SMOKED GLASS CARAFE", "Mouth-blown heat-resistant borosilicate glass with walnut stopper.", "$95", Color::srgb(0.5, 0.8, 0.75))
         ]
     }
@@ -270,7 +280,7 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
             gap: 16.0,
         }
         Children [
-            (
+            
                 // Header tags
                 UNode {
                     width: UVal::Percent(1.0),
@@ -282,7 +292,7 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UNode {
                             background_color: Color::srgba(0.85, 0.65, 0.35, 0.2),
                             border_radius: UCornerRadius::all(6.0),
@@ -295,29 +305,32 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::STAR.to_string() },
                                 font_size: 11.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.95, 0.8, 0.5),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "FEATURED PIECE • CSS GRID 2x2 SPAN".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.95, 0.8, 0.5),
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "LIMITED PRODUCTION (BATCH 04)".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 // Product Visual Mockup Area
                 UNode {
                     width: UVal::Percent(1.0),
@@ -339,7 +352,7 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                     gap: 12.0,
                 }
                 Children [
-                    (
+                    
                         // Decorative chair silhouette shape
                         UNode {
                             width: UVal::Px(180.0),
@@ -360,30 +373,33 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::BOX.to_string() },
                                 font_size: 24.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.95, 0.8, 0.5),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "SOLID OAK FRAME".to_string() },
                                 font_size: 11.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.9, 0.8, 0.6),
-                            })
+                            }
                         ]
-                    ),
-                    (UText {
+                    
+                --
+                    UText {
                         text: { "The Kvadrat Natural Linen Upholstery Lounge Chair".to_string() },
                         font_size: 13.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.8, 0.85, 0.95),
                         wrap_mode: UTextWrapMode::WrapToParent,
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 // Price & Add to Bag Row
                 UNode {
                     width: UVal::Percent(1.0),
@@ -395,7 +411,7 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (
+                    
                         UNode::default()
                         USelf {
                             flex_shrink: { Some(0.0) },
@@ -406,15 +422,16 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             gap: 4.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "$890 USD".to_string() },
                                 font_size: 22.0,
                                 font: { body_font.clone() },
                                 color: Color::WHITE,
                                 outline_width: 1.2,
                                 outline_color: Color::srgba(0.85, 0.65, 0.35, 0.5),
-                            }),
-                            (
+                            }
+                --
+                            
                                 UNode::default()
                                 ULayout {
                                     display: UDisplay::Flex,
@@ -423,24 +440,26 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                                     gap: 8.0,
                                 }
                                 Children [
-                                    (UText {
+                                    UText {
                                         text: { Icon::TRUCK.to_string() },
                                         font_size: 12.0,
                                         font: { icon_font.clone() },
                                         color: Color::srgb(0.5, 0.55, 0.65),
-                                    }),
-                                    (UText {
+                                    }
+                --
+                                    UText {
                                         text: { "Free white-glove courier shipping worldwide".to_string() },
                                         font_size: 11.0,
                                         font: { body_font.clone() },
                                         color: Color::srgb(0.5, 0.55, 0.65),
                                         wrap_mode: UTextWrapMode::WrapToParent,
-                                    })
+                                    }
                                 ]
-                            )
+                            
                         ]
-                    ),
-                    (
+                    
+                --
+                    
                         // Add to Bag Button
                         UNode {
                             background_color: Color::srgb(0.85, 0.65, 0.35),
@@ -464,18 +483,19 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             gap: 8.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { Icon::PLUS.to_string() },
                                 font_size: 13.0,
                                 font: { icon_font.clone() },
                                 color: Color::srgb(0.08, 0.08, 0.1),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { "ADD TO BAG".to_string() },
                                 font_size: 12.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.08, 0.08, 0.1),
-                            })
+                            }
                         ]
                         on(|_event: On<PointerClick>, mut state: ResMut<CartState>| {
                             state.item_count += 1;
@@ -483,9 +503,9 @@ fn featured_hero_product(icon_font: Handle<Font>, body_font: Handle<Font>) -> im
                             state.last_added = "Oak Lounge Chair".to_string();
                             info!("Added Oak Lounge Chair to bag. Total items: {}", state.item_count);
                         })
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -521,7 +541,7 @@ fn product_card(
             gap: 8.0,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -530,14 +550,15 @@ fn product_card(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: title,
                         font_size: 13.0,
                         font: { body_font.clone() },
                         color: Color::WHITE,
                         wrap_mode: UTextWrapMode::WrapToParent,
-                    }),
-                    (
+                    }
+                --
+                    
                         UNode {
                             width: UVal::Px(8.0),
                             height: UVal::Px(8.0),
@@ -547,10 +568,11 @@ fn product_card(
                         USelf {
                             flex_shrink: { Some(0.0) },
                         }
-                    )
+                    
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode {
                     width: UVal::Percent(1.0),
                     height: UVal::Px(90.0),
@@ -568,15 +590,16 @@ fn product_card(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { icon.to_string() },
                         font_size: 26.0,
                         font: { icon_font.clone() },
                         color: accent,
-                    })
+                    }
                 ]
-            ),
-            (UText {
+            
+                --
+            UText {
                 text: desc,
                 font_size: 11.0,
                 font: { body_font.clone() },
@@ -584,8 +607,9 @@ fn product_card(
                 wrap_mode: UTextWrapMode::WrapToParent,
                 max_lines: { Some(2) },
                 overflow: UTextOverflow::Ellipsis,
-            }),
-            (
+            }
+                --
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -594,13 +618,14 @@ fn product_card(
                     align_items: UAlignItems::Center,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: price,
                         font_size: 15.0,
                         font: { body_font.clone() },
                         color: accent,
-                    }),
-                    (
+                    }
+                --
+                    
                         UNode {
                             background_color: Color::srgba(0.15, 0.15, 0.22, 0.8),
                             border_radius: UCornerRadius::all(6.0),
@@ -619,22 +644,23 @@ fn product_card(
                             gap: 6.0,
                         }
                         Children [
-                            (UText {
+                            UText {
                                 text: { "VIEW PIECE".to_string() },
                                 font_size: 10.0,
                                 font: { body_font.clone() },
                                 color: Color::srgb(0.75, 0.8, 0.9),
-                            }),
-                            (UText {
+                            }
+                --
+                            UText {
                                 text: { Icon::ARROW_RIGHT.to_string() },
                                 font_size: 10.0,
                                 font: { icon_font },
                                 color: Color::srgb(0.75, 0.8, 0.9),
-                            })
+                            }
                         ]
-                    )
+                    
                 ]
-            )
+            
         ]
     }
 }
@@ -659,7 +685,7 @@ fn store_footer(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
             align_items: UAlignItems::Center,
         }
         Children [
-            (
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -668,22 +694,24 @@ fn store_footer(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     gap: 8.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::INFO.to_string() },
                         font_size: 12.0,
                         font: { icon_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "CSS Grid solver natively handles explicit Fr & Px track templates with Bento span placement.".to_string() },
                         font_size: 11.0,
                         font: { body_font.clone() },
                         color: Color::srgb(0.5, 0.55, 0.65),
                         wrap_mode: UTextWrapMode::WrapToParent,
-                    })
+                    }
                 ]
-            ),
-            (
+            
+                --
+            
                 UNode::default()
                 ULayout {
                     display: UDisplay::Flex,
@@ -692,20 +720,21 @@ fn store_footer(icon_font: Handle<Font>, body_font: Handle<Font>) -> impl Scene 
                     gap: 6.0,
                 }
                 Children [
-                    (UText {
+                    UText {
                         text: { Icon::CHECK.to_string() },
                         font_size: 12.0,
                         font: { icon_font },
                         color: Color::srgb(0.85, 0.65, 0.35),
-                    }),
-                    (UText {
+                    }
+                --
+                    UText {
                         text: { "Luma Grid Engine • BSN Architecture".to_string() },
                         font_size: 11.0,
                         font: { body_font },
                         color: Color::srgb(0.85, 0.65, 0.35),
-                    })
+                    }
                 ]
-            )
+            
         ]
     }
 }

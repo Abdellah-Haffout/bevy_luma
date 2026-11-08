@@ -3,6 +3,7 @@
 //! The interaction plugin resolves hits against Univis roots and updates
 //! high-level state such as [`feedback::UInteraction`].
 
+use bevy::picking::PickingSystems;
 use bevy::prelude::*;
 use luma_engine::schedule::{
     UiPickingRuntimeState, UiSettlementSchedule, UnivisPostUpdateSet, sync_picking_runtime_state,
@@ -47,6 +48,7 @@ impl Plugin for LumaInteractionPlugin {
             .register_type::<focus::UFocusable>()
             .register_type::<focus::UFocused>()
             .register_type::<focus::UFocusVisual>()
+            .register_type::<focus::UFocusMotionState>()
             .register_type::<focus::UFocusNavigationSettings>()
             .register_type::<focus::UFocusState>()
             .register_type::<focus::FocusModality>()
@@ -60,7 +62,9 @@ impl Plugin for LumaInteractionPlugin {
             .register_type::<text_input::UTextInputSelectionMarker>()
             .add_systems(
                 PreUpdate,
-                (picking::track_pointer_generation, univis_picking_backend).chain(),
+                (picking::track_pointer_generation, univis_picking_backend)
+                    .chain()
+                    .in_set(PickingSystems::Backend),
             )
             .add_systems(
                 Update,
@@ -68,6 +72,7 @@ impl Plugin for LumaInteractionPlugin {
                     focus::focus_cleanup_system,
                     focus::focus_keyboard_navigation_system,
                     focus::focus_gamepad_navigation_system,
+                    focus::focus_motion_system,
                     text_input::link_text_input_children_system,
                     text_input::text_input_keyboard_system,
                     text_input::text_input_caret_blink_system,
@@ -86,8 +91,8 @@ impl Plugin for LumaInteractionPlugin {
             );
 
         // 2. Register the default pointer, focus, and text input observers.
-        app.add_observer(feedback::on_pointer_over);
-        app.add_observer(feedback::on_pointer_out);
+        app.add_observer(feedback::on_pointer_enter);
+        app.add_observer(feedback::on_pointer_leave);
         app.add_observer(feedback::on_pointer_press);
         app.add_observer(feedback::on_pointer_release);
         app.add_observer(feedback::on_pointer_click);
