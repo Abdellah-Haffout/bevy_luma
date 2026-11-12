@@ -583,6 +583,136 @@ mod tests {
     }
 
     #[test]
+    fn resolve_root_stacking_respects_max_and_min_without_magic_numbers() {
+        use crate::prelude::UZIndex;
+
+        let mut app = App::new();
+        app.init_resource::<RootSpawnRankCounter>();
+        app.add_systems(
+            Update,
+            (assign_root_spawn_ranks, resolve_root_stacking).chain(),
+        );
+
+        let bottom_root = app
+            .world_mut()
+            .spawn((
+                URootUi::screen(),
+                UZIndex::Min,
+                ResolvedRootUi {
+                    root_entity: Entity::PLACEHOLDER,
+                    space: UiSpace::Screen,
+                    canvas: UiCanvasSize::Viewport,
+                    canvas_size: Vec2::new(800.0, 600.0),
+                    camera_entity: Some(Entity::PLACEHOLDER),
+                    meters_per_unit: URootUi::DEFAULT_METERS_PER_UNIT,
+                    resolution_scale: URootUi::DEFAULT_RESOLUTION_SCALE,
+                },
+            ))
+            .id();
+        let mid_root = app
+            .world_mut()
+            .spawn((
+                URootUi::screen(),
+                UZIndex::Global(99999),
+                ResolvedRootUi {
+                    root_entity: Entity::PLACEHOLDER,
+                    space: UiSpace::Screen,
+                    canvas: UiCanvasSize::Viewport,
+                    canvas_size: Vec2::new(800.0, 600.0),
+                    camera_entity: Some(Entity::PLACEHOLDER),
+                    meters_per_unit: URootUi::DEFAULT_METERS_PER_UNIT,
+                    resolution_scale: URootUi::DEFAULT_RESOLUTION_SCALE,
+                },
+            ))
+            .id();
+        let top_root = app
+            .world_mut()
+            .spawn((
+                URootUi::screen(),
+                UZIndex::Max,
+                ResolvedRootUi {
+                    root_entity: Entity::PLACEHOLDER,
+                    space: UiSpace::Screen,
+                    canvas: UiCanvasSize::Viewport,
+                    canvas_size: Vec2::new(800.0, 600.0),
+                    camera_entity: Some(Entity::PLACEHOLDER),
+                    meters_per_unit: URootUi::DEFAULT_METERS_PER_UNIT,
+                    resolution_scale: URootUi::DEFAULT_RESOLUTION_SCALE,
+                },
+            ))
+            .id();
+
+        app.world_mut().entity_mut(bottom_root).get_mut::<ResolvedRootUi>().unwrap().root_entity = bottom_root;
+        app.world_mut().entity_mut(mid_root).get_mut::<ResolvedRootUi>().unwrap().root_entity = mid_root;
+        app.world_mut().entity_mut(top_root).get_mut::<ResolvedRootUi>().unwrap().root_entity = top_root;
+
+        app.update();
+
+        let bottom_stack = *app.world().entity(bottom_root).get::<ResolvedRootStack>().unwrap();
+        let mid_stack = *app.world().entity(mid_root).get::<ResolvedRootStack>().unwrap();
+        let top_stack = *app.world().entity(top_root).get::<ResolvedRootStack>().unwrap();
+
+        assert!(bottom_stack.capsule_ceiling() < mid_stack.capsule_band_base);
+        assert!(mid_stack.capsule_ceiling() < top_stack.capsule_band_base);
+    }
+
+    #[test]
+    fn resolve_root_stacking_tie_breaks_multiple_max_roots_by_spawn_order() {
+        use crate::prelude::UZIndex;
+
+        let mut app = App::new();
+        app.init_resource::<RootSpawnRankCounter>();
+        app.add_systems(
+            Update,
+            (assign_root_spawn_ranks, resolve_root_stacking).chain(),
+        );
+
+        let first_max = app
+            .world_mut()
+            .spawn((
+                URootUi::screen(),
+                UZIndex::Max,
+                ResolvedRootUi {
+                    root_entity: Entity::PLACEHOLDER,
+                    space: UiSpace::Screen,
+                    canvas: UiCanvasSize::Viewport,
+                    canvas_size: Vec2::new(800.0, 600.0),
+                    camera_entity: Some(Entity::PLACEHOLDER),
+                    meters_per_unit: URootUi::DEFAULT_METERS_PER_UNIT,
+                    resolution_scale: URootUi::DEFAULT_RESOLUTION_SCALE,
+                },
+            ))
+            .id();
+        let second_max = app
+            .world_mut()
+            .spawn((
+                URootUi::screen(),
+                UZIndex::Max,
+                ResolvedRootUi {
+                    root_entity: Entity::PLACEHOLDER,
+                    space: UiSpace::Screen,
+                    canvas: UiCanvasSize::Viewport,
+                    canvas_size: Vec2::new(800.0, 600.0),
+                    camera_entity: Some(Entity::PLACEHOLDER),
+                    meters_per_unit: URootUi::DEFAULT_METERS_PER_UNIT,
+                    resolution_scale: URootUi::DEFAULT_RESOLUTION_SCALE,
+                },
+            ))
+            .id();
+
+        app.world_mut().entity_mut(first_max).get_mut::<ResolvedRootUi>().unwrap().root_entity = first_max;
+        app.world_mut().entity_mut(second_max).get_mut::<ResolvedRootUi>().unwrap().root_entity = second_max;
+
+        app.update();
+
+        let first_stack = *app.world().entity(first_max).get::<ResolvedRootStack>().unwrap();
+        let second_stack = *app.world().entity(second_max).get::<ResolvedRootStack>().unwrap();
+
+        // Later spawned root with Max should sit above earlier spawned root with Max
+        assert!(first_stack.capsule_ceiling() < second_stack.capsule_band_base);
+    }
+
+    #[test]
     fn resolve_root_camera_auto_reports_missing_single_and_ambiguous_states() {
         let mut app = App::new();
 

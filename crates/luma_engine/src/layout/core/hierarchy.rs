@@ -9,6 +9,55 @@ use crate::layout::query::UiPickingContext;
 use crate::layout::univis_node::{UClip, UNode, USelf, UZIndex};
 use crate::schedule::{UiRolloutConfig, UiValidationMode, UiValidationState, UiWorkState};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum LocalSiblingTier {
+    Min,
+    Explicit(i32),
+    Max,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum GlobalTier {
+    Min,
+    Negative(i32),
+    Positive(i32),
+    Max,
+}
+
+enum NodeZClassification {
+    Local(LocalSiblingTier),
+    Global(GlobalTier),
+}
+
+fn classify_node_z(
+    zindex_opt: Option<&UZIndex>,
+    uself_opt: Option<&USelf>,
+) -> NodeZClassification {
+    #[allow(deprecated)]
+    let legacy_order = uself_opt.map_or(0, |uself| uself.order);
+
+    match zindex_opt {
+        Some(UZIndex::Auto) => NodeZClassification::Local(LocalSiblingTier::Explicit(legacy_order)),
+        Some(UZIndex::Local(z)) => NodeZClassification::Local(LocalSiblingTier::Explicit(*z)),
+        Some(UZIndex::LocalMin) => NodeZClassification::Local(LocalSiblingTier::Min),
+        Some(UZIndex::LocalMax) => NodeZClassification::Local(LocalSiblingTier::Max),
+        Some(UZIndex::Global(z)) => {
+            if *z < 0 {
+                NodeZClassification::Global(GlobalTier::Negative(*z))
+            } else {
+                NodeZClassification::Global(GlobalTier::Positive(*z))
+            }
+        }
+        Some(UZIndex::GlobalMin) | Some(UZIndex::Min) => {
+            NodeZClassification::Global(GlobalTier::Min)
+        }
+        Some(UZIndex::GlobalMax) | Some(UZIndex::Max) => {
+            NodeZClassification::Global(GlobalTier::Max)
+        }
+        None => NodeZClassification::Local(LocalSiblingTier::Explicit(legacy_order)),
+    }
+}
+
 /// System to update the `LayoutDepth` component for all UI nodes.
 ///
 /// This runs periodically (or on change) to ensure every node knows its depth level.
@@ -18,28 +67,85 @@ pub fn update_layout_hierarchy(
     children_query: Query<&Children>,
     uself_query: Query<&USelf>,
     zindex_query: Query<&UZIndex>,
+    mut local_stacking_query: Query<&mut UiLocalStacking>,
     mut commands: Commands,
     mut tree_depth: ResMut<LayoutTreeDepth>,
 ) {
     let mut max_depth = 0;
 
     for root_entity in root_query.iter() {
-        let mut paint_order = Vec::new();
-        max_depth = max_depth.max(traverse_and_mark(
+        let mut local_paint = Vec::new();
+        let mut global_underlays: Vec<(GlobalTier, usize, Vec<Entity>)> = Vec::new();
+        let mut global_overlays: Vec<(GlobalTier, usize, Vec<Entity>)> = Vec::new();
+        let mut discovery_counter = 0;
+
+        let root_max_depth = traverse_and_mark(
             root_entity,
             0,
+            &mut discovery_counter,
             &children_query,
             &uself_query,
             &zindex_query,
             &mut commands,
-            &mut paint_order,
-        ));
+            &mut local_paint,
+            &mut global_underlays,
+            &mut global_overlays,
+        );
+        max_depth = max_depth.max(root_max_depth);
+
+        // Sort underlays: Min first, then Negative(z) ascending, tie-break by discovery counter
+        global_underlays.sort_unstable_by(
+            |(left_tier, left_idx, _), (right_tier, right_idx, _)| {
+                left_tier.cmp(right_tier).then_with(|| left_idx.cmp(right_idx))
+            },
+        );
+
+        // Sort overlays: Positive(z) ascending, then Max, tie-break by discovery counter
+        global_overlays.sort_unstable_by(
+            |(left_tier, left_idx, _), (right_tier, right_idx, _)| {
+                left_tier.cmp(right_tier).then_with(|| left_idx.cmp(right_idx))
+            },
+        );
+
+        let mut paint_order = Vec::with_capacity(
+            local_paint.len()
+                + global_underlays
+                    .iter()
+                    .map(|(_, _, sub)| sub.len())
+                    .sum::<usize>()
+                + global_overlays
+                    .iter()
+                    .map(|(_, _, sub)| sub.len())
+                    .sum::<usize>(),
+        );
+
+        // 1. Root entity itself first
+        if !local_paint.is_empty() {
+            paint_order.push(local_paint[0]);
+        }
+        // 2. Global underlays
+        for (_, _, subtree) in global_underlays {
+            paint_order.extend(subtree);
+        }
+        // 3. Normal local tree
+        if local_paint.len() > 1 {
+            paint_order.extend(local_paint.into_iter().skip(1));
+        }
+        // 4. Global overlays
+        for (_, _, subtree) in global_overlays {
+            paint_order.extend(subtree);
+        }
 
         let total = paint_order.len().max(1) as f32;
         for (index, entity) in paint_order.into_iter().enumerate() {
-            if let Ok(mut cmd) = commands.get_entity(entity) {
+            let next_normalized = index as f32 / total;
+            if let Ok(mut stacking) = local_stacking_query.get_mut(entity) {
+                if (stacking.normalized - next_normalized).abs() > 0.00001 {
+                    stacking.normalized = next_normalized;
+                }
+            } else if let Ok(mut cmd) = commands.get_entity(entity) {
                 cmd.try_insert(UiLocalStacking {
-                    normalized: index as f32 / total,
+                    normalized: next_normalized,
                 });
             }
         }
@@ -51,57 +157,86 @@ pub fn update_layout_hierarchy(
 fn traverse_and_mark(
     entity: Entity,
     depth: usize,
+    discovery_counter: &mut usize,
     children_q: &Query<&Children>,
     uself_q: &Query<&USelf>,
     zindex_q: &Query<&UZIndex>,
     commands: &mut Commands,
-    paint_order: &mut Vec<Entity>,
+    target_paint: &mut Vec<Entity>,
+    global_underlays: &mut Vec<(GlobalTier, usize, Vec<Entity>)>,
+    global_overlays: &mut Vec<(GlobalTier, usize, Vec<Entity>)>,
 ) -> usize {
     if let Ok(mut cmd) = commands.get_entity(entity) {
         cmd.try_insert(LayoutDepth(depth));
     }
-    paint_order.push(entity);
+    target_paint.push(entity);
 
     let mut current_max = depth;
 
     if let Ok(children) = children_q.get(entity) {
-        let mut ordered_children: Vec<(usize, i32, Entity)> = children
-            .iter()
-            .enumerate()
-            .map(|(original_index, child)| {
-                #[allow(deprecated)]
-                let order = zindex_q.get(child).map_or_else(
-                    |_| uself_q.get(child).map_or(0, |uself| uself.order),
-                    |zindex| match zindex {
-                        UZIndex::Auto => uself_q.get(child).map_or(0, |uself| uself.order),
-                        UZIndex::Local(z) => *z,
-                        UZIndex::Global(z) => *z, // Temporary fallback for Global until full separate pass is built
-                    },
-                );
-                (original_index, order, child)
-            })
-            .collect();
-        ordered_children.sort_unstable_by(
-            |(left_index, left_order, _), (right_index, right_order, _)| {
-                left_order
-                    .cmp(right_order)
+        let mut local_children: Vec<(usize, LocalSiblingTier, Entity)> = Vec::new();
+
+        for (original_index, child) in children.iter().enumerate() {
+            let z_class = classify_node_z(zindex_q.get(child).ok(), uself_q.get(child).ok());
+            match z_class {
+                NodeZClassification::Local(tier) => {
+                    local_children.push((original_index, tier, child));
+                }
+                NodeZClassification::Global(tier) => {
+                    *discovery_counter += 1;
+                    let counter = *discovery_counter;
+                    let mut subtree_paint = Vec::new();
+                    let child_depth = traverse_and_mark(
+                        child,
+                        depth + 1,
+                        discovery_counter,
+                        children_q,
+                        uself_q,
+                        zindex_q,
+                        commands,
+                        &mut subtree_paint,
+                        global_underlays,
+                        global_overlays,
+                    );
+                    current_max = current_max.max(child_depth);
+
+                    match tier {
+                        GlobalTier::Min | GlobalTier::Negative(_) => {
+                            global_underlays.push((tier, counter, subtree_paint));
+                        }
+                        GlobalTier::Positive(_) | GlobalTier::Max => {
+                            global_overlays.push((tier, counter, subtree_paint));
+                        }
+                    }
+                }
+            }
+        }
+
+        local_children.sort_unstable_by(
+            |(left_index, left_tier, _), (right_index, right_tier, _)| {
+                left_tier
+                    .cmp(right_tier)
                     .then_with(|| left_index.cmp(right_index))
             },
         );
 
-        for (_, _, child) in ordered_children {
+        for (_, _, child) in local_children {
             let child_depth = traverse_and_mark(
                 child,
                 depth + 1,
+                discovery_counter,
                 children_q,
                 uself_q,
                 zindex_q,
                 commands,
-                paint_order,
+                target_paint,
+                global_underlays,
+                global_overlays,
             );
             current_max = current_max.max(child_depth);
         }
     }
+
     current_max
 }
 

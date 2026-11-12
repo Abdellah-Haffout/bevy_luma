@@ -1,6 +1,7 @@
 use bevy::asset::AssetEventSystems;
 use bevy::prelude::*;
 use bevy::sprite::update_text2d_layout;
+use bevy::transform::TransformSystems;
 
 use crate::schedule::{
     UiPickingRuntimeState, UiRolloutConfig, UiSettlementConfig, UiSettlementRuntimeState,
@@ -150,6 +151,7 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
             settlement_loop::run_ui_settlement_loop
                 .after(update_text2d_layout)
                 .after(bevy::camera::CameraUpdateSystems)
+                .before(TransformSystems::Propagate)
                 .before(AssetEventSystems),
         )
         .add_systems(

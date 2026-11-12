@@ -4,7 +4,7 @@ use crate::layout::core::layout_cache::LayoutCache;
 use crate::layout::geometry::UVal;
 use crate::layout::layout_system::{URootUi, UiCanvasSize, UiRootSettlementState};
 use crate::layout::query::ComputedSize;
-use crate::layout::univis_node::{ULayout, UNode};
+use crate::layout::univis_node::{ULayout, UNode, UZIndex};
 use crate::schedule::{
     UiSettlementConfig, UiSettlementSchedule, UiWorkStage, UiWorkState, UnivisPostUpdateSet,
 };
@@ -312,4 +312,67 @@ fn deeply_nested_layout_hierarchy_settles_without_exhausting_budget() {
         .expect("leaf must have computed size");
     assert_eq!(leaf_size.width, 800.0);
     assert_eq!(leaf_size.height, 800.0);
+}
+
+#[test]
+fn updating_node_zindex_immediately_updates_child_depth_without_resize() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, UnivisLayoutPlugin));
+
+    let root = app
+        .world_mut()
+        .spawn((
+            URootUi::world_2d(Vec2::new(400.0, 200.0)),
+            UNode {
+                width: UVal::Percent(1.0),
+                height: UVal::Percent(1.0),
+                ..default()
+            },
+            ULayout::default(),
+        ))
+        .id();
+
+    let child_a = app
+        .world_mut()
+        .spawn((
+            ChildOf(root),
+            UNode {
+                width: UVal::Px(100.0),
+                height: UVal::Px(50.0),
+                ..default()
+            },
+            UZIndex::Local(1),
+        ))
+        .id();
+
+    let child_b = app
+        .world_mut()
+        .spawn((
+            ChildOf(root),
+            UNode {
+                width: UVal::Px(100.0),
+                height: UVal::Px(50.0),
+                ..default()
+            },
+            UZIndex::Local(2),
+        ))
+        .id();
+
+    app.update();
+
+    let z_a_before = app.world().entity(child_a).get::<Transform>().unwrap().translation.z;
+    let z_b_before = app.world().entity(child_b).get::<Transform>().unwrap().translation.z;
+    assert!(z_a_before < z_b_before, "child_b should be higher than child_a (z_a={z_a_before}, z_b={z_b_before})");
+
+    // Frame 2: Dynamically elevate child_a above child_b using UZIndex::LocalMax
+    *app.world_mut().entity_mut(child_a).get_mut::<UZIndex>().unwrap() = UZIndex::LocalMax;
+
+    app.update();
+
+    let z_a_after = app.world().entity(child_a).get::<Transform>().unwrap().translation.z;
+    let z_b_after = app.world().entity(child_b).get::<Transform>().unwrap().translation.z;
+    assert!(
+        z_a_after > z_b_after,
+        "child_a should now be higher than child_b without window resize (z_a={z_a_after}, z_b={z_b_after})"
+    );
 }

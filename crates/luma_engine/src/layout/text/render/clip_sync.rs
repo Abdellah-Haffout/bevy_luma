@@ -173,7 +173,8 @@ pub(crate) fn sync_text_clipper_materials(
     mut text_query: Query<
         (
             Entity,
-            &MeshMaterial2d<UTextLabelSdfMaterial>,
+            Option<&MeshMaterial2d<UTextLabelSdfMaterial>>,
+            Option<&MeshMaterial3d<UTextLabelSdfMaterial3d>>,
             &mut Transform,
         ),
         With<TextChildMarker>,
@@ -183,32 +184,53 @@ pub(crate) fn sync_text_clipper_materials(
     root_query: Query<&ResolvedRootUi>,
     root_stack_query: Query<&ResolvedRootStack>,
     materials: Option<ResMut<Assets<UTextLabelSdfMaterial>>>,
+    materials_3d: Option<ResMut<Assets<UTextLabelSdfMaterial3d>>>,
 ) {
-    let Some(mut materials) = materials else {
-        return;
-    };
-    for (entity, material_handle, mut transform) in text_query.iter_mut() {
+    let mut materials = materials;
+    let mut materials_3d = materials_3d;
+    for (entity, material_handle_2d, material_handle_3d, mut transform) in text_query.iter_mut() {
         let world_scale = text_world_scale_for_entity(entity, &parents_query, &root_query);
         let root_stack = text_root_stack_for_entity(entity, &parents_query, &root_stack_query);
         let clip = active_clipper_for_entity(entity, &parents_query, &clipper_query, &root_query);
-        let Some(mut material) = materials.get_mut(&material_handle.0) else {
-            continue;
-        };
         let desired_transform = text_render_transform(world_scale, root_stack.text_child_offset());
         if *transform != desired_transform {
             *transform = desired_transform;
         }
-        if material.clip_center != clip.center
-            || material.clip_size != clip.size
-            || material.clip_radius != clip.radius
-            || material.use_clip != clip.use_clip
-            || material.edge_softness != DEFAULT_TEXT_EDGE_SOFTNESS
+
+        if let Some(mat_handle) = material_handle_2d
+            && let Some(ref mut materials) = materials
+            && let Some(mut material) = materials.get_mut(&mat_handle.0)
         {
-            material.clip_center = clip.center;
-            material.clip_size = clip.size;
-            material.clip_radius = clip.radius;
-            material.use_clip = clip.use_clip;
-            material.edge_softness = DEFAULT_TEXT_EDGE_SOFTNESS;
+            if material.clip_center != clip.center
+                || material.clip_size != clip.size
+                || material.clip_radius != clip.radius
+                || material.use_clip != clip.use_clip
+                || material.edge_softness != DEFAULT_TEXT_EDGE_SOFTNESS
+            {
+                material.clip_center = clip.center;
+                material.clip_size = clip.size;
+                material.clip_radius = clip.radius;
+                material.use_clip = clip.use_clip;
+                material.edge_softness = DEFAULT_TEXT_EDGE_SOFTNESS;
+            }
+        }
+
+        if let Some(mat_handle) = material_handle_3d
+            && let Some(ref mut materials_3d) = materials_3d
+            && let Some(mut material) = materials_3d.get_mut(&mat_handle.0)
+        {
+            if material.clip_center != clip.center
+                || material.clip_size != clip.size
+                || material.clip_radius != clip.radius
+                || material.use_clip != clip.use_clip
+                || material.edge_softness != DEFAULT_TEXT_EDGE_SOFTNESS
+            {
+                material.clip_center = clip.center;
+                material.clip_size = clip.size;
+                material.clip_radius = clip.radius;
+                material.use_clip = clip.use_clip;
+                material.edge_softness = DEFAULT_TEXT_EDGE_SOFTNESS;
+            }
         }
     }
 }

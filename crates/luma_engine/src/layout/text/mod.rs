@@ -653,4 +653,88 @@ mod tests {
         sel.clear();
         assert_eq!(sel.selected_text(sample), None);
     }
+
+    #[test]
+    fn text_node_depth_updates_when_zindex_changes() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            bevy::asset::AssetPlugin::default(),
+            bevy::text::TextPlugin,
+            crate::layout::UnivisLayoutPlugin,
+            UnivisTextPlugin,
+        ));
+
+        let root = app
+            .world_mut()
+            .spawn((
+                crate::layout::layout_system::URootUi::screen(),
+                crate::layout::univis_node::UNode {
+                    width: crate::layout::geometry::UVal::Percent(1.0),
+                    height: crate::layout::geometry::UVal::Percent(1.0),
+                    ..default()
+                },
+            ))
+            .id();
+
+        let panel_a = app
+            .world_mut()
+            .spawn((
+                ChildOf(root),
+                crate::layout::univis_node::UNode {
+                    width: crate::layout::geometry::UVal::Px(200.0),
+                    height: crate::layout::geometry::UVal::Px(100.0),
+                    ..default()
+                },
+                crate::layout::univis_node::UZIndex::Local(1),
+            ))
+            .id();
+
+        let text_a = app
+            .world_mut()
+            .spawn((
+                ChildOf(panel_a),
+                UTextLabel::new("Alpha"),
+            ))
+            .id();
+
+        let panel_b = app
+            .world_mut()
+            .spawn((
+                ChildOf(root),
+                crate::layout::univis_node::UNode {
+                    width: crate::layout::geometry::UVal::Px(200.0),
+                    height: crate::layout::geometry::UVal::Px(100.0),
+                    ..default()
+                },
+                crate::layout::univis_node::UZIndex::Local(2),
+            ))
+            .id();
+
+        let text_b = app
+            .world_mut()
+            .spawn((
+                ChildOf(panel_b),
+                UTextLabel::new("Beta"),
+            ))
+            .id();
+
+        app.update();
+
+        let picking_a = app.world().entity(text_a).get::<crate::layout::query::UiPickingContext>().unwrap().local_depth_key;
+        let picking_b = app.world().entity(text_b).get::<crate::layout::query::UiPickingContext>().unwrap().local_depth_key;
+        assert!(picking_a < picking_b, "text_b should have greater depth than text_a (a={picking_a}, b={picking_b})");
+
+        // Swap priority: panel_a gets LocalMax
+        *app.world_mut().entity_mut(panel_a).get_mut::<crate::layout::univis_node::UZIndex>().unwrap() = crate::layout::univis_node::UZIndex::LocalMax;
+
+        app.update();
+
+        let picking_a_after = app.world().entity(text_a).get::<crate::layout::query::UiPickingContext>().unwrap().local_depth_key;
+        let picking_b_after = app.world().entity(text_b).get::<crate::layout::query::UiPickingContext>().unwrap().local_depth_key;
+        assert!(
+            picking_a_after > picking_b_after,
+            "text_a should now have greater depth than text_b after UZIndex change (a={picking_a_after}, b={picking_b_after})"
+        );
+    }
 }

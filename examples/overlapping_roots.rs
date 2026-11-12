@@ -72,11 +72,11 @@ fn setup_demo(mut commands: Commands, theme: Res<Theme>) {
     let font_code = theme.text.font.fira_sans_regular.clone();
 
     // -------------------------------------------------------------------------
-    // Root 0: HUD / Controls Bar (Always on top with Z=100)
+    // Root 0: HUD / Controls Bar (Always on top with UZIndex::Max - no magic numbers)
     // -------------------------------------------------------------------------
     commands
         .spawn_scene(hud_scene(font_body.clone()))
-        .insert(UZIndex::Global(100));
+        .insert(UZIndex::Min);
 
     // -------------------------------------------------------------------------
     // Root 1: Window 1 (Sapphire / Diagnostics Workspace)

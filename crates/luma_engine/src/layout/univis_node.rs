@@ -744,25 +744,109 @@ pub enum UAnchor {
     Fill,
 }
 
-/// Defines the Z-index depth behavior of the node.
+/// Defines the Z-index depth behavior of a node or root.
 ///
-/// This replaces `USelf::order` and handles Stacking Contexts.
+/// This handles local sibling ordering, stacking contexts, and global overlay/underlay breakouts.
+/// Also supports semantic extremes (`Min`, `Max`, `LocalMin`, `LocalMax`, `GlobalMin`, `GlobalMax`)
+/// to avoid magic numbers like 9999 or -9999.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Component)]
 pub enum UZIndex {
-    /// Normal sorting inside the parent. Does not break out.
+    /// Normal sorting inside the parent according to tree/spawn order.
     Auto,
-    /// Explicit local sorting inside the parent. Acts like CSS relative z-index
-    /// by forming a local stacking context. Does not interleave with other roots.
+    /// Explicit local sorting inside the parent container.
     Local(i32),
-    /// Absolute global sorting. Breaks out of the local tree completely and
-    /// sorts globally based on this integer.
+    /// Lowest priority among siblings inside the parent container (guaranteed bottom).
+    LocalMin,
+    /// Highest priority among siblings inside the parent container (guaranteed top).
+    LocalMax,
+    /// Absolute global sorting across the root or screen.
     Global(i32),
+    /// Lowest priority globally (guaranteed background underlay).
+    GlobalMin,
+    /// Highest priority globally (guaranteed overlay above all normal content).
+    GlobalMax,
+    /// Semantic bottom: acts as `GlobalMin` on roots, and `GlobalMin` on global children.
+    Min,
+    /// Semantic top: acts as `GlobalMax` on roots and floats above everyone in the root/screen.
+    Max,
 }
 
 impl Default for UZIndex {
     fn default() -> Self {
         UZIndex::Auto
+    }
+}
+
+impl UZIndex {
+    /// Alias for `LocalMax`: guaranteed top among siblings in the current container.
+    pub const TOP: Self = Self::LocalMax;
+    /// Alias for `LocalMin`: guaranteed bottom among siblings in the current container.
+    pub const BOTTOM: Self = Self::LocalMin;
+    /// Alias for `GlobalMax`: guaranteed top of the entire root or screen.
+    pub const GLOBAL_TOP: Self = Self::GlobalMax;
+    /// Alias for `GlobalMin`: guaranteed bottom of the entire root or screen.
+    pub const GLOBAL_BOTTOM: Self = Self::GlobalMin;
+
+    /// Construct a local integer Z-index.
+    #[inline]
+    pub const fn local(z: i32) -> Self {
+        Self::Local(z)
+    }
+
+    /// Construct a global integer Z-index.
+    #[inline]
+    pub const fn global(z: i32) -> Self {
+        Self::Global(z)
+    }
+
+    /// Returns `true` if this is `Auto`.
+    #[inline]
+    pub fn is_auto(&self) -> bool {
+        matches!(self, Self::Auto)
+    }
+
+    /// Returns `true` if this is any local variant (`Local`, `LocalMin`, `LocalMax`).
+    #[inline]
+    pub fn is_local(&self) -> bool {
+        matches!(self, Self::Local(_) | Self::LocalMin | Self::LocalMax)
+    }
+
+    /// Returns `true` if this breaks out globally (`Global`, `GlobalMin`, `GlobalMax`, `Min`, `Max`).
+    #[inline]
+    pub fn is_global(&self) -> bool {
+        matches!(
+            self,
+            Self::Global(_) | Self::GlobalMin | Self::GlobalMax | Self::Min | Self::Max
+        )
+    }
+
+    /// Returns `true` if this represents any maximum priority (`LocalMax`, `GlobalMax`, `Max`).
+    #[inline]
+    pub fn is_max(&self) -> bool {
+        matches!(self, Self::LocalMax | Self::GlobalMax | Self::Max)
+    }
+
+    /// Returns `true` if this represents any minimum priority (`LocalMin`, `GlobalMin`, `Min`).
+    #[inline]
+    pub fn is_min(&self) -> bool {
+        matches!(self, Self::LocalMin | Self::GlobalMin | Self::Min)
+    }
+
+    /// Extracts the integer value if explicitly specified.
+    #[inline]
+    pub fn explicit_value(&self) -> Option<i32> {
+        match self {
+            Self::Local(z) | Self::Global(z) => Some(*z),
+            _ => None,
+        }
+    }
+}
+
+impl From<i32> for UZIndex {
+    #[inline]
+    fn from(value: i32) -> Self {
+        Self::Local(value)
     }
 }
 

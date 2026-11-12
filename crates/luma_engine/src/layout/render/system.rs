@@ -335,6 +335,17 @@ fn sync_entity_material(
 ) {
     let logical_size = Vec2::new(size.width, size.height);
     if logical_size.x <= 0.0 || logical_size.y <= 0.0 {
+        if handles_opt.is_some() {
+            if let Ok(mut cmd) = commands.get_entity(entity) {
+                cmd.try_remove::<(
+                    Mesh2d,
+                    MeshMaterial2d<UNodeMaterial>,
+                    Mesh3d,
+                    MeshMaterial3d<UNodeMaterial3d>,
+                    MaterialHandles,
+                )>();
+            }
+        }
         return;
     }
 

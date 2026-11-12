@@ -13,11 +13,29 @@ use super::{URootUi, UScreenRoot, UWorldRoot};
 use crate::internal_prelude::*;
 use crate::layout::univis_node::UZIndex;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RootZPriority {
+    Min,
+    Explicit(i32),
+    Max,
+}
+
+impl RootZPriority {
+    pub fn from_zindex(zindex_opt: Option<&UZIndex>) -> Self {
+        match zindex_opt {
+            Some(UZIndex::GlobalMin | UZIndex::LocalMin | UZIndex::Min) => Self::Min,
+            Some(UZIndex::GlobalMax | UZIndex::LocalMax | UZIndex::Max) => Self::Max,
+            Some(UZIndex::Global(z) | UZIndex::Local(z)) => Self::Explicit(*z),
+            Some(UZIndex::Auto) | None => Self::Explicit(0),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct RootStackCandidate {
     entity: Entity,
     authored_root_z: f32,
-    z_index: i32,
+    priority: RootZPriority,
     spawn_rank: u64,
     band_width: f32,
 }
@@ -67,17 +85,14 @@ pub(crate) fn resolve_root_stacking(
 
     for (entity, resolved, transform, spawn_rank, stack, zindex_opt) in roots.p0().iter() {
         let authored_root_z = capture_authored_root_z(transform.translation.z, stack);
-        let z_index = match zindex_opt {
-            Some(UZIndex::Global(z)) | Some(UZIndex::Local(z)) => *z,
-            _ => 0,
-        };
+        let priority = RootZPriority::from_zindex(zindex_opt);
         groups
             .entry((resolved.space, resolved.camera_entity))
             .or_default()
             .push(RootStackCandidate {
                 entity,
                 authored_root_z,
-                z_index,
+                priority,
                 spawn_rank: spawn_rank.0,
                 band_width: root_capsule_band_width(resolved),
             });
@@ -87,8 +102,8 @@ pub(crate) fn resolve_root_stacking(
 
     for ((space, _camera), mut candidates) in groups {
         candidates.sort_by(|left, right| {
-            left.z_index
-                .cmp(&right.z_index)
+            left.priority
+                .cmp(&right.priority)
                 .then_with(|| left.authored_root_z.total_cmp(&right.authored_root_z))
                 .then_with(|| left.spawn_rank.cmp(&right.spawn_rank))
         });

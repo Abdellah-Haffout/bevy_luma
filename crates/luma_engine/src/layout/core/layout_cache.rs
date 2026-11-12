@@ -592,12 +592,16 @@ pub fn track_layout_changes(
             Ref<UNode>,
             Option<Ref<ULayout>>,
             Option<Ref<USelf>>,
+            Option<Ref<UZIndex>>,
+            Option<Ref<UiLocalStacking>>,
         ),
         Or<(
             Changed<UNode>,
             Changed<ULayout>,
             Changed<USelf>,
             Changed<Children>,
+            Changed<UZIndex>,
+            Changed<UiLocalStacking>,
         )>,
     >,
 
@@ -609,10 +613,26 @@ pub fn track_layout_changes(
         .as_ref()
         .map_or(0, |state| state.current_generation());
 
-    for (entity, children, node, layout, uself) in nodes.iter() {
+    for (entity, children, node, layout, uself, zindex, stacking) in nodes.iter() {
         let has_children = children.as_ref().is_some_and(|kids| !kids.is_empty());
         let has_parent = parents_query.get(entity).is_ok();
         let mut invalidation = LayoutInvalidation::default();
+
+        let zindex_changed = zindex.as_ref().is_some_and(|z| z.is_changed());
+        let stacking_changed = stacking.as_ref().is_some_and(|s| s.is_changed());
+
+        if zindex_changed || stacking_changed {
+            invalidation.solve_self = true;
+            invalidation.solve_ancestors = has_parent;
+            invalidation.render_self = true;
+
+            if has_children {
+                cache.mark_solve_dirty_recursive_generation(entity, current_generation, &children_query);
+                if material_pool.is_some() {
+                    mark_render_dirty_recursive(&mut cache, entity, current_generation, &children_query);
+                }
+            }
+        }
 
         if node.is_changed() {
             let current = (*node).clone();

@@ -577,7 +577,11 @@ fn apply_results_to_children(
                 || root_stack.local_depth_offset(layout_depth.0, order),
                 |stack| root_stack.local_depth_offset_for_fraction(stack.normalized),
             );
-            let next_z = (child_target_z - parent_target_z).max(0.0001);
+            let next_z = if (child_target_z - parent_target_z).abs() > f32::EPSILON {
+                child_target_z - parent_target_z
+            } else {
+                root_stack.capsule_band_step
+            };
 
             let scroll_content_opt = scroll_contents.get_mut(solved.entity).ok();
             let scrollbar_thumb_opt = scrollbar_thumbs.get_mut(solved.entity).ok();

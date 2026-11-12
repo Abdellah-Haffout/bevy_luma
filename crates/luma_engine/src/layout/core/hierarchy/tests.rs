@@ -325,3 +325,175 @@ fn picking_context_uses_hierarchical_subtree_stacking_order() {
     assert!(earlier_key < earlier_child_key);
     assert!(earlier_child_key < later_key);
 }
+
+#[test]
+fn global_max_breaks_out_above_later_sibling_branches() {
+    let mut app = App::new();
+    app.init_resource::<LayoutTreeDepth>();
+    app.add_systems(
+        Update,
+        (
+            update_layout_hierarchy,
+            update_cached_ui_contexts,
+            update_picking_contexts,
+        )
+            .chain(),
+    );
+
+    let root = app.world_mut().spawn(UNode::default()).id();
+    let (resolved, stack) = sample_root(root);
+    app.world_mut().entity_mut(root).insert((resolved, stack));
+
+    let earlier_branch = app
+        .world_mut()
+        .spawn((UNode::default(), ChildOf(root)))
+        .id();
+    // earlier_child has Max, so it must break out and float above later_branch!
+    let earlier_child = app
+        .world_mut()
+        .spawn((UNode::default(), ChildOf(earlier_branch), UZIndex::Max))
+        .id();
+    let later_branch = app
+        .world_mut()
+        .spawn((UNode::default(), ChildOf(root)))
+        .id();
+
+    app.update();
+
+    let earlier_key = app
+        .world()
+        .entity(earlier_branch)
+        .get::<UiPickingContext>()
+        .unwrap()
+        .local_depth_key;
+    let later_key = app
+        .world()
+        .entity(later_branch)
+        .get::<UiPickingContext>()
+        .unwrap()
+        .local_depth_key;
+    let earlier_child_key = app
+        .world()
+        .entity(earlier_child)
+        .get::<UiPickingContext>()
+        .unwrap()
+        .local_depth_key;
+
+    assert!(earlier_key < later_key);
+    // earlier_child broke out and is above later_branch!
+    assert!(later_key < earlier_child_key);
+}
+
+#[test]
+fn local_max_and_local_min_order_siblings_without_breaking_out() {
+    let mut app = App::new();
+    app.init_resource::<LayoutTreeDepth>();
+    app.add_systems(
+        Update,
+        (
+            update_layout_hierarchy,
+            update_cached_ui_contexts,
+            update_picking_contexts,
+        )
+            .chain(),
+    );
+
+    let root = app.world_mut().spawn(UNode::default()).id();
+    let (resolved, stack) = sample_root(root);
+    app.world_mut().entity_mut(root).insert((resolved, stack));
+
+    let branch = app
+        .world_mut()
+        .spawn((UNode::default(), ChildOf(root)))
+        .id();
+
+    // Spawn 3 siblings in arbitrary order
+    let normal_sibling = app
+        .world_mut()
+        .spawn((UNode::default(), ChildOf(branch), UZIndex::Auto))
+        .id();
+    let top_sibling = app
+        .world_mut()
+        .spawn((UNode::default(), ChildOf(branch), UZIndex::LocalMax))
+        .id();
+    let bottom_sibling = app
+        .world_mut()
+        .spawn((UNode::default(), ChildOf(branch), UZIndex::LocalMin))
+        .id();
+
+    app.update();
+
+    let bottom_key = app
+        .world()
+        .entity(bottom_sibling)
+        .get::<UiPickingContext>()
+        .unwrap()
+        .local_depth_key;
+    let normal_key = app
+        .world()
+        .entity(normal_sibling)
+        .get::<UiPickingContext>()
+        .unwrap()
+        .local_depth_key;
+    let top_key = app
+        .world()
+        .entity(top_sibling)
+        .get::<UiPickingContext>()
+        .unwrap()
+        .local_depth_key;
+
+    assert!(bottom_key < normal_key);
+    assert!(normal_key < top_key);
+}
+
+#[test]
+fn global_min_underlay_sits_behind_normal_branches() {
+    let mut app = App::new();
+    app.init_resource::<LayoutTreeDepth>();
+    app.add_systems(
+        Update,
+        (
+            update_layout_hierarchy,
+            update_cached_ui_contexts,
+            update_picking_contexts,
+        )
+            .chain(),
+    );
+
+    let root = app.world_mut().spawn(UNode::default()).id();
+    let (resolved, stack) = sample_root(root);
+    app.world_mut().entity_mut(root).insert((resolved, stack));
+
+    let normal_branch = app
+        .world_mut()
+        .spawn((UNode::default(), ChildOf(root)))
+        .id();
+    let underlay_branch = app
+        .world_mut()
+        .spawn((UNode::default(), ChildOf(root), UZIndex::Min))
+        .id();
+
+    app.update();
+
+    let root_key = app
+        .world()
+        .entity(root)
+        .get::<UiPickingContext>()
+        .unwrap()
+        .local_depth_key;
+    let underlay_key = app
+        .world()
+        .entity(underlay_branch)
+        .get::<UiPickingContext>()
+        .unwrap()
+        .local_depth_key;
+    let normal_key = app
+        .world()
+        .entity(normal_branch)
+        .get::<UiPickingContext>()
+        .unwrap()
+        .local_depth_key;
+
+    assert!(root_key < underlay_key);
+    assert!(underlay_key < normal_key);
+}

@@ -12,7 +12,7 @@ use crate::layout::layout_system::{
 };
 use crate::layout::pbr::UPbr;
 use crate::layout::profiling::LayoutProfiler;
-use crate::layout::univis_node::{UBorder, UClip, ULayout, UNode, USelf};
+use crate::layout::univis_node::{UBorder, UClip, ULayout, UNode, USelf, UZIndex};
 use crate::layout::visual::{UGradient, UInnerGlow, UShader, UShadow};
 use crate::schedule::{
     UiPendingStages, UiSettlementConfig, UiSettlementSchedule, UiWorkStage, UiWorkState,
@@ -76,6 +76,15 @@ pub(super) fn begin_ui_settlement_work(
             Changed<UWorldRoot>,
         )>,
     >,
+    root_zindex_mutations: Query<
+        (),
+        (
+            Or<(With<URootUi>, With<UScreenRoot>, With<UWorldRoot>)>,
+            Or<(Added<UZIndex>, Changed<UZIndex>)>,
+        ),
+    >,
+    node_zindex_mutations: Query<(), (With<UNode>, Or<(Added<UZIndex>, Changed<UZIndex>)>)>,
+    mut removed_zindex: RemovedComponents<UZIndex>,
     viewport_mutations: Query<(), Or<(Changed<Window>, Changed<Camera>)>>,
     layout_nodes: Query<(), With<UNode>>,
     layout_child_mutations: Query<(Entity, Ref<Children>), (With<UNode>, Changed<Children>)>,
@@ -140,7 +149,11 @@ pub(super) fn begin_ui_settlement_work(
     // since Changed<Window> / Changed<Camera> trackers persist across schedule runs within a frame.
     let is_first_pass = work_state.last_frame_iterations() <= 1;
     let viewport_changed = is_first_pass && !viewport_mutations.is_empty();
-    let roots_changed = !root_mutations.is_empty() || viewport_changed;
+    let has_removed_zindex = removed_zindex.read().count() > 0;
+    let roots_changed = !root_mutations.is_empty()
+        || !root_zindex_mutations.is_empty()
+        || has_removed_zindex
+        || viewport_changed;
     let layout_children_changed = layout_child_mutations.iter().any(|(entity, children)| {
         let current_layout_children = collect_layout_children(Some(&children), &layout_nodes);
         layout_children_changed(
@@ -156,7 +169,10 @@ pub(super) fn begin_ui_settlement_work(
     }
     let removed_any_nodes = removed_nodes.read().count() > 0;
     let structure_changed = removed_any_nodes || removed_layout_children || layout_children_changed;
-    let layout_changed = !layout_mutations.is_empty() || structure_changed;
+    let layout_changed = !layout_mutations.is_empty()
+        || !node_zindex_mutations.is_empty()
+        || structure_changed
+        || has_removed_zindex;
     let removed_render_components = removed_borders.read().count() > 0
         || removed_images.read().count() > 0
         || removed_pbrs.read().count() > 0
