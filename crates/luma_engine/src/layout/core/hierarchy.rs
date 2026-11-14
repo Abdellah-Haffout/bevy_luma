@@ -137,15 +137,20 @@ pub fn update_layout_hierarchy(
         }
 
         let total = paint_order.len().max(1) as f32;
+        let slot_span = 1.0 / total;
         for (index, entity) in paint_order.into_iter().enumerate() {
             let next_normalized = index as f32 / total;
             if let Ok(mut stacking) = local_stacking_query.get_mut(entity) {
-                if (stacking.normalized - next_normalized).abs() > 0.00001 {
+                if (stacking.normalized - next_normalized).abs() > 0.00001
+                    || (stacking.slot_span - slot_span).abs() > 0.00001
+                {
                     stacking.normalized = next_normalized;
+                    stacking.slot_span = slot_span;
                 }
             } else if let Ok(mut cmd) = commands.get_entity(entity) {
                 cmd.try_insert(UiLocalStacking {
                     normalized: next_normalized,
+                    slot_span,
                 });
             }
         }

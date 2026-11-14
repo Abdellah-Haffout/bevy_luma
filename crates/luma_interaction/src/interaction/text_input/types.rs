@@ -61,6 +61,8 @@ pub struct UTextInput {
     pub clear_on_submit: bool,
     /// Filter rule applied to typed or pasted characters.
     pub filter: TextInputFilter,
+    /// Enables multi-line wrapping, Enter newlines, and vertical scrolling/navigation.
+    pub multiline: bool,
 }
 
 impl Default for UTextInput {
@@ -79,6 +81,7 @@ impl Default for UTextInput {
             mask_char: '*',
             clear_on_submit: false,
             filter: TextInputFilter::SingleLine,
+            multiline: false,
         }
     }
 }
@@ -148,6 +151,27 @@ impl UTextInput {
         self.enabled = enabled;
         self
     }
+
+    /// Enables or disables multiline editing.
+    ///
+    /// Enabling multiline automatically switches the default [`TextInputFilter::SingleLine`]
+    /// to [`TextInputFilter::Any`] so line breaks are accepted.
+    pub fn with_multiline(mut self, multiline: bool) -> Self {
+        self.multiline = multiline;
+        if multiline && self.filter == TextInputFilter::SingleLine {
+            self.filter = TextInputFilter::Any;
+        }
+        self
+    }
+}
+
+/// Active IME preedit composition state displayed temporarily at the caret without committing to [`UTextInput::value`].
+#[derive(Reflect, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ImePreeditState {
+    /// Preedit string provided by the platform IME.
+    pub value: String,
+    /// Optional byte selection/cursor range within `value`.
+    pub cursor: Option<(usize, usize)>,
 }
 
 /// Caret state tracking blinking and visual cursor properties.
@@ -164,12 +188,20 @@ pub struct UTextInputCaret {
     pub timer: Timer,
     /// Current visibility state in the blink cycle.
     pub visible: bool,
+    /// Optional clipped viewport child container enclosing text, selection, and caret.
+    pub viewport_entity: Option<Entity>,
     /// Child entity displaying the visual caret cursor line.
     pub caret_entity: Option<Entity>,
     /// Child entity displaying the text label.
     pub text_entity: Option<Entity>,
-    /// Child entity displaying the visual text selection highlight rectangle.
+    /// Child entity displaying the primary text selection highlight rectangle.
     pub selection_entity: Option<Entity>,
+    /// Extra pooled selection highlight quads used for multi-line selections.
+    pub extra_selection_entities: Vec<Entity>,
+    /// Logical scroll offset `(x, y)` in pixels keeping the caret inside the viewport.
+    pub scroll_offset: Vec2,
+    /// Active uncommitted IME preedit text state.
+    pub ime_preedit: Option<ImePreeditState>,
     /// Background color of the text selection highlight rectangle.
     pub selection_color: Color,
     /// Anchor byte position when mouse dragging to select text.
@@ -186,9 +218,13 @@ impl Default for UTextInputCaret {
             height: None,
             timer: Timer::new(Duration::from_millis(530), TimerMode::Repeating),
             visible: true,
+            viewport_entity: None,
             caret_entity: None,
             text_entity: None,
             selection_entity: None,
+            extra_selection_entities: Vec::new(),
+            scroll_offset: Vec2::ZERO,
+            ime_preedit: None,
             selection_color: Color::srgba(0.0, 0.45, 0.9, 0.35),
             drag_anchor: None,
             last_click_secs: 0.0,
@@ -208,6 +244,11 @@ impl UTextInputCaret {
         self.visible = true;
     }
 }
+
+/// Marker component attached to the clipped internal viewport container child entity.
+#[derive(Component, Reflect, Clone, Copy, Debug, Default)]
+#[reflect(Component)]
+pub struct UTextInputViewportMarker;
 
 /// Marker component attached to the internal caret child entity.
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]

@@ -4,7 +4,8 @@ use luma_engine::schedule::UiPickingRuntimeState;
 pub fn post_settle_picking_backend(
     picking_runtime: Option<Res<UiPickingRuntimeState>>,
     pointers: Query<(&PointerId, &PointerLocation)>,
-    cameras: Query<(Entity, &Camera, &GlobalTransform)>,
+    cameras: Query<(Entity, &Camera, &GlobalTransform, Option<&RenderTarget>)>,
+    windows: Query<(Entity, Option<&PrimaryWindow>), With<Window>>,
     nodes_query: Query<
         (
             Entity,
@@ -13,8 +14,9 @@ pub fn post_settle_picking_backend(
             &ComputedSize,
             Option<&UiPickingContext>,
         ),
-        With<UInteraction>,
+        PickableNodeFilter,
     >,
+    visibility_query: Query<&Visibility>,
     parents_query: Query<&ChildOf>,
     clipper_query: Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
     mut validation_state: ResMut<PickingValidationState>,
@@ -48,7 +50,9 @@ pub fn post_settle_picking_backend(
     let current_hits = collect_pointer_hits(
         &pointers,
         &cameras,
+        &windows,
         &nodes_query,
+        &visibility_query,
         &parents_query,
         &clipper_query,
         profiler.as_deref_mut(),

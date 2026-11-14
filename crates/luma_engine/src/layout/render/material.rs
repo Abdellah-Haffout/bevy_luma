@@ -69,24 +69,18 @@ pub struct UNodeMaterial {
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
 
-    /// World-space center of the clip region.
+    /// Row 0 of up to 4 nested clippers' inverse world transforms (`[x, y, z, w]`).
     #[uniform(0)]
-    pub clip_center: Vec2, // World-space clip center
-    /// Size of the clip region.
+    pub clip_inv_x: [Vec4; 4],
+    /// Row 1 of up to 4 nested clippers' inverse world transforms (`[x, y, z, w]`).
     #[uniform(0)]
-    pub clip_size: Vec2, // Clip region size
-    /// Corner radii of the clip region.
+    pub clip_inv_y: [Vec4; 4],
+    /// Clipper local bounds & flags: `xy = half_size`, `z = active (1.0/0.0)`, `w = shape_mode (0=round, 1=cut)`.
     #[uniform(0)]
-    pub clip_radius: Vec4, // Clip corner radii for rounded SDF clipping
-    /// Flag indicating whether clipping is enabled (1 = enabled, 0 = disabled).
+    pub clip_bounds: [Vec4; 4],
+    /// Clipper corner radii `(tr, br, tl, bl)` in clipper-local units.
     #[uniform(0)]
-    pub use_clip: u32, // 0 = disabled, 1 = enabled
-    #[uniform(0)]
-    pub _pad1_0: f32,
-    #[uniform(0)]
-    pub _pad1_1: f32,
-    #[uniform(0)]
-    pub _pad1_2: f32,
+    pub clip_radius: [Vec4; 4],
 
     // --- Multi-stop gradient extensions (Offset 128) ---
     /// Up to 8 gradient stop colors (LinearRgba packed as Vec4).
@@ -144,13 +138,10 @@ impl Default for UNodeMaterial {
             texture: None,
             use_texture: 0,
             shape_mode: 0,
-            clip_center: Vec2::ZERO,
-            clip_size: Vec2::ZERO,
-            clip_radius: Vec4::ZERO,
-            use_clip: 0,
-            _pad1_0: 0.0,
-            _pad1_1: 0.0,
-            _pad1_2: 0.0,
+            clip_inv_x: [Vec4::ZERO; 4],
+            clip_inv_y: [Vec4::ZERO; 4],
+            clip_bounds: [Vec4::ZERO; 4],
+            clip_radius: [Vec4::ZERO; 4],
             grad_colors: [Vec4::ZERO; 8],
             grad_stops: [Vec4::ZERO; 2],
             grad_params: Vec4::ZERO,

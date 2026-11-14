@@ -530,3 +530,348 @@ fn picking_backend_hits_world3d_nodes_with_perspective_camera() {
     let hits = run_picking_for_space(UiSpace::World3d, true);
     assert_eq!(hits[0].order, 0.0);
 }
+
+#[test]
+fn picking_respects_outer_nested_clipper_and_rotated_world_scale_clip() {
+    let mut app = App::new();
+    app.init_resource::<PointerMap>();
+    app.add_message::<PointerHits>();
+    app.add_systems(Update, univis_picking_backend);
+
+    let camera_entity = spawn_camera(&mut app, false, Vec3::new(0.0, 0.0, 1000.0));
+    let root = app.world_mut().spawn_empty().id();
+
+    // Outer clipper blocks points with x > 0.5 world units (100 UI px * 0.02 world_scale = width 2.0 -> half 1.0, centered at -0.5).
+    let outer_clipper = app
+        .world_mut()
+        .spawn((
+            ChildOf(root),
+            UNode::default(),
+            ComputedSize {
+                width: 100.0,
+                height: 100.0,
+                local_pos: Vec2::ZERO,
+            },
+            UClip::enabled(true),
+            GlobalTransform::from(Transform::from_xyz(-0.5, 0.0, 0.0)),
+        ))
+        .id();
+
+    // Inner clipper centered at +0.5 overlaps part of outer, plus is rotated 45 deg.
+    let inner_clipper = app
+        .world_mut()
+        .spawn((
+            ChildOf(outer_clipper),
+            UNode::default(),
+            ComputedSize {
+                width: 100.0,
+                height: 100.0,
+                local_pos: Vec2::ZERO,
+            },
+            UClip::enabled(true),
+            GlobalTransform::from(
+                Transform::from_xyz(0.5, 0.0, 0.0).with_rotation(Quat::from_rotation_z(0.5)),
+            ),
+        ))
+        .id();
+
+    // Child covers whole viewport around origin; picking context caches `inner_clipper` and `world_scale = 0.02`.
+    let mut picking_ctx = sample_picking_context(
+        root,
+        camera_entity,
+        UiSpace::World2d,
+        3,
+        0,
+        0.0,
+        Some(inner_clipper),
+    );
+    picking_ctx.world_scale = 0.02;
+
+    let child = app
+        .world_mut()
+        .spawn((
+            ChildOf(inner_clipper),
+            UInteraction::default(),
+            UNode::default(),
+            ComputedSize {
+                width: 40000.0,
+                height: 40000.0,
+                local_pos: Vec2::ZERO,
+            },
+            GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 0.01)),
+            picking_ctx,
+        ))
+        .id();
+
+    // Point (1.2, 0.0) in world space: camera 800x600 ortho maps viewport center (400, 300) -> world (0,0).
+    // Pixel (401.2, 300.0) -> world (1.2, 0.0), which is INSIDE inner_clipper (center 0.5, half 1.0 -> max x=1.5),
+    // yet OUTSIDE outer_clipper (center -0.5, half 1.0 -> max x=0.5).
+    spawn_pointer(&mut app, Vec2::new(401.2, 300.0));
+    app.update();
+
+    let mut hits = app.world_mut().resource_mut::<Messages<PointerHits>>();
+    let outside_outer: Vec<_> = hits.drain().collect();
+    assert!(
+        outside_outer.iter().all(|h| h.picks.is_empty()),
+        "point outside outer nested clipper must not be picked even if inside inner clipper"
+    );
+
+    // Move pointer to viewport center (400, 300) -> world (0.0, 0.0), inside both clippers.
+    let mut ptr_q = app
+        .world_mut()
+        .query::<&mut PointerLocation>();
+    for mut ptr in ptr_q.iter_mut(app.world_mut()) {
+        ptr.location = Some(Location {
+            target: NormalizedRenderTarget::None {
+                width: 800,
+                height: 600,
+            },
+            position: Vec2::new(400.0, 300.0),
+        });
+    }
+    app.update();
+
+    let mut hits = app.world_mut().resource_mut::<Messages<PointerHits>>();
+    let inside_both: Vec<_> = hits.drain().collect();
+    assert_eq!(inside_both.len(), 1);
+    assert_eq!(inside_both[0].picks.len(), 1);
+    assert_eq!(inside_both[0].picks[0].0, child);
+}
+
+#[test]
+fn picking_skips_hidden_and_inherited_hidden_nodes() {
+    let mut app = App::new();
+    app.init_resource::<PointerMap>();
+    app.add_message::<PointerHits>();
+    app.add_systems(Update, univis_picking_backend);
+
+    let camera_entity = spawn_camera(&mut app, false, Vec3::new(0.0, 0.0, 1000.0));
+    let root = app.world_mut().spawn_empty().id();
+
+    let hidden_direct = app
+        .world_mut()
+        .spawn((
+            ChildOf(root),
+            UInteraction::default(),
+            UNode::default(),
+            ComputedSize {
+                width: 200.0,
+                height: 200.0,
+                local_pos: Vec2::ZERO,
+            },
+            GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 0.05)),
+            Visibility::Hidden,
+            sample_picking_context(root, camera_entity, UiSpace::Screen, 1, 0, 0.0, None),
+        ))
+        .id();
+
+    let hidden_parent = app
+        .world_mut()
+        .spawn((ChildOf(root), UNode::default(), Visibility::Hidden))
+        .id();
+
+    let hidden_inherited = app
+        .world_mut()
+        .spawn((
+            ChildOf(hidden_parent),
+            UInteraction::default(),
+            UNode::default(),
+            ComputedSize {
+                width: 200.0,
+                height: 200.0,
+                local_pos: Vec2::ZERO,
+            },
+            GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 0.04)),
+            Visibility::Inherited,
+            sample_picking_context(root, camera_entity, UiSpace::Screen, 2, 1, 0.0, None),
+        ))
+        .id();
+
+    let visible_node = app
+        .world_mut()
+        .spawn((
+            ChildOf(root),
+            UInteraction::default(),
+            UNode::default(),
+            ComputedSize {
+                width: 200.0,
+                height: 200.0,
+                local_pos: Vec2::ZERO,
+            },
+            GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 0.02)),
+            sample_picking_context(root, camera_entity, UiSpace::Screen, 1, 2, 0.0, None),
+        ))
+        .id();
+
+    spawn_pointer(&mut app, Vec2::new(400.0, 300.0));
+    app.update();
+
+    let mut hits = app.world_mut().resource_mut::<Messages<PointerHits>>();
+    let collected: Vec<_> = hits.drain().collect();
+    assert_eq!(collected.len(), 1);
+    assert_eq!(collected[0].picks.len(), 1);
+    assert_eq!(collected[0].picks[0].0, visible_node);
+    assert_ne!(collected[0].picks[0].0, hidden_direct);
+    assert_ne!(collected[0].picks[0].0, hidden_inherited);
+}
+
+fn spawn_camera_with_target(
+    app: &mut App,
+    translation: Vec3,
+    order: isize,
+    target: Option<RenderTarget>,
+) -> Entity {
+    let mut camera = Camera {
+        order,
+        computed: ComputedCameraValues {
+            target_info: Some(RenderTargetInfo {
+                physical_size: UVec2::new(800, 600),
+                scale_factor: 1.0,
+            }),
+            clip_from_view: OrthographicProjection {
+                area: Rect::new(-400.0, -300.0, 400.0, 300.0),
+                ..OrthographicProjection::default_2d()
+            }
+            .get_clip_from_view(),
+            ..default()
+        },
+        ..default()
+    };
+    let _ = &mut camera;
+    let entity = app
+        .world_mut()
+        .spawn((
+            camera,
+            GlobalTransform::from(Transform::from_translation(translation)),
+        ))
+        .id();
+    if let Some(rt) = target {
+        app.world_mut().entity_mut(entity).insert(rt);
+    }
+    entity
+}
+
+#[test]
+fn picking_filters_cameras_by_window_and_offscreen_render_target() {
+    let mut app = App::new();
+    app.init_resource::<PointerMap>();
+    app.add_message::<PointerHits>();
+    app.add_systems(Update, univis_picking_backend);
+
+    let win_a = app.world_mut().spawn((Window::default(), PrimaryWindow)).id();
+    let win_b = app.world_mut().spawn(Window::default()).id();
+
+    let cam_a = spawn_camera_with_target(&mut app, Vec3::new(0.0, 0.0, 1000.0), 0, None);
+    let cam_b = spawn_camera_with_target(
+        &mut app,
+        Vec3::new(0.0, 0.0, 1000.0),
+        10,
+        Some(RenderTarget::Window(bevy::window::WindowRef::Entity(win_b))),
+    );
+    let cam_offscreen = spawn_camera_with_target(
+        &mut app,
+        Vec3::new(0.0, 0.0, 1000.0),
+        20,
+        Some(RenderTarget::Image(Handle::<Image>::default().into())),
+    );
+
+    let root_a = app.world_mut().spawn_empty().id();
+    let root_b = app.world_mut().spawn_empty().id();
+    let root_offscreen = app.world_mut().spawn_empty().id();
+
+    let node_a = app
+        .world_mut()
+        .spawn((
+            ChildOf(root_a),
+            UInteraction::default(),
+            UNode::default(),
+            ComputedSize {
+                width: 200.0,
+                height: 200.0,
+                local_pos: Vec2::ZERO,
+            },
+            GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 0.02)),
+            sample_picking_context(root_a, cam_a, UiSpace::Screen, 1, 0, 0.0, None),
+        ))
+        .id();
+
+    let node_b = app
+        .world_mut()
+        .spawn((
+            ChildOf(root_b),
+            UInteraction::default(),
+            UNode::default(),
+            ComputedSize {
+                width: 200.0,
+                height: 200.0,
+                local_pos: Vec2::ZERO,
+            },
+            GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 0.02)),
+            sample_picking_context(root_b, cam_b, UiSpace::Screen, 1, 0, 0.0, None),
+        ))
+        .id();
+
+    let node_offscreen = app
+        .world_mut()
+        .spawn((
+            ChildOf(root_offscreen),
+            UInteraction::default(),
+            UNode::default(),
+            ComputedSize {
+                width: 200.0,
+                height: 200.0,
+                local_pos: Vec2::ZERO,
+            },
+            GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 0.02)),
+            sample_picking_context(
+                root_offscreen,
+                cam_offscreen,
+                UiSpace::Screen,
+                1,
+                0,
+                0.0,
+                None,
+            ),
+        ))
+        .id();
+
+    // Pointer on Window A must hit only node_a, never node_b or node_offscreen.
+    let target_a = RenderTarget::Window(bevy::window::WindowRef::Entity(win_a))
+        .normalize(Some(win_a))
+        .expect("normalize win_a");
+    app.world_mut().spawn((
+        PointerId::Mouse,
+        PointerLocation::new(Location {
+            target: target_a,
+            position: Vec2::new(400.0, 300.0),
+        }),
+    ));
+    app.update();
+
+    let mut hits = app.world_mut().resource_mut::<Messages<PointerHits>>();
+    let collected: Vec<_> = hits.drain().collect();
+    assert_eq!(collected.len(), 1);
+    assert_eq!(collected[0].picks.len(), 1);
+    assert_eq!(collected[0].picks[0].0, node_a);
+    assert_ne!(collected[0].picks[0].0, node_b);
+    assert_ne!(collected[0].picks[0].0, node_offscreen);
+
+    // Move the pointer to Window B: now only node_b should be picked.
+    let target_b = RenderTarget::Window(bevy::window::WindowRef::Entity(win_b))
+        .normalize(Some(win_a))
+        .expect("normalize win_b");
+    let mut ptr_q = app.world_mut().query::<&mut PointerLocation>();
+    for mut ptr in ptr_q.iter_mut(app.world_mut()) {
+        ptr.location = Some(Location {
+            target: target_b.clone(),
+            position: Vec2::new(400.0, 300.0),
+        });
+    }
+    app.update();
+
+    let mut hits = app.world_mut().resource_mut::<Messages<PointerHits>>();
+    let collected_b: Vec<_> = hits.drain().collect();
+    assert_eq!(collected_b.len(), 1);
+    assert_eq!(collected_b[0].picks.len(), 1);
+    assert_eq!(collected_b[0].picks[0].0, node_b);
+}

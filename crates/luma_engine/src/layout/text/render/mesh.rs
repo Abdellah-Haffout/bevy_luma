@@ -105,10 +105,7 @@ pub(crate) fn build_text_page_mesh(quads: &[TextGlyphQuad]) -> Mesh {
     .with_inserted_indices(Indices::U32(indices))
 }
 
-pub(crate) fn build_text_material(
-    label: &UTextLabel,
-    texture: Handle<Image>,
-) -> UTextLabelSdfMaterial {
+fn sdf_material_params(label: &UTextLabel) -> (LinearRgba, LinearRgba, f32) {
     let render_scale = resolved_render_scale(label.render_scale);
     let normalized_outline_width = if label.outline_width > 0.0 {
         (label.outline_width * render_scale) / (2.0 * TEXT_SDF_PADDING as f32)
@@ -120,47 +117,77 @@ pub(crate) fn build_text_material(
     } else {
         label.color.into()
     };
+    (base_color, label.outline_color.into(), normalized_outline_width)
+}
 
+fn build_sdf_material(
+    color: LinearRgba,
+    outline_color: LinearRgba,
+    outline_width: f32,
+    texture: Handle<Image>,
+) -> UTextLabelSdfMaterial {
     UTextLabelSdfMaterial {
-        color: base_color,
-        outline_color: label.outline_color.into(),
-        clip_radius: Vec4::ZERO,
-        clip_center: Vec2::ZERO,
-        clip_size: Vec2::ZERO,
+        color,
+        outline_color,
         edge_softness: DEFAULT_TEXT_EDGE_SOFTNESS,
-        outline_width: normalized_outline_width,
-        use_clip: 0,
-        _pad: 0.0,
+        outline_width,
+        _pad0: 0.0,
+        _pad1: 0.0,
+        clip_inv_x: [Vec4::ZERO; 4],
+        clip_inv_y: [Vec4::ZERO; 4],
+        clip_bounds: [Vec4::ZERO; 4],
+        clip_radius: [Vec4::ZERO; 4],
         texture,
     }
+}
+
+fn build_sdf_material_3d(
+    color: LinearRgba,
+    outline_color: LinearRgba,
+    outline_width: f32,
+    texture: Handle<Image>,
+) -> UTextLabelSdfMaterial3d {
+    UTextLabelSdfMaterial3d {
+        color,
+        outline_color,
+        edge_softness: DEFAULT_TEXT_EDGE_SOFTNESS,
+        outline_width,
+        _pad0: 0.0,
+        _pad1: 0.0,
+        clip_inv_x: [Vec4::ZERO; 4],
+        clip_inv_y: [Vec4::ZERO; 4],
+        clip_bounds: [Vec4::ZERO; 4],
+        clip_radius: [Vec4::ZERO; 4],
+        texture,
+    }
+}
+
+pub(crate) fn build_text_material(
+    label: &UTextLabel,
+    texture: Handle<Image>,
+) -> UTextLabelSdfMaterial {
+    let (color, outline_color, outline_width) = sdf_material_params(label);
+    build_sdf_material(color, outline_color, outline_width, texture)
 }
 
 pub(super) fn build_text_material_3d(
     label: &UTextLabel,
     texture: Handle<Image>,
 ) -> UTextLabelSdfMaterial3d {
-    let render_scale = resolved_render_scale(label.render_scale);
-    let normalized_outline_width = if label.outline_width > 0.0 {
-        (label.outline_width * render_scale) / (2.0 * TEXT_SDF_PADDING as f32)
-    } else {
-        0.0
-    };
-    let base_color = if label.has_spans() {
-        LinearRgba::WHITE
-    } else {
-        label.color.into()
-    };
+    let (color, outline_color, outline_width) = sdf_material_params(label);
+    build_sdf_material_3d(color, outline_color, outline_width, texture)
+}
 
-    UTextLabelSdfMaterial3d {
-        color: base_color,
-        outline_color: label.outline_color.into(),
-        clip_radius: Vec4::ZERO,
-        clip_center: Vec2::ZERO,
-        clip_size: Vec2::ZERO,
-        edge_softness: DEFAULT_TEXT_EDGE_SOFTNESS,
-        outline_width: normalized_outline_width,
-        use_clip: 0,
-        _pad: 0.0,
-        texture,
-    }
+pub(super) fn build_solid_highlight_material(
+    color: LinearRgba,
+    texture: Handle<Image>,
+) -> UTextLabelSdfMaterial {
+    build_sdf_material(color, LinearRgba::NONE, 0.0, texture)
+}
+
+pub(super) fn build_solid_highlight_material_3d(
+    color: LinearRgba,
+    texture: Handle<Image>,
+) -> UTextLabelSdfMaterial3d {
+    build_sdf_material_3d(color, LinearRgba::NONE, 0.0, texture)
 }

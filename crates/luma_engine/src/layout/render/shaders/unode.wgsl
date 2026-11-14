@@ -19,13 +19,10 @@ struct UNodeMaterial {
     use_texture: u32,        // Offset 72
     _pad0: f32,              // Offset 76
     
-    clip_center: vec2<f32>,  // Offset 80
-    clip_size: vec2<f32>,    // Offset 88
-    clip_radius: vec4<f32>,  // Offset 96
-    use_clip: u32,           // Offset 112
-    _pad1_0: f32,            // Offset 116
-    _pad1_1: f32,            // Offset 120
-    _pad1_2: f32,            // Offset 124
+    clip_inv_x: array<vec4<f32>, 4>,   // Offset 80
+    clip_inv_y: array<vec4<f32>, 4>,   // Offset 144
+    clip_bounds: array<vec4<f32>, 4>,  // Offset 208: xy = half_size, z = active, w = shape_mode
+    clip_radius: array<vec4<f32>, 4>,  // Offset 272
 
     grad_colors: array<vec4<f32>, 8>, // Offset 128 (8 * 16 = 128 bytes)
     grad_stops: array<vec4<f32>, 2>,  // Offset 256 (2 * 16 = 32 bytes)
@@ -251,17 +248,27 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let aa_width = max(grad_outer, softness);
     let aa_inner = aa_width * 0.5;
 
-    // Optional clipping against parent container
+    // Multi-layer rotation/scale-aware clipping against ancestor containers
     var alpha_clip = 1.0;
-    if (material.use_clip == 1u) {
-        let p_clip = in.world_position.xy - material.clip_center;
-        let d_clip = sd_rounded_box(p_clip, material.clip_size * 0.5, material.clip_radius);
+    let clip_wp = vec4<f32>(in.world_position.xyz, 1.0);
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        let bounds = material.clip_bounds[i];
+        if (bounds.z < 0.5) {
+            break;
+        }
+        let p_clip = vec2<f32>(
+            dot(material.clip_inv_x[i], clip_wp),
+            dot(material.clip_inv_y[i], clip_wp),
+        );
+        let d_round = sd_rounded_box(p_clip, bounds.xy, material.clip_radius[i]);
+        let d_cut = sd_cut_box(p_clip, bounds.xy, material.clip_radius[i]);
+        let d_clip = select(d_round, d_cut, bounds.w > 0.5);
         let grad_clip = length(vec2<f32>(dpdx(d_clip), dpdy(d_clip)));
         let clip_aa = max(grad_clip, softness) * 0.5;
-        alpha_clip = 1.0 - smoothstep(-clip_aa, clip_aa, d_clip);
-        if (alpha_clip < 0.001) {
-            discard;
-        }
+        alpha_clip = alpha_clip * (1.0 - smoothstep(-clip_aa, clip_aa, d_clip));
+    }
+    if (alpha_clip < 0.001) {
+        discard;
     }
 
     let border_width = material.border_width;

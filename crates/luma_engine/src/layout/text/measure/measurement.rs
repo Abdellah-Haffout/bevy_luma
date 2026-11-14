@@ -109,6 +109,51 @@ pub(super) fn label_text_font(label: &UTextLabel) -> TextFont {
     }
 }
 
+fn effective_measure_bounds(text_layout: &TextLayout, bounds: TextBounds) -> TextBounds {
+    if text_layout.linebreak == LineBreak::NoWrap {
+        // Single-line NoWrap nodes fit their own measured width; constraining Parley's
+        // alignment width to parent bounds would right-shift RTL runs relative to measured_size.
+        TextBounds {
+            width: None,
+            height: bounds.height,
+        }
+    } else {
+        bounds
+    }
+}
+
+fn build_measured_text_info(
+    text_layout: &TextLayout,
+    bounds: TextBounds,
+    computed_size: Vec2,
+    measure_min: Vec2,
+    measure_max: Vec2,
+    line_count: usize,
+) -> MeasuredTextInfo {
+    let size = if text_layout.linebreak == LineBreak::NoWrap {
+        measure_max
+    } else {
+        computed_size
+    };
+
+    let (min_content_size, max_content_size) = if text_layout.linebreak == LineBreak::NoWrap {
+        (measure_max, measure_max)
+    } else {
+        let max_w = bounds.width.map_or(measure_max.x, |bw| computed_size.x.min(bw));
+        (
+            Vec2::new(measure_min.x, computed_size.y),
+            Vec2::new(max_w, computed_size.y),
+        )
+    };
+
+    MeasuredTextInfo {
+        size,
+        min_content_size,
+        max_content_size,
+        line_count,
+    }
+}
+
 pub(super) fn measure_layout_for_text(
     entity: Entity,
     text: &str,
@@ -148,33 +193,20 @@ pub(super) fn measure_layout_for_text(
         )
         .map_err(|_| TextMeasureError::new(entity, stage, text.chars().count()))?;
 
-    let computed_size = measure.compute_size(bounds, computed, font_system);
+    let measure_min = measure.min;
+    let measure_max = measure.max;
+    let computed_size =
+        measure.compute_size(effective_measure_bounds(text_layout, bounds), computed, font_system);
     let line_count = computed.buffer().lines().count();
 
-    let size = if text_layout.linebreak == LineBreak::NoWrap {
-        measure.max
-    } else {
-        computed_size
-    };
-
-    let (min_content_size, max_content_size) = if text_layout.linebreak == LineBreak::NoWrap {
-        (measure.max, measure.max)
-    } else {
-        let max_w = bounds
-            .width
-            .map_or(measure.max.x, |bw| computed_size.x.min(bw));
-        (
-            Vec2::new(measure.min.x, computed_size.y),
-            Vec2::new(max_w, computed_size.y),
-        )
-    };
-
-    Ok(MeasuredTextInfo {
-        size,
-        min_content_size,
-        max_content_size,
+    Ok(build_measured_text_info(
+        text_layout,
+        bounds,
+        computed_size,
+        measure_min,
+        measure_max,
         line_count,
-    })
+    ))
 }
 
 pub(super) fn measure_layout_for_label(
@@ -247,33 +279,20 @@ pub(super) fn measure_layout_for_label(
         )
         .map_err(|_| TextMeasureError::new(entity, stage, label.text.chars().count()))?;
 
-    let computed_size = measure.compute_size(bounds, computed, font_system);
+    let measure_min = measure.min;
+    let measure_max = measure.max;
+    let computed_size =
+        measure.compute_size(effective_measure_bounds(text_layout, bounds), computed, font_system);
     let line_count = computed.buffer().lines().count();
 
-    let size = if text_layout.linebreak == LineBreak::NoWrap {
-        measure.max
-    } else {
-        computed_size
-    };
-
-    let (min_content_size, max_content_size) = if text_layout.linebreak == LineBreak::NoWrap {
-        (measure.max, measure.max)
-    } else {
-        let max_w = bounds
-            .width
-            .map_or(measure.max.x, |bw| computed_size.x.min(bw));
-        (
-            Vec2::new(measure.min.x, computed_size.y),
-            Vec2::new(max_w, computed_size.y),
-        )
-    };
-
-    Ok(MeasuredTextInfo {
-        size,
-        min_content_size,
-        max_content_size,
+    Ok(build_measured_text_info(
+        text_layout,
+        bounds,
+        computed_size,
+        measure_min,
+        measure_max,
         line_count,
-    })
+    ))
 }
 
 pub(super) fn resolve_final_measured_text(

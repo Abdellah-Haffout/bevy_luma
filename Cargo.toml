@@ -179,3 +179,7 @@ path = "examples/edit_text.rs"
 [[example]]
 name = "luma_focus_showcase"
 path = "examples/luma_focus_showcase.rs"
+
+[[example]]
+name = "luma_multicam_text_showcase"
+path = "examples/luma_multicam_text_showcase.rs"

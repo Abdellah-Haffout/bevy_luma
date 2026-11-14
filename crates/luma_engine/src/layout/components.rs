@@ -20,6 +20,7 @@ pub struct LayoutDepth(pub usize);
 #[derive(Component, Default, Debug, Clone, Copy, PartialEq)]
 pub struct UiLocalStacking {
     pub normalized: f32,
+    pub slot_span: f32,
 }
 
 /// Stores the "Intrinsic Size" of a UI element.

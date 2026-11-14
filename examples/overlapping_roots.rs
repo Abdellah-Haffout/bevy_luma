@@ -76,7 +76,7 @@ fn setup_demo(mut commands: Commands, theme: Res<Theme>) {
     // -------------------------------------------------------------------------
     commands
         .spawn_scene(hud_scene(font_body.clone()))
-        .insert(UZIndex::Min);
+        .insert(UZIndex::Max);
 
     // -------------------------------------------------------------------------
     // Root 1: Window 1 (Sapphire / Diagnostics Workspace)

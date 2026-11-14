@@ -3,6 +3,37 @@ use super::*;
 #[derive(Resource, Default)]
 pub(crate) struct UTextLabelAtlasCache {
     pub(super) pages_by_font: HashMap<UTextLabelAtlasKey, Vec<UTextLabelAtlasPage>>,
+    /// Cached 2x2 opaque white texture used to render solid selection highlight quads through the clipped SDF shader.
+    pub(super) solid_highlight_texture: Option<Handle<Image>>,
+}
+
+impl UTextLabelAtlasCache {
+    pub(super) fn ensure_solid_highlight_texture(
+        &mut self,
+        images: &mut Assets<Image>,
+    ) -> Handle<Image> {
+        if let Some(handle) = &self.solid_highlight_texture
+            && images.get(handle).is_some()
+        {
+            return handle.clone();
+        }
+
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 2,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[255, 255, 255, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::default(),
+        );
+        image.sampler = ImageSampler::nearest();
+        let handle = images.add(image);
+        self.solid_highlight_texture = Some(handle.clone());
+        handle
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

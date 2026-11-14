@@ -16,6 +16,42 @@ pub fn display_text(input: &UTextInput) -> String {
     }
 }
 
+fn snap_value_boundary(text: &str, byte_offset: usize) -> usize {
+    let mut idx = byte_offset.min(text.len());
+    while idx > 0 && !text.is_char_boundary(idx) {
+        idx -= 1;
+    }
+    idx
+}
+
+/// Maps a UTF-8 byte offset in `input.value` into the corresponding byte offset in [`display_text`].
+pub fn value_byte_to_display_byte(input: &UTextInput, byte_offset: usize) -> usize {
+    let clamped = snap_value_boundary(&input.value, byte_offset);
+    match input.mode {
+        TextInputMode::Normal => clamped,
+        TextInputMode::Password => {
+            let chars_before = input.value[..clamped].chars().count();
+            chars_before * input.mask_char.len_utf8()
+        }
+    }
+}
+
+/// Maps a UTF-8 byte offset in [`display_text`] back into the corresponding byte offset in `input.value`.
+pub fn display_byte_to_value_byte(input: &UTextInput, display_byte_offset: usize) -> usize {
+    match input.mode {
+        TextInputMode::Normal => snap_value_boundary(&input.value, display_byte_offset),
+        TextInputMode::Password => {
+            let mask_len = input.mask_char.len_utf8().max(1);
+            let target_char_idx = display_byte_offset / mask_len;
+            input
+                .value
+                .char_indices()
+                .nth(target_char_idx)
+                .map_or(input.value.len(), |(byte_idx, _)| byte_idx)
+        }
+    }
+}
+
 /// Normalizes and returns the active selection range as `(start, end)` where `start <= end`.
 ///
 /// Returns `None` if there is no selection or if start equals end.
@@ -91,12 +127,17 @@ pub fn insert_text(input: &mut UTextInput, text: &str) -> bool {
     // 2. Ensure cursor is at a valid UTF-8 boundary
     clamp_cursor_to_boundary(input);
 
-    // 3. Filter characters
+    // 3. Normalize CRLF/CR line breaks and filter characters
+    let normalized = if text.contains('\r') {
+        std::borrow::Cow::Owned(text.replace("\r\n", "\n").replace('\r', "\n"))
+    } else {
+        std::borrow::Cow::Borrowed(text)
+    };
     let mut allowed_chars = Vec::new();
     let mut temp_str = input.value.clone();
     let mut current_pos = input.cursor_position;
 
-    for c in text.chars() {
+    for c in normalized.chars() {
         if is_char_allowed(c, input.filter, &temp_str, current_pos) {
             // Check max length
             if let Some(max_len) = input.max_length
@@ -268,22 +309,73 @@ fn word_right_target(value: &str, pos: usize) -> usize {
     value.len() - after_space.len()
 }
 
+/// Moves the cursor to the given byte offset, optionally extending or clearing selection.
+pub fn move_cursor_to_byte(input: &mut UTextInput, target: usize, select: bool) {
+    clamp_cursor_to_boundary(input);
+    let clamped_target = snap_value_boundary(&input.value, target);
+    let anchor = input.selection.map_or(input.cursor_position, |(s, _)| s);
+    input.cursor_position = clamped_target;
+    input.selection = (select && anchor != clamped_target).then_some((anchor, clamped_target));
+}
+
 /// Moves the cursor to the previous word start (Ctrl+Left), optionally extending the selection.
 pub fn move_word_left(input: &mut UTextInput, select: bool) {
     clamp_cursor_to_boundary(input);
-    let anchor = input.selection.map_or(input.cursor_position, |(s, _)| s);
     let target = word_left_target(&input.value, input.cursor_position);
-    input.cursor_position = target;
-    input.selection = (select && anchor != target).then_some((anchor, target));
+    move_cursor_to_byte(input, target, select);
 }
 
 /// Moves the cursor to the next word start (Ctrl+Right), optionally extending the selection.
 pub fn move_word_right(input: &mut UTextInput, select: bool) {
     clamp_cursor_to_boundary(input);
-    let anchor = input.selection.map_or(input.cursor_position, |(s, _)| s);
     let target = word_right_target(&input.value, input.cursor_position);
-    input.cursor_position = target;
-    input.selection = (select && anchor != target).then_some((anchor, target));
+    move_cursor_to_byte(input, target, select);
+}
+
+/// Moves cursor vertically up (`delta = -1`) or down (`delta = 1`) by `\n` lines, preserving char column.
+fn move_cursor_vertical_by_newlines(input: &mut UTextInput, delta: isize, select: bool) {
+    clamp_cursor_to_boundary(input);
+    let pos = input.cursor_position;
+    let cur_line_start = input.value[..pos].rfind('\n').map_or(0, |i| i + 1);
+    let col_chars = input.value[cur_line_start..pos].chars().count();
+
+    let target = if delta < 0 {
+        if cur_line_start == 0 {
+            return move_cursor_to_byte(input, 0, select);
+        }
+        let prev_line_end = cur_line_start - 1;
+        let prev_line_start = input.value[..prev_line_end]
+            .rfind('\n')
+            .map_or(0, |i| i + 1);
+        input.value[prev_line_start..prev_line_end]
+            .char_indices()
+            .nth(col_chars)
+            .map_or(prev_line_end, |(off, _)| prev_line_start + off)
+    } else {
+        let Some(nl_rel) = input.value[pos..].find('\n') else {
+            return move_cursor_to_byte(input, input.value.len(), select);
+        };
+        let next_line_start = pos + nl_rel + 1;
+        let next_line_end = input.value[next_line_start..]
+            .find('\n')
+            .map_or(input.value.len(), |rel| next_line_start + rel);
+        input.value[next_line_start..next_line_end]
+            .char_indices()
+            .nth(col_chars)
+            .map_or(next_line_end, |(off, _)| next_line_start + off)
+    };
+
+    move_cursor_to_byte(input, target, select);
+}
+
+/// Moves cursor up one newline-delimited line (fallback when Parley layout is unavailable).
+pub fn move_cursor_up(input: &mut UTextInput, select: bool) {
+    move_cursor_vertical_by_newlines(input, -1, select);
+}
+
+/// Moves cursor down one newline-delimited line (fallback when Parley layout is unavailable).
+pub fn move_cursor_down(input: &mut UTextInput, select: bool) {
+    move_cursor_vertical_by_newlines(input, 1, select);
 }
 
 /// Deletes forward to the start of the next word (Ctrl+Delete), or the active selection.
@@ -407,55 +499,18 @@ pub fn move_cursor_right(input: &mut UTextInput, select: bool) {
 
 /// Moves cursor to the start of the text (Home key).
 pub fn move_cursor_to_start(input: &mut UTextInput, select: bool) {
-    let anchor = if select {
-        input
-            .selection
-            .map(|(s, _)| s)
-            .unwrap_or(input.cursor_position)
-    } else {
-        0
-    };
-
-    input.cursor_position = 0;
-
-    if select {
-        input.selection = Some((anchor, 0));
-    } else {
-        input.selection = None;
-    }
+    move_cursor_to_byte(input, 0, select);
 }
 
 /// Moves cursor to the end of the text (End key).
 pub fn move_cursor_to_end(input: &mut UTextInput, select: bool) {
-    let anchor = if select {
-        input
-            .selection
-            .map(|(s, _)| s)
-            .unwrap_or(input.cursor_position)
-    } else {
-        0
-    };
-
-    input.cursor_position = input.value.len();
-
-    if select {
-        input.selection = Some((anchor, input.value.len()));
-    } else {
-        input.selection = None;
-    }
+    let end = input.value.len();
+    move_cursor_to_byte(input, end, select);
 }
 
 /// Ensures the cursor index is clamped within bounds and sits on a valid UTF-8 character boundary.
 pub fn clamp_cursor_to_boundary(input: &mut UTextInput) {
-    let len = input.value.len();
-    if input.cursor_position > len {
-        input.cursor_position = len;
-        return;
-    }
-
-    while input.cursor_position > 0 && !input.value.is_char_boundary(input.cursor_position) {
-        input.cursor_position -= 1;
-    }
+    input.cursor_position = snap_value_boundary(&input.value, input.cursor_position);
 }
 
 /// Given an X offset in logical pixels relative to the text content start (excluding left padding)

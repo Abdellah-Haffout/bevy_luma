@@ -8,9 +8,11 @@ mod root_lookup;
 mod tests;
 mod validation;
 
+use bevy::camera::RenderTarget;
 use bevy::picking::backend::prelude::{HitData, PointerHits, PointerLocation};
 use bevy::picking::pointer::PointerId;
 use bevy::prelude::*;
+use bevy::window::{PrimaryWindow, Window};
 use std::collections::HashMap;
 
 pub use self::backend::{track_pointer_generation, univis_picking_backend};
@@ -22,9 +24,19 @@ use self::clip::is_clipped_by_picking_context;
 use self::hit_math::{CachedPointerRay, intersect_ray_with_node_plane, pointer_ray_for_camera};
 use self::root_lookup::is_ancestor_of;
 use crate::interaction::feedback::UInteraction;
+use crate::interaction::text_input::UTextInput;
 use luma_engine::layout::profiling::LayoutProfiler;
 use luma_engine::layout::query::{ComputedSize, UiPickingContext};
+use luma_engine::layout::render::clip_sync::{
+    is_entity_visible_in_hierarchy, resolve_primary_window_entity,
+};
+use luma_engine::layout::text::USelectableText;
 use luma_engine::layout::univis_node::{UClip, UNode};
+use luma_engine::prelude::UShapeMode;
+
+/// Shared archetype filter matching all UI entities participating in Luma pointer picking.
+pub(super) type PickableNodeFilter =
+    Or<(With<UInteraction>, With<USelectableText>, With<UTextInput>)>;
 
 #[derive(Resource, Default)]
 pub struct PickingSyncState {
@@ -102,6 +114,7 @@ struct PreparedPickingCandidate {
     global_transform: GlobalTransform,
     half_size: Vec2,
     radius_vec: Vec4,
+    shape_mode: UShapeMode,
     picking_context: UiPickingContext,
     root_sort_key: f32,
     local_depth_key: f32,
@@ -114,7 +127,8 @@ struct PreparedCameraBucket {
 
 pub(super) fn emit_pointer_hits(
     pointers: &Query<(&PointerId, &PointerLocation)>,
-    cameras: &Query<(Entity, &Camera, &GlobalTransform)>,
+    cameras: &Query<(Entity, &Camera, &GlobalTransform, Option<&RenderTarget>)>,
+    windows: &Query<(Entity, Option<&PrimaryWindow>), With<Window>>,
     nodes_query: &Query<
         (
             Entity,
@@ -123,8 +137,9 @@ pub(super) fn emit_pointer_hits(
             &ComputedSize,
             Option<&UiPickingContext>,
         ),
-        With<UInteraction>,
+        PickableNodeFilter,
     >,
+    visibility_query: &Query<&Visibility>,
     parents_query: &Query<&ChildOf>,
     clipper_query: &Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
     profiler: Option<&mut LayoutProfiler>,
@@ -133,7 +148,9 @@ pub(super) fn emit_pointer_hits(
     let hits = collect_pointer_hits(
         pointers,
         cameras,
+        windows,
         nodes_query,
+        visibility_query,
         parents_query,
         clipper_query,
         profiler,
@@ -150,12 +167,17 @@ fn build_picking_candidate_buckets(
             &ComputedSize,
             Option<&UiPickingContext>,
         ),
-        With<UInteraction>,
+        PickableNodeFilter,
     >,
+    visibility_query: &Query<&Visibility>,
+    parents_query: &Query<&ChildOf>,
 ) -> HashMap<Entity, PreparedCameraBucket> {
     let mut buckets: HashMap<Entity, PreparedCameraBucket> = HashMap::new();
 
     for (entity, node, global_transform, size, picking_context) in nodes_query.iter() {
+        if !is_entity_visible_in_hierarchy(entity, visibility_query, parents_query) {
+            continue;
+        }
         let Some(picking_context) = picking_context.copied() else {
             continue;
         };
@@ -177,6 +199,7 @@ fn build_picking_candidate_buckets(
                     node.border_radius.top_left,
                     node.border_radius.bottom_left,
                 ) * picking_context.world_scale,
+                shape_mode: node.shape_mode,
                 picking_context,
                 root_sort_key: picking_context.root_sort_key,
                 local_depth_key: picking_context.local_depth_key,
@@ -195,7 +218,7 @@ pub(super) fn count_missing_picking_contexts(
             &ComputedSize,
             Option<&UiPickingContext>,
         ),
-        With<UInteraction>,
+        PickableNodeFilter,
     >,
 ) -> usize {
     nodes_query
@@ -206,7 +229,8 @@ pub(super) fn count_missing_picking_contexts(
 
 pub(super) fn collect_pointer_hits(
     pointers: &Query<(&PointerId, &PointerLocation)>,
-    cameras: &Query<(Entity, &Camera, &GlobalTransform)>,
+    cameras: &Query<(Entity, &Camera, &GlobalTransform, Option<&RenderTarget>)>,
+    windows: &Query<(Entity, Option<&PrimaryWindow>), With<Window>>,
     nodes_query: &Query<
         (
             Entity,
@@ -215,13 +239,15 @@ pub(super) fn collect_pointer_hits(
             &ComputedSize,
             Option<&UiPickingContext>,
         ),
-        With<UInteraction>,
+        PickableNodeFilter,
     >,
+    visibility_query: &Query<&Visibility>,
     parents_query: &Query<&ChildOf>,
     clipper_query: &Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
     profiler: Option<&mut LayoutProfiler>,
 ) -> Vec<(PointerId, Vec<(Entity, HitData)>, f32)> {
-    let candidate_buckets = build_picking_candidate_buckets(nodes_query);
+    let candidate_buckets =
+        build_picking_candidate_buckets(nodes_query, visibility_query, parents_query);
     if let Some(profiler) = profiler {
         profiler.picking_bucket_count = candidate_buckets.len();
         profiler.picking_candidate_count = candidate_buckets
@@ -230,6 +256,12 @@ pub(super) fn collect_pointer_hits(
             .sum();
     }
 
+    let has_any_window = !windows.is_empty();
+    let primary_window = resolve_primary_window_entity(
+        windows
+            .iter()
+            .map(|(entity, primary)| (entity, primary.is_some())),
+    );
     let mut output_hits = Vec::new();
 
     for (pointer_id, pointer_loc) in pointers.iter() {
@@ -243,7 +275,15 @@ pub(super) fn collect_pointer_hits(
         for (camera_entity, bucket) in candidate_buckets.iter() {
             let ray = ray_cache
                 .entry(*camera_entity)
-                .or_insert_with(|| pointer_ray_for_camera(location, *camera_entity, cameras))
+                .or_insert_with(|| {
+                    pointer_ray_for_camera(
+                        location,
+                        *camera_entity,
+                        cameras,
+                        primary_window,
+                        has_any_window,
+                    )
+                })
                 .as_ref();
             let Some(ray) = ray else {
                 continue;
@@ -256,10 +296,11 @@ pub(super) fn collect_pointer_hits(
                     continue;
                 };
 
-                let dist = crate::interaction::math::sd_rounded_box(
+                let dist = crate::interaction::math::sd_node_shape(
                     cursor_pos_local,
                     candidate.half_size,
                     candidate.radius_vec,
+                    candidate.shape_mode,
                 );
 
                 if dist <= 0.0 {

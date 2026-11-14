@@ -1,5 +1,4 @@
 import bevy_pbr::render::{
-    mesh_view_bindings,
     pbr_types,
     pbr_functions,
     forward_io::VertexOutput,
@@ -8,13 +7,14 @@ import bevy_pbr::render::{
 struct UTextLabelSdfMaterial3d {
     color: vec4<f32>,
     outline_color: vec4<f32>,
-    clip_radius: vec4<f32>,
-    clip_center: vec2<f32>,
-    clip_size: vec2<f32>,
     edge_softness: f32,
     outline_width: f32,
-    use_clip: u32,
-    _pad: f32,
+    _pad0: f32,
+    _pad1: f32,
+    clip_inv_x: array<vec4<f32>, 4>,
+    clip_inv_y: array<vec4<f32>, 4>,
+    clip_bounds: array<vec4<f32>, 4>,
+    clip_radius: array<vec4<f32>, 4>,
 };
 
 @group(3) @binding(0) var<uniform> material: UTextLabelSdfMaterial3d;
@@ -33,11 +33,22 @@ fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
     return length(max(q, vec2<f32>(0.0, 0.0))) + min(max(q.x, q.y), 0.0) - radius;
 }
 
+fn sd_cut_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
+    let is_right = p.x > 0.0;
+    let is_top = p.y > 0.0;
+
+    let r_top = select(r.z, r.x, is_right);
+    let r_bottom = select(r.w, r.y, is_right);
+    let radius = select(r_bottom, r_top, is_top);
+
+    let q = abs(p) - b;
+    let d_box = length(max(q, vec2<f32>(0.0, 0.0))) + min(max(q.x, q.y), 0.0);
+    let d_cut = (abs(p.x) + abs(p.y) - (b.x + b.y - radius)) * 0.70710678;
+    return max(d_box, d_cut);
+}
+
 @fragment
-fn fragment(
-    in: VertexOutput,
-    @builtin(front_facing) is_front: bool,
-) -> @location(0) vec4<f32> {
+fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let tex_size = vec2<f32>(textureDimensions(text_texture));
     let uv_dx = dpdx(in.uv);
     let uv_dy = dpdy(in.uv);
@@ -80,7 +91,7 @@ fn fragment(
 @else
     let fill_color = material.color;
 
-    var final_color: vec4<f32>;
+    var shape_premul: vec4<f32>;
 
     if (material.outline_width > 0.0 && material.outline_color.a > 0.0) {
         let out_a0 = smoothstep(-edge, edge, dist0 + material.outline_width);
@@ -89,47 +100,48 @@ fn fragment(
         let out_a3 = smoothstep(-edge, edge, dist3 + material.outline_width);
         let outline_alpha = (out_a0 + out_a1 + out_a2 + out_a3) * 0.25;
 
-        let outline_blend = outline_alpha * (1.0 - fill_alpha);
-        let alpha = fill_alpha * fill_color.a + outline_blend * material.outline_color.a;
-        let rgb = (fill_color.rgb * (fill_alpha * fill_color.a) + material.outline_color.rgb * (outline_blend * material.outline_color.a)) / max(alpha, 0.0001);
-        final_color = vec4<f32>(rgb, alpha);
+        let fill_cov = fill_alpha * fill_color.a;
+        let outline_cov = outline_alpha * (1.0 - fill_alpha) * material.outline_color.a;
+        let alpha = clamp(fill_cov + outline_cov, 0.0, 1.0);
+        let rgb = (fill_color.rgb * fill_cov + material.outline_color.rgb * outline_cov)
+            / max(alpha, 0.0001);
+        shape_premul = vec4<f32>(rgb, alpha);
     } else {
-        final_color = vec4<f32>(fill_color.rgb, fill_color.a * fill_alpha);
+        shape_premul = vec4<f32>(fill_color.rgb, fill_color.a * fill_alpha);
     }
 
-    if (material.use_clip == 1u) {
-        let clip_p = in.world_position.xy - material.clip_center;
-        let clip_distance = sd_rounded_box(clip_p, material.clip_size * 0.5, material.clip_radius);
+    var clip_alpha = 1.0;
+    let clip_wp = vec4<f32>(in.world_position.xyz, 1.0);
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        let bounds = material.clip_bounds[i];
+        if (bounds.z < 0.5) {
+            break;
+        }
+        let clip_p = vec2<f32>(
+            dot(material.clip_inv_x[i], clip_wp),
+            dot(material.clip_inv_y[i], clip_wp),
+        );
+        let d_round = sd_rounded_box(clip_p, bounds.xy, material.clip_radius[i]);
+        let d_cut = sd_cut_box(clip_p, bounds.xy, material.clip_radius[i]);
+        let clip_distance = select(d_round, d_cut, bounds.w > 0.5);
         let clip_ddist = length(vec2<f32>(dpdx(clip_distance), dpdy(clip_distance)));
-        let clip_edge = max(clip_ddist * 0.5, 0.0001);
-        let clip_alpha = 1.0 - smoothstep(-clip_edge, clip_edge, clip_distance);
-        final_color = vec4<f32>(final_color.rgb, final_color.a * clip_alpha);
+        let clip_edge = max(clip_ddist * 0.5, 0.00001);
+        clip_alpha = clip_alpha * (1.0 - smoothstep(-clip_edge, clip_edge, clip_distance));
     }
+    let final_alpha = shape_premul.a * clip_alpha;
 
-    if (final_color.a <= 0.001) {
+    var pbr_input = pbr_types::pbr_input_new();
+    pbr_input.frag_coord = in.position;
+    pbr_input.world_position = in.world_position;
+
+    // Self-lit UI text preserves 2D sharpness/contrast while matching Bevy 3D tonemapping and exposure.
+    let processed = pbr_functions::main_pass_post_lighting_processing(
+        pbr_input,
+        vec4<f32>(shape_premul.rgb, 1.0),
+    );
+    if (final_alpha <= 0.001) {
         discard;
     }
 
-    // PBR Setup
-    var pbr_input = pbr_types::pbr_input_new();
-    pbr_input.material.base_color = vec4<f32>(final_color.rgb, 1.0);
-    pbr_input.material.metallic = 0.0;
-    pbr_input.material.perceptual_roughness = 0.8;
-    // We could add emissive later if we want glowing text
-    
-    pbr_input.frag_coord = in.position;
-    pbr_input.world_position = in.world_position;
-    pbr_input.is_orthographic = mesh_view_bindings::view.clip_from_view[3].w == 1.0;
-    pbr_input.world_normal = pbr_functions::prepare_world_normal(in.world_normal, false, is_front);
-    pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
-    pbr_input.N = normalize(pbr_input.world_normal);
-
-    // Apply lighting
-    var out_color = pbr_functions::apply_pbr_lighting(pbr_input);
-
-    // Apply alpha
-    out_color.a = out_color.a * final_color.a;
-    out_color = vec4<f32>(out_color.rgb * out_color.a, out_color.a);
-
-    return out_color;
+    return vec4<f32>(processed.rgb * final_alpha, final_alpha);
 }

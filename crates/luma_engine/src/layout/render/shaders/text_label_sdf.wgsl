@@ -9,13 +9,14 @@ struct VertexOutput {
 struct UTextLabelSdfMaterial {
     color: vec4<f32>,
     outline_color: vec4<f32>,
-    clip_radius: vec4<f32>,
-    clip_center: vec2<f32>,
-    clip_size: vec2<f32>,
     edge_softness: f32,
     outline_width: f32,
-    use_clip: u32,
-    _pad: f32,
+    _pad0: f32,
+    _pad1: f32,
+    clip_inv_x: array<vec4<f32>, 4>,
+    clip_inv_y: array<vec4<f32>, 4>,
+    clip_bounds: array<vec4<f32>, 4>,
+    clip_radius: array<vec4<f32>, 4>,
 };
 
 @group(2) @binding(0) var<uniform> material: UTextLabelSdfMaterial;
@@ -32,6 +33,20 @@ fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
 
     let q = abs(p) - b + radius;
     return length(max(q, vec2<f32>(0.0, 0.0))) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+fn sd_cut_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
+    let is_right = p.x > 0.0;
+    let is_top = p.y > 0.0;
+
+    let r_top = select(r.z, r.x, is_right);
+    let r_bottom = select(r.w, r.y, is_right);
+    let radius = select(r_bottom, r_top, is_top);
+
+    let q = abs(p) - b;
+    let d_box = length(max(q, vec2<f32>(0.0, 0.0))) + min(max(q.x, q.y), 0.0);
+    let d_cut = (abs(p.x) + abs(p.y) - (b.x + b.y - radius)) * 0.70710678;
+    return max(d_box, d_cut);
 }
 
 @fragment
@@ -92,14 +107,25 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         final_color = vec4<f32>(fill_color.rgb, fill_color.a * fill_alpha);
     }
 
-    if (material.use_clip == 1u) {
-        let clip_p = in.world_position.xy - material.clip_center;
-        let clip_distance = sd_rounded_box(clip_p, material.clip_size * 0.5, material.clip_radius);
+    var clip_alpha = 1.0;
+    let clip_wp = vec4<f32>(in.world_position.xyz, 1.0);
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        let bounds = material.clip_bounds[i];
+        if (bounds.z < 0.5) {
+            break;
+        }
+        let clip_p = vec2<f32>(
+            dot(material.clip_inv_x[i], clip_wp),
+            dot(material.clip_inv_y[i], clip_wp),
+        );
+        let d_round = sd_rounded_box(clip_p, bounds.xy, material.clip_radius[i]);
+        let d_cut = sd_cut_box(clip_p, bounds.xy, material.clip_radius[i]);
+        let clip_distance = select(d_round, d_cut, bounds.w > 0.5);
         let clip_ddist = length(vec2<f32>(dpdx(clip_distance), dpdy(clip_distance)));
         let clip_edge = max(clip_ddist * 0.5, 0.0001);
-        let clip_alpha = 1.0 - smoothstep(-clip_edge, clip_edge, clip_distance);
-        final_color = vec4<f32>(final_color.rgb, final_color.a * clip_alpha);
+        clip_alpha = clip_alpha * (1.0 - smoothstep(-clip_edge, clip_edge, clip_distance));
     }
+    final_color = vec4<f32>(final_color.rgb, final_color.a * clip_alpha);
 
     if (final_color.a <= 0.001) {
         discard;

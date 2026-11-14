@@ -361,6 +361,9 @@ fn extract_univis_nodes(
         };
 
         let (clip_rect, clip_radius, use_clip) = if let Some(active_clip) = active_clip_opt {
+            if active_clip.is_complex {
+                continue;
+            }
             if active_clip.use_clip {
                 (
                     [

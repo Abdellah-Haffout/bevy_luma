@@ -25,11 +25,16 @@ use self::atlas::{
 };
 use self::clip_sync::{clip_quad_to_rect, label_content_clip_rect};
 use self::mesh::{
-    TextGlyphQuad, TextPageBatch, build_text_material, build_text_material_3d,
-    build_text_page_mesh, resolved_render_scale_for_font, text_horizontal_offset,
+    TextGlyphQuad, TextPageBatch, build_solid_highlight_material, build_solid_highlight_material_3d,
+    build_text_material, build_text_material_3d, build_text_page_mesh,
+    resolved_render_scale_for_font, text_horizontal_offset,
 };
 use self::sdf::build_sdf_glyph_image;
-use super::model::{TextChildMarker, UTextLabel, UTextLabelLayoutCache, UTextOverflow};
+use super::model::{
+    TextChildMarker, TextSelectionHighlightMarker, USelectableText, UTextLabel,
+    UTextLabelLayoutCache, UTextOverflow,
+};
+use super::selection::compute_text_selection_quads;
 
 const DEFAULT_TEXT_EDGE_SOFTNESS: f32 = 0.45;
 const TEXT_SDF_PADDING: u32 = 12;
@@ -48,19 +53,21 @@ pub(super) struct UTextLabelSdfMaterial {
     #[uniform(0)]
     pub(crate) outline_color: LinearRgba,
     #[uniform(0)]
-    pub(crate) clip_radius: Vec4,
-    #[uniform(0)]
-    pub(crate) clip_center: Vec2,
-    #[uniform(0)]
-    pub(crate) clip_size: Vec2,
-    #[uniform(0)]
     pub(crate) edge_softness: f32,
     #[uniform(0)]
     pub(crate) outline_width: f32,
     #[uniform(0)]
-    pub(crate) use_clip: u32,
+    pub(crate) _pad0: f32,
     #[uniform(0)]
-    pub(crate) _pad: f32,
+    pub(crate) _pad1: f32,
+    #[uniform(0)]
+    pub(crate) clip_inv_x: [Vec4; 4],
+    #[uniform(0)]
+    pub(crate) clip_inv_y: [Vec4; 4],
+    #[uniform(0)]
+    pub(crate) clip_bounds: [Vec4; 4],
+    #[uniform(0)]
+    pub(crate) clip_radius: [Vec4; 4],
     #[texture(1)]
     #[sampler(2)]
     pub(crate) texture: Handle<Image>,
@@ -81,25 +88,27 @@ impl Material2d for UTextLabelSdfMaterial {
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub(super) struct UTextLabelSdfMaterial3d {
+pub(crate) struct UTextLabelSdfMaterial3d {
     #[uniform(0)]
     pub(crate) color: LinearRgba,
     #[uniform(0)]
     pub(crate) outline_color: LinearRgba,
     #[uniform(0)]
-    pub(crate) clip_radius: Vec4,
-    #[uniform(0)]
-    pub(crate) clip_center: Vec2,
-    #[uniform(0)]
-    pub(crate) clip_size: Vec2,
-    #[uniform(0)]
     pub(crate) edge_softness: f32,
     #[uniform(0)]
     pub(crate) outline_width: f32,
     #[uniform(0)]
-    pub(crate) use_clip: u32,
+    pub(crate) _pad0: f32,
     #[uniform(0)]
-    pub(crate) _pad: f32,
+    pub(crate) _pad1: f32,
+    #[uniform(0)]
+    pub(crate) clip_inv_x: [Vec4; 4],
+    #[uniform(0)]
+    pub(crate) clip_inv_y: [Vec4; 4],
+    #[uniform(0)]
+    pub(crate) clip_bounds: [Vec4; 4],
+    #[uniform(0)]
+    pub(crate) clip_radius: [Vec4; 4],
     #[texture(1)]
     #[sampler(2)]
     pub(crate) texture: Handle<Image>,
@@ -111,7 +120,7 @@ impl Material for UTextLabelSdfMaterial3d {
     }
 
     fn alpha_mode(&self) -> AlphaMode {
-        AlphaMode::Blend
+        AlphaMode::Premultiplied
     }
 
     fn specialize(
@@ -125,6 +134,34 @@ impl Material for UTextLabelSdfMaterial3d {
     }
 }
 
+fn resolve_text_mesh_world_scale(
+    entity: Entity,
+    is_3d: bool,
+    cached_context: Option<&CachedUiContext>,
+    parents_query: &Query<&ChildOf>,
+    root_query: &Query<&ResolvedRootUi>,
+) -> f32 {
+    if !is_3d {
+        return 1.0;
+    }
+
+    if let Some(ctx) = cached_context
+        && matches!(ctx.space, crate::layout::layout_system::UiSpace::World3d)
+    {
+        return ctx.ui_to_world_scale;
+    }
+
+    let mut current = entity;
+    while let Ok(child_of) = parents_query.get(current) {
+        current = child_of.parent();
+        if let Ok(root_ui) = root_query.get(current) {
+            return root_ui.ui_units_to_world_scale();
+        }
+    }
+
+    0.01
+}
+
 pub(super) fn sync_text_label_meshes(
     mut commands: Commands,
     mut atlas_cache: ResMut<UTextLabelAtlasCache>,
@@ -135,6 +172,8 @@ pub(super) fn sync_text_label_meshes(
     materials_3d: Option<ResMut<Assets<UTextLabelSdfMaterial3d>>>,
     mut _font_cx: ResMut<FontCx>,
     mut scale_cx: ResMut<ScaleCx>,
+    parents_query: Query<&ChildOf>,
+    root_query: Query<&ResolvedRootUi>,
     label_query: Query<
         (
             Entity,
@@ -154,6 +193,8 @@ pub(super) fn sync_text_label_meshes(
             Changed<ComputedSize>,
             Changed<ComputedTextBlock>,
             Changed<UTextLabelLayoutCache>,
+            Added<UI3d>,
+            Changed<CachedUiContext>,
         )>,
     >,
     child_query: Query<
@@ -224,12 +265,15 @@ pub(super) fn sync_text_label_meshes(
         let text_size = layout_cache.measured_size;
         let content_clip = label_content_clip_rect(&label, &node, &computed_size);
         let horizontal_offset = text_horizontal_offset(&label, &node, &computed_size, text_size);
+        let parley_origin_x = super::selection::parley_layout_origin_x(&computed);
 
-        let ui_to_world_scale = if is_3d {
-            cached_context.map_or(1.0, |c| c.ui_to_world_scale)
-        } else {
-            1.0
-        };
+        let ui_to_world_scale = resolve_text_mesh_world_scale(
+            entity,
+            is_3d,
+            cached_context,
+            &parents_query,
+            &root_query,
+        );
 
         let mut page_batches: HashMap<AssetId<Image>, TextPageBatch> = HashMap::default();
 
@@ -429,7 +473,7 @@ pub(super) fn sync_text_label_meshes(
                                 / glyph_render_scale;
 
                             let local_center = Vec2::new(
-                                horizontal_offset + position_x - text_size.x * 0.5,
+                                horizontal_offset + (position_x - parley_origin_x) - text_size.x * 0.5,
                                 text_size.y * 0.5 - position_y,
                             );
                             let atlas_width = atlas_image.texture_descriptor.size.width as f32;
@@ -537,6 +581,217 @@ pub(super) fn sync_text_label_meshes(
             if let Ok(mut cmd) = commands.get_entity(stale_child) {
                 cmd.try_despawn();
             }
+        }
+    }
+}
+
+/// Synchronizes selection highlight meshes behind [`USelectableText`] labels.
+pub(crate) fn sync_selectable_text_highlights(
+    mut commands: Commands,
+    mut atlas_cache: ResMut<UTextLabelAtlasCache>,
+    mut images: Option<ResMut<Assets<Image>>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut materials: Option<ResMut<Assets<UTextLabelSdfMaterial>>>,
+    mut materials_3d: Option<ResMut<Assets<UTextLabelSdfMaterial3d>>>,
+    mut removed_selectable: RemovedComponents<USelectableText>,
+    parents_query: Query<&ChildOf>,
+    root_query: Query<&ResolvedRootUi>,
+    label_query: Query<
+        (
+            Entity,
+            &UTextLabel,
+            &USelectableText,
+            &UNode,
+            &ComputedSize,
+            &ComputedTextBlock,
+            &UTextLabelLayoutCache,
+            Has<UI3d>,
+            Option<&CachedUiContext>,
+        ),
+        Or<(
+            Added<USelectableText>,
+            Changed<USelectableText>,
+            Changed<UTextLabel>,
+            Changed<UNode>,
+            Changed<ComputedSize>,
+            Changed<ComputedTextBlock>,
+            Changed<UTextLabelLayoutCache>,
+            Added<UI3d>,
+            Changed<CachedUiContext>,
+        )>,
+    >,
+    highlight_children: Query<
+        (
+            Entity,
+            &ChildOf,
+            Option<&Mesh2d>,
+            Option<&Mesh3d>,
+            Option<&MeshMaterial2d<UTextLabelSdfMaterial>>,
+            Option<&MeshMaterial3d<UTextLabelSdfMaterial3d>>,
+        ),
+        With<TextSelectionHighlightMarker>,
+    >,
+) {
+    let mut existing_by_parent: HashMap<
+        Entity,
+        (
+            Entity,
+            Option<Handle<Mesh>>,
+            Option<Handle<UTextLabelSdfMaterial>>,
+            Option<Handle<UTextLabelSdfMaterial3d>>,
+        ),
+    > = HashMap::new();
+
+    for (child, parent, mesh_2d, mesh_3d, mat_2d, mat_3d) in highlight_children.iter() {
+        let mesh_handle = mesh_2d.map(|m| m.0.clone()).or_else(|| mesh_3d.map(|m| m.0.clone()));
+        let previous = existing_by_parent.insert(
+            parent.parent(),
+            (
+                child,
+                mesh_handle,
+                mat_2d.map(|m| m.0.clone()),
+                mat_3d.map(|m| m.0.clone()),
+            ),
+        );
+        if let Some((duplicate, _, _, _)) = previous
+            && let Ok(mut cmd) = commands.get_entity(duplicate)
+        {
+            cmd.try_despawn();
+        }
+    }
+
+    for removed_parent in removed_selectable.read() {
+        if let Some((stale_child, _, _, _)) = existing_by_parent.remove(&removed_parent)
+            && let Ok(mut cmd) = commands.get_entity(stale_child)
+        {
+            cmd.try_despawn();
+        }
+    }
+
+    let (Some(ref mut images), Some(ref mut meshes), Some(ref mut materials), Some(ref mut materials_3d)) = (
+        images.as_deref_mut(),
+        meshes.as_deref_mut(),
+        materials.as_deref_mut(),
+        materials_3d.as_deref_mut(),
+    ) else {
+        return;
+    };
+
+    for (
+        entity,
+        label,
+        selectable,
+        node,
+        computed_size,
+        computed,
+        layout_cache,
+        is_3d,
+        cached_context,
+    ) in label_query.iter()
+    {
+        let quads = if selectable.enabled {
+            selectable
+                .selection
+                .map(|sel| {
+                    compute_text_selection_quads(
+                        label,
+                        node,
+                        computed_size,
+                        layout_cache,
+                        computed,
+                        sel,
+                    )
+                })
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        if quads.is_empty() {
+            if let Some((stale_child, _, _, _)) = existing_by_parent.remove(&entity)
+                && let Ok(mut cmd) = commands.get_entity(stale_child)
+            {
+                cmd.try_despawn();
+            }
+            continue;
+        }
+
+        let ui_to_world_scale = resolve_text_mesh_world_scale(
+            entity,
+            is_3d,
+            cached_context,
+            &parents_query,
+            &root_query,
+        );
+        let mut scaled_quads = quads;
+        if ui_to_world_scale != 1.0 {
+            for quad in &mut scaled_quads {
+                quad.center *= ui_to_world_scale;
+                quad.size *= ui_to_world_scale;
+            }
+        }
+
+        let mesh = build_text_page_mesh(&scaled_quads);
+        let solid_texture = atlas_cache.ensure_solid_highlight_texture(images);
+        let highlight_color: LinearRgba = selectable.highlight_color.into();
+
+        let existing = existing_by_parent.remove(&entity);
+        let can_reuse = existing.as_ref().is_some_and(|(_, _, mat_2d, mat_3d)| {
+            if is_3d {
+                mat_3d.is_some()
+            } else {
+                mat_2d.is_some()
+            }
+        });
+
+        if can_reuse && let Some((_, Some(mesh_handle), mat_2d, mat_3d)) = existing {
+            if let Some(mut existing_mesh) = meshes.get_mut(&mesh_handle) {
+                *existing_mesh = mesh;
+            }
+            if is_3d {
+                if let Some(h) = mat_3d
+                    && let Some(mut mat) = materials_3d.get_mut(&h)
+                {
+                    *mat = build_solid_highlight_material_3d(highlight_color, solid_texture);
+                }
+            } else if let Some(h) = mat_2d
+                && let Some(mut mat) = materials.get_mut(&h)
+            {
+                *mat = build_solid_highlight_material(highlight_color, solid_texture);
+            }
+            continue;
+        }
+
+        if let Some((stale_child, _, _, _)) = existing
+            && let Ok(mut cmd) = commands.get_entity(stale_child)
+        {
+            cmd.try_despawn();
+        }
+
+        if let Ok(mut cmd) = commands.get_entity(entity) {
+            cmd.with_children(|parent| {
+                let mut child_cmd = parent.spawn((
+                    TextSelectionHighlightMarker,
+                    Transform::default(),
+                    Visibility::Inherited,
+                ));
+                if is_3d {
+                    child_cmd.insert((
+                        Mesh3d(meshes.add(mesh)),
+                        MeshMaterial3d(materials_3d.add(
+                            build_solid_highlight_material_3d(highlight_color, solid_texture),
+                        )),
+                    ));
+                } else {
+                    child_cmd.insert((
+                        Mesh2d(meshes.add(mesh)),
+                        MeshMaterial2d(materials.add(build_solid_highlight_material(
+                            highlight_color,
+                            solid_texture,
+                        ))),
+                    ));
+                }
+            });
         }
     }
 }

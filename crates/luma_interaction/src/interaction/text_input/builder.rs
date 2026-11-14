@@ -4,15 +4,16 @@ use bevy::prelude::*;
 use bevy::text::LineBreak;
 use luma_engine::layout::{
     geometry::{UCornerRadius, USides, UVal},
-    text::UTextLabel,
+    text::{UTextLabel, UTextOverflow, UTextWrapMode},
     univis_node::{
-        UAlignItems, UBorder, UDisplay, UFlexDirection, ULayout, UNode, UPositionType, USelf,
+        UAlignItems, UBorder, UClip, UDisplay, UFlexDirection, ULayout, UNode, UPositionType,
+        USelf, UZIndex,
     },
 };
 
 use super::types::{
     UTextInput, UTextInputCaret, UTextInputCaretMarker, UTextInputSelectionMarker,
-    UTextInputTextMarker,
+    UTextInputTextMarker, UTextInputViewportMarker,
 };
 use crate::interaction::{
     feedback::UInteraction,
@@ -20,9 +21,10 @@ use crate::interaction::{
 };
 
 /// Spawns a complete text input widget with interactive styling, focus visual rings,
-/// text label, selection highlight, and animated caret cursor.
+/// clipped viewport container, text label, selection highlight, and animated caret cursor.
 pub fn spawn_text_input(commands: &mut Commands, input: UTextInput) -> Entity {
     let font_size = input.font_size;
+    let is_multiline = input.multiline;
     let initial_text = if input.value.is_empty() {
         input.placeholder.clone()
     } else {
@@ -39,7 +41,7 @@ pub fn spawn_text_input(commands: &mut Commands, input: UTextInput) -> Entity {
         .spawn((
             UNode {
                 width: UVal::Percent(1.0),
-                height: UVal::Px(42.0),
+                height: UVal::Px(if is_multiline { 120.0 } else { 42.0 }),
                 padding: USides::axes(14.0, 6.0),
                 background_color: Color::srgba(0.08, 0.1, 0.14, 0.95),
                 ..default()
@@ -47,7 +49,11 @@ pub fn spawn_text_input(commands: &mut Commands, input: UTextInput) -> Entity {
             ULayout {
                 display: UDisplay::Flex,
                 flex_direction: UFlexDirection::Row,
-                align_items: UAlignItems::Center,
+                align_items: if is_multiline {
+                    UAlignItems::Start
+                } else {
+                    UAlignItems::Center
+                },
                 ..default()
             },
             UBorder {
@@ -63,10 +69,24 @@ pub fn spawn_text_input(commands: &mut Commands, input: UTextInput) -> Entity {
         ))
         .id();
 
-    // 2. Spawn selection highlight child (rendered behind text)
-    let selection_child = commands
+    // 2. Spawn clipped inner viewport container respecting parent padding
+    let viewport = commands
         .spawn((
             ChildOf(parent),
+            UNode {
+                width: UVal::Percent(1.0),
+                height: UVal::Percent(1.0),
+                ..default()
+            },
+            UClip::enabled(true),
+            UTextInputViewportMarker,
+        ))
+        .id();
+
+    // 3. Spawn selection highlight child (rendered behind text)
+    let selection_child = commands
+        .spawn((
+            ChildOf(viewport),
             UNode {
                 width: UVal::Px(0.0),
                 height: UVal::Px(font_size * 1.2),
@@ -76,37 +96,60 @@ pub fn spawn_text_input(commands: &mut Commands, input: UTextInput) -> Entity {
             },
             USelf {
                 position_type: UPositionType::Absolute,
-                left: UVal::Px(14.0),
-                top: UVal::Px(11.0),
+                left: UVal::Px(0.0),
+                top: UVal::Px(0.0),
                 ..default()
             },
+            UZIndex::Local(-1),
             Visibility::Hidden,
             UTextInputSelectionMarker,
         ))
         .id();
 
-    // 3. Spawn text child
+    // 4. Spawn text child inside clipped viewport
     let text_child = commands
         .spawn((
-            ChildOf(parent),
-            UNode::default(),
+            ChildOf(viewport),
+            UNode {
+                width: if is_multiline {
+                    UVal::Percent(1.0)
+                } else {
+                    UVal::Auto
+                },
+                ..default()
+            },
+            USelf {
+                position_type: UPositionType::Absolute,
+                left: UVal::Px(0.0),
+                top: UVal::Px(0.0),
+                ..default()
+            },
             UTextLabel {
                 text: initial_text,
                 font_size,
                 color: initial_color,
-                linebreak: LineBreak::NoWrap,
+                linebreak: if is_multiline {
+                    LineBreak::WordBoundary
+                } else {
+                    LineBreak::NoWrap
+                },
+                wrap_mode: if is_multiline {
+                    UTextWrapMode::WrapToParent
+                } else {
+                    UTextWrapMode::SingleLine
+                },
                 autosize: true,
-                overflow: luma_engine::layout::text::UTextOverflow::Clip,
+                overflow: UTextOverflow::Clip,
                 ..default()
             },
             UTextInputTextMarker,
         ))
         .id();
 
-    // 4. Spawn caret child
+    // 5. Spawn caret child
     let caret_child = commands
         .spawn((
-            ChildOf(parent),
+            ChildOf(viewport),
             UNode {
                 width: UVal::Px(2.0),
                 height: UVal::Px(font_size * 1.2),
@@ -115,17 +158,19 @@ pub fn spawn_text_input(commands: &mut Commands, input: UTextInput) -> Entity {
             },
             USelf {
                 position_type: UPositionType::Absolute,
-                left: UVal::Px(14.0),
-                top: UVal::Px(11.0),
+                left: UVal::Px(0.0),
+                top: UVal::Px(0.0),
                 ..default()
             },
+            UZIndex::Local(1),
             Visibility::Hidden,
             UTextInputCaretMarker,
         ))
         .id();
 
-    // 5. Attach caret state linking children
+    // 6. Attach caret state linking children
     let caret = UTextInputCaret {
+        viewport_entity: Some(viewport),
         text_entity: Some(text_child),
         caret_entity: Some(caret_child),
         selection_entity: Some(selection_child),

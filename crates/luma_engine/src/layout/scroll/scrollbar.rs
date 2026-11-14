@@ -7,8 +7,9 @@
 
 use bevy::prelude::*;
 
-use crate::layout::query::ComputedSize;
+use crate::layout::query::{ComputedSize, UiPickingContext};
 use crate::layout::scroll::container::UScrollContainer;
+use crate::layout::scroll::pointer::ScrollPointerContext;
 use crate::layout::univis_node::UNode;
 
 /// Scrollbar orientation axis.
@@ -362,29 +363,29 @@ pub fn sync_scrollbar_thumbs(
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn handle_scrollbar_drag(
     mouse_button: Option<Res<ButtonInput<MouseButton>>>,
-    windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform)>,
+    pointer: ScrollPointerContext,
     mut containers: Query<&mut UScrollContainer>,
-    tracks: Query<(Entity, &UScrollbarTrack, &GlobalTransform, &ComputedSize)>,
-    parents: Query<&ChildOf>,
-    all_computed: Query<&ComputedSize>,
+    tracks: Query<(
+        Entity,
+        &UScrollbarTrack,
+        &GlobalTransform,
+        &ComputedSize,
+        &UNode,
+        Option<&UiPickingContext>,
+    )>,
+    all_nodes: Query<(&GlobalTransform, &ComputedSize, Option<&UiPickingContext>)>,
     mut thumbs: Query<(
         Entity,
         &mut UScrollbarThumb,
         &GlobalTransform,
         &ComputedSize,
+        &UNode,
+        Option<&UiPickingContext>,
     )>,
 ) {
     let Some(mouse_button) = mouse_button else {
         return;
     };
-
-    let cursor_world_pos: Option<Vec2> = (|| {
-        let window = windows.iter().next()?;
-        let cursor_pos = window.cursor_position()?;
-        let (camera, cam_gt) = camera_q.iter().next()?;
-        camera.viewport_to_world_2d(cam_gt, cursor_pos).ok()
-    })();
 
     let just_pressed = mouse_button.just_pressed(MouseButton::Left);
     let is_pressed = mouse_button.pressed(MouseButton::Left);
@@ -392,90 +393,110 @@ pub fn handle_scrollbar_drag(
 
     // 1. Drag release
     if just_released || !is_pressed {
-        for (_e, mut thumb, _gt, _computed) in thumbs.iter_mut() {
+        for (_e, mut thumb, _gt, _computed, _node, _picking) in thumbs.iter_mut() {
             if thumb.is_dragging {
                 thumb.is_dragging = false;
             }
         }
     }
 
-    let Some(cursor) = cursor_world_pos else {
+    let active_windows = pointer.active_cursor_windows();
+    if active_windows.is_empty() {
         return;
+    }
+
+    let resolve_anchor = |thumb_entity: Entity, thumb: &UScrollbarThumb| {
+        let track_entity = thumb
+            .track
+            .or_else(|| pointer.parents_query.get(thumb_entity).ok().map(|p| p.parent()));
+        let anchor = track_entity.and_then(|te| {
+            all_nodes
+                .get(te)
+                .ok()
+                .map(|(gt, computed, picking)| (te, gt, computed, picking))
+        });
+        (track_entity, anchor)
     };
 
-    // 2. Click detection on thumbs and tracks
+    // 2. Click detection on topmost visible, unclipped, unoccluded thumbs and tracks
+    let mut started_thumb_entity: Option<Entity> = None;
+
     if just_pressed {
-        let mut clicked_thumb = false;
+        let thumb_winner = pointer.pick_unoccluded_hit(
+            thumbs
+                .iter()
+                .filter(|(_, thumb, ..)| containers.get(thumb.container).is_ok())
+                .map(|(entity, _, gt, computed, node, picking_ctx)| {
+                    (entity, node, gt, computed, picking_ctx)
+                }),
+            &active_windows,
+        );
 
-        // Check thumb hit
-        for (_e, mut thumb, gt, computed) in thumbs.iter_mut() {
-            let thumb_pos = gt.translation().xy();
-            let half_w = computed.width / 2.0;
-            let half_h = computed.height / 2.0;
+        if let Some(hit) = thumb_winner {
+            if let Ok((_, mut thumb, _gt, _computed, _node, _picking)) = thumbs.get_mut(hit.entity)
+                && let Ok(container) = containers.get(thumb.container)
+            {
+                // Anchor drag deltas to the stationary track plane when available so thumb
+                // repositioning during sync does not fight cursor deltas.
+                let (_, anchor) = resolve_anchor(hit.entity, &thumb);
+                let start_local = anchor
+                    .and_then(|(anchor_entity, anchor_gt, _computed, anchor_picking)| {
+                        pointer.project_cursor_to_node_logical(
+                            anchor_entity,
+                            anchor_gt,
+                            anchor_picking,
+                            Some(hit.camera_entity),
+                            &active_windows,
+                        )
+                    })
+                    .unwrap_or(hit.local_hit_logical);
 
-            let hit = (cursor.x - thumb_pos.x).abs() <= half_w
-                && (cursor.y - thumb_pos.y).abs() <= half_h;
-
-            if hit {
-                let Ok(container) = containers.get(thumb.container) else {
-                    continue;
-                };
                 thumb.is_dragging = true;
                 thumb.drag_start_cursor = match thumb.axis {
-                    UScrollbarAxis::Vertical => cursor.y,
-                    UScrollbarAxis::Horizontal => cursor.x,
+                    UScrollbarAxis::Vertical => start_local.y,
+                    UScrollbarAxis::Horizontal => start_local.x,
                 };
                 thumb.drag_start_offset = match thumb.axis {
                     UScrollbarAxis::Vertical => container.scroll_offset.y,
                     UScrollbarAxis::Horizontal => container.scroll_offset.x,
                 };
-                clicked_thumb = true;
-                break;
+                started_thumb_entity = Some(hit.entity);
             }
-        }
-
-        // If not clicked on thumb, check if clicked on track (click-to-jump)
-        if !clicked_thumb {
-            for (_e, track, gt, computed) in tracks.iter() {
-                if !track.click_to_jump {
-                    continue;
-                }
-                let track_pos = gt.translation().xy();
-                let half_w = computed.width / 2.0;
-                let half_h = computed.height / 2.0;
-
-                let hit = (cursor.x - track_pos.x).abs() <= half_w
-                    && (cursor.y - track_pos.y).abs() <= half_h;
-
-                if hit {
-                    let Ok(mut container) = containers.get_mut(track.container) else {
-                        continue;
-                    };
-                    match track.axis {
-                        UScrollbarAxis::Vertical => {
-                            if computed.height > 0.0 && container.max_offset.y > 0.0 {
-                                let track_top = track_pos.y + half_h;
-                                let click_from_top =
-                                    (track_top - cursor.y).clamp(0.0, computed.height);
-                                let fraction = click_from_top / computed.height;
-                                let target_y = fraction * container.max_offset.y;
-                                let cur_x = container.scroll_offset.x;
-                                container.jump_to(Vec2::new(cur_x, target_y));
-                            }
-                        }
-                        UScrollbarAxis::Horizontal => {
-                            if computed.width > 0.0 && container.max_offset.x > 0.0 {
-                                let track_left = track_pos.x - half_w;
-                                let click_from_left =
-                                    (cursor.x - track_left).clamp(0.0, computed.width);
-                                let fraction = click_from_left / computed.width;
-                                let target_x = fraction * container.max_offset.x;
-                                let cur_y = container.scroll_offset.y;
-                                container.jump_to(Vec2::new(target_x, cur_y));
-                            }
-                        }
+        } else if let Some(hit) = pointer.pick_unoccluded_hit(
+            tracks
+                .iter()
+                .filter(|(_, track, ..)| {
+                    track.click_to_jump && containers.get(track.container).is_ok()
+                })
+                .map(|(entity, _, gt, computed, node, picking_ctx)| {
+                    (entity, node, gt, computed, picking_ctx)
+                }),
+            &active_windows,
+        ) && let Ok((_, track, _gt, computed, _node, _picking)) = tracks.get(hit.entity)
+            && let Ok(mut container) = containers.get_mut(track.container)
+        {
+            match track.axis {
+                UScrollbarAxis::Vertical => {
+                    if computed.height > 0.0 && container.max_offset.y > 0.0 {
+                        let half_h = computed.height * 0.5;
+                        let click_from_top =
+                            (half_h - hit.local_hit_logical.y).clamp(0.0, computed.height);
+                        let fraction = click_from_top / computed.height;
+                        let target_y = fraction * container.max_offset.y;
+                        let cur_x = container.scroll_offset.x;
+                        container.jump_to(Vec2::new(cur_x, target_y));
                     }
-                    break;
+                }
+                UScrollbarAxis::Horizontal => {
+                    if computed.width > 0.0 && container.max_offset.x > 0.0 {
+                        let half_w = computed.width * 0.5;
+                        let click_from_left =
+                            (hit.local_hit_logical.x + half_w).clamp(0.0, computed.width);
+                        let fraction = click_from_left / computed.width;
+                        let target_x = fraction * container.max_offset.x;
+                        let cur_y = container.scroll_offset.y;
+                        container.jump_to(Vec2::new(target_x, cur_y));
+                    }
                 }
             }
         }
@@ -483,8 +504,8 @@ pub fn handle_scrollbar_drag(
 
     // 3. Active drag handling
     if is_pressed {
-        for (thumb_entity, thumb, _gt, thumb_computed) in thumbs.iter() {
-            if !thumb.is_dragging {
+        for (thumb_entity, thumb, gt, thumb_computed, _node, picking_ctx) in thumbs.iter() {
+            if !thumb.is_dragging || started_thumb_entity == Some(thumb_entity) {
                 continue;
             }
 
@@ -492,23 +513,43 @@ pub fn handle_scrollbar_drag(
                 continue;
             };
 
-            let track_entity = thumb
-                .track
-                .or_else(|| parents.get(thumb_entity).ok().map(|p| p.parent()));
-
+            let (track_entity, anchor) = resolve_anchor(thumb_entity, &thumb);
             let track_size = track_entity
-                .and_then(|te| all_computed.get(te).ok())
-                .map(|c| match thumb.axis {
+                .and_then(|te| all_nodes.get(te).ok())
+                .map(|(_, c, _)| match thumb.axis {
                     UScrollbarAxis::Vertical => c.height,
                     UScrollbarAxis::Horizontal => c.width,
                 })
                 .unwrap_or(0.0);
 
+            let projected = if let Some((anchor_entity, anchor_gt, _computed, anchor_picking)) = anchor
+            {
+                pointer.project_cursor_to_node_logical(
+                    anchor_entity,
+                    anchor_gt,
+                    anchor_picking,
+                    None,
+                    &active_windows,
+                )
+            } else {
+                pointer.project_cursor_to_node_logical(
+                    thumb_entity,
+                    gt,
+                    picking_ctx,
+                    None,
+                    &active_windows,
+                )
+            };
+
+            let Some(local_cursor) = projected else {
+                continue;
+            };
+
             match thumb.axis {
                 UScrollbarAxis::Vertical => {
                     let travel = (track_size - thumb_computed.height).max(1.0);
-                    // Moving cursor down (cursor.y < drag_start_cursor) increases scroll offset
-                    let cursor_delta = cursor.y - thumb.drag_start_cursor;
+                    // Moving cursor down (local.y < drag_start_cursor) increases scroll offset
+                    let cursor_delta = local_cursor.y - thumb.drag_start_cursor;
                     let scroll_delta = -cursor_delta * (container.max_offset.y / travel);
                     let new_offset = thumb.drag_start_offset + scroll_delta;
                     let cur_x = container.scroll_offset.x;
@@ -517,7 +558,7 @@ pub fn handle_scrollbar_drag(
                 UScrollbarAxis::Horizontal => {
                     let travel = (track_size - thumb_computed.width).max(1.0);
                     // Moving cursor right increases scroll offset
-                    let cursor_delta = cursor.x - thumb.drag_start_cursor;
+                    let cursor_delta = local_cursor.x - thumb.drag_start_cursor;
                     let scroll_delta = cursor_delta * (container.max_offset.x / travel);
                     let new_offset = thumb.drag_start_offset + scroll_delta;
                     let cur_y = container.scroll_offset.y;
@@ -641,5 +682,491 @@ mod tests {
         let blend = (dt / fade.fade_duration).min(1.0);
         fade.current_alpha += (fade.target_alpha - fade.current_alpha) * blend;
         assert_eq!(fade.current_alpha, 0.5);
+    }
+
+    fn spawn_scrollbar_test_camera(
+        app: &mut App,
+        target_window: Entity,
+        perspective: bool,
+        translation: Vec3,
+    ) -> Entity {
+        use bevy::camera::{
+            CameraProjection, ComputedCameraValues, RenderTarget, RenderTargetInfo, Viewport,
+        };
+        use bevy::window::WindowRef;
+
+        let mut camera = Camera::default();
+        camera.computed = ComputedCameraValues {
+            target_info: Some(RenderTargetInfo {
+                physical_size: UVec2::new(800, 600),
+                scale_factor: 1.0,
+            }),
+            clip_from_view: if perspective {
+                PerspectiveProjection {
+                    fov: core::f32::consts::FRAC_PI_2,
+                    aspect_ratio: 800.0 / 600.0,
+                    near: 0.1,
+                    ..default()
+                }
+                .get_clip_from_view()
+            } else {
+                OrthographicProjection {
+                    area: Rect::new(-400.0, -300.0, 400.0, 300.0),
+                    ..OrthographicProjection::default_2d()
+                }
+                .get_clip_from_view()
+            },
+            ..default()
+        };
+        camera.viewport = Some(Viewport {
+            physical_position: UVec2::ZERO,
+            physical_size: UVec2::new(800, 600),
+            ..default()
+        });
+
+        app.world_mut()
+            .spawn((
+                camera,
+                RenderTarget::Window(WindowRef::Entity(target_window)),
+                GlobalTransform::from(Transform::from_translation(translation)),
+            ))
+            .id()
+    }
+
+    #[test]
+    fn test_scrollbar_drag_respects_visibility_clip_occlusion_and_overlap() {
+        use crate::layout::univis_node::UClip;
+        use bevy::window::PrimaryWindow;
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<MouseButton>>();
+        app.add_systems(Update, handle_scrollbar_drag);
+
+        let mut win = Window::default();
+        win.set_cursor_position(Some(Vec2::new(400.0, 300.0)));
+        let win_e = app.world_mut().spawn((win, PrimaryWindow)).id();
+        let cam_2d =
+            spawn_scrollbar_test_camera(&mut app, win_e, false, Vec3::new(0.0, 0.0, 100.0));
+
+        let target_container = app
+            .world_mut()
+            .spawn(UScrollContainer {
+                max_offset: Vec2::new(0.0, 600.0),
+                ..UScrollContainer::vertical()
+            })
+            .id();
+
+        // Hidden track & thumb
+        let hidden_parent = app.world_mut().spawn(Visibility::Hidden).id();
+        let hidden_track = app
+            .world_mut()
+            .spawn((
+                UScrollbarTrack::vertical(target_container),
+                UNode::default(),
+                ComputedSize {
+                    width: 20.0,
+                    height: 200.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::IDENTITY,
+                UiPickingContext {
+                    camera_entity: Some(cam_2d),
+                    local_depth_key: 9.0,
+                    ..default()
+                },
+                ChildOf(hidden_parent),
+            ))
+            .id();
+        let hidden_thumb = app
+            .world_mut()
+            .spawn((
+                UScrollbarThumb::vertical(target_container),
+                UNode::default(),
+                ComputedSize {
+                    width: 20.0,
+                    height: 50.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::IDENTITY,
+                UiPickingContext {
+                    camera_entity: Some(cam_2d),
+                    local_depth_key: 10.0,
+                    ..default()
+                },
+                ChildOf(hidden_track),
+            ))
+            .id();
+
+        // Clipped track outside UClip rect
+        let clip_parent = app
+            .world_mut()
+            .spawn((
+                UNode::default(),
+                UClip::enabled(true),
+                ComputedSize {
+                    width: 40.0,
+                    height: 40.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(Transform::from_xyz(150.0, 0.0, 0.0)),
+            ))
+            .id();
+        let clipped_track = app
+            .world_mut()
+            .spawn((
+                UScrollbarTrack::vertical(target_container),
+                UNode::default(),
+                ComputedSize {
+                    width: 20.0,
+                    height: 200.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::IDENTITY,
+                UiPickingContext {
+                    camera_entity: Some(cam_2d),
+                    clip_ancestor: Some(clip_parent),
+                    local_depth_key: 8.0,
+                    ..default()
+                },
+                ChildOf(clip_parent),
+            ))
+            .id();
+
+        // Two overlapping tracks + thumbs, blocked initially by an opaque modal
+        let lower_track = app
+            .world_mut()
+            .spawn((
+                UScrollbarTrack::vertical(target_container),
+                UNode::default(),
+                ComputedSize {
+                    width: 20.0,
+                    height: 200.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::IDENTITY,
+                UiPickingContext {
+                    camera_entity: Some(cam_2d),
+                    local_depth_key: 1.0,
+                    ..default()
+                },
+            ))
+            .id();
+        let lower_thumb = app
+            .world_mut()
+            .spawn((
+                UScrollbarThumb::vertical(target_container),
+                UNode::default(),
+                ComputedSize {
+                    width: 20.0,
+                    height: 50.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::IDENTITY,
+                UiPickingContext {
+                    camera_entity: Some(cam_2d),
+                    local_depth_key: 2.0,
+                    ..default()
+                },
+                ChildOf(lower_track),
+            ))
+            .id();
+
+        let upper_track = app
+            .world_mut()
+            .spawn((
+                UScrollbarTrack::vertical(target_container),
+                UNode::default(),
+                ComputedSize {
+                    width: 20.0,
+                    height: 200.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::IDENTITY,
+                UiPickingContext {
+                    camera_entity: Some(cam_2d),
+                    local_depth_key: 3.0,
+                    ..default()
+                },
+            ))
+            .id();
+        let upper_thumb = app
+            .world_mut()
+            .spawn((
+                UScrollbarThumb::vertical(target_container),
+                UNode::default(),
+                ComputedSize {
+                    width: 20.0,
+                    height: 50.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::IDENTITY,
+                UiPickingContext {
+                    camera_entity: Some(cam_2d),
+                    local_depth_key: 4.0,
+                    ..default()
+                },
+                ChildOf(upper_track),
+            ))
+            .id();
+
+        let blocker = app
+            .world_mut()
+            .spawn((
+                UNode {
+                    background_color: Color::WHITE,
+                    ..default()
+                },
+                ComputedSize {
+                    width: 100.0,
+                    height: 100.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::IDENTITY,
+                UiPickingContext {
+                    camera_entity: Some(cam_2d),
+                    local_depth_key: 20.0,
+                    ..default()
+                },
+            ))
+            .id();
+
+        // While occluded: neither thumbs nor tracks activate
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.update();
+
+        assert!(!app.world().get::<UScrollbarThumb>(hidden_thumb).unwrap().is_dragging);
+        assert!(!app.world().get::<UScrollbarThumb>(lower_thumb).unwrap().is_dragging);
+        assert!(!app.world().get::<UScrollbarThumb>(upper_thumb).unwrap().is_dragging);
+        assert_eq!(
+            app.world()
+                .get::<UScrollContainer>(target_container)
+                .unwrap()
+                .target_offset
+                .y,
+            0.0
+        );
+
+        // Hide blocker and press again: only upper thumb initiates drag; track does not jump
+        {
+            let mut mouse = app
+                .world_mut()
+                .resource_mut::<ButtonInput<MouseButton>>();
+            mouse.release(MouseButton::Left);
+            mouse.clear();
+        }
+        app.world_mut()
+            .entity_mut(blocker)
+            .insert(Visibility::Hidden);
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.update();
+
+        assert!(app.world().get::<UScrollbarThumb>(upper_thumb).unwrap().is_dragging);
+        assert!(!app.world().get::<UScrollbarThumb>(lower_thumb).unwrap().is_dragging);
+        assert!(!app.world().get::<UScrollbarThumb>(hidden_thumb).unwrap().is_dragging);
+        assert_eq!(
+            app.world()
+                .get::<UScrollContainer>(target_container)
+                .unwrap()
+                .target_offset
+                .y,
+            0.0
+        );
+
+        // Despawn upper_thumb + lower_thumb while keeping upper_track/clipped_track:
+        // Wait until release, then click track bottom-ish? Click center -> jump to 0.5 * 600 = 300.0
+        let _ = clipped_track;
+        app.world_mut().entity_mut(upper_thumb).despawn();
+        app.world_mut().entity_mut(lower_thumb).despawn();
+        {
+            let mut mouse = app
+                .world_mut()
+                .resource_mut::<ButtonInput<MouseButton>>();
+            mouse.release(MouseButton::Left);
+            mouse.clear();
+        }
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.update();
+
+        assert!(
+            (app.world()
+                .get::<UScrollContainer>(target_container)
+                .unwrap()
+                .target_offset
+                .y
+                - 300.0)
+                .abs()
+                < 1e-3,
+            "Unoccluded track click-to-jump should jump to 50%"
+        );
+    }
+
+    #[test]
+    fn test_scrollbar_drag_and_jump_across_secondary_window_3d_perspective_and_thumb_sync() {
+        use crate::layout::layout_system::UiSpace;
+        use bevy::window::PrimaryWindow;
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<MouseButton>>();
+        app.add_systems(Update, handle_scrollbar_drag);
+
+        // Primary window has no cursor; secondary window owns the 3D camera & cursor.
+        let win_a = app.world_mut().spawn((Window::default(), PrimaryWindow)).id();
+        let mut win_b = Window::default();
+        win_b.set_cursor_position(Some(Vec2::new(400.0, 300.0)));
+        let win_b_e = app.world_mut().spawn(win_b).id();
+
+        let _cam_a = spawn_scrollbar_test_camera(&mut app, win_a, false, Vec3::new(0.0, 0.0, 100.0));
+        let cam_b_3d =
+            spawn_scrollbar_test_camera(&mut app, win_b_e, true, Vec3::new(0.0, 0.0, 2.0));
+
+        let container = app
+            .world_mut()
+            .spawn(UScrollContainer {
+                max_offset: Vec2::new(0.0, 600.0),
+                ..UScrollContainer::vertical()
+            })
+            .id();
+
+        // World3d scale 0.01: track 20x200 logical = 0.2x2.0 world units at z=0.
+        let track = app
+            .world_mut()
+            .spawn((
+                UScrollbarTrack::vertical(container),
+                UNode::default(),
+                ComputedSize {
+                    width: 20.0,
+                    height: 200.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::IDENTITY,
+                UiPickingContext {
+                    camera_entity: Some(cam_b_3d),
+                    space: UiSpace::World3d,
+                    world_scale: 0.01,
+                    local_depth_key: 1.0,
+                    ..default()
+                },
+            ))
+            .id();
+
+        // Thumb 20x50 logical placed at top of track (+0.75 world units = screen y 187.5).
+        let thumb = app
+            .world_mut()
+            .spawn((
+                UScrollbarThumb::vertical(container),
+                UNode::default(),
+                ComputedSize {
+                    width: 20.0,
+                    height: 50.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(Transform::from_xyz(0.0, 0.75, 0.0)),
+                UiPickingContext {
+                    camera_entity: Some(cam_b_3d),
+                    space: UiSpace::World3d,
+                    world_scale: 0.01,
+                    local_depth_key: 2.0,
+                    ..default()
+                },
+                ChildOf(track),
+            ))
+            .id();
+
+        // 1. Track click-to-jump at midpoint (400, 300) misses thumb [150..225], hits track center.
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.update();
+
+        assert!(!app.world().get::<UScrollbarThumb>(thumb).unwrap().is_dragging);
+        assert!(
+            (app.world()
+                .get::<UScrollContainer>(container)
+                .unwrap()
+                .target_offset
+                .y
+                - 300.0)
+                .abs()
+                < 1e-3
+        );
+
+        // Reset scroll & mouse, then drag thumb across two frames while thumb moves.
+        {
+            let mut c = app.world_mut().get_mut::<UScrollContainer>(container).unwrap();
+            c.scroll_offset = Vec2::ZERO;
+            c.target_offset = Vec2::ZERO;
+        }
+        {
+            let mut mouse = app
+                .world_mut()
+                .resource_mut::<ButtonInput<MouseButton>>();
+            mouse.release(MouseButton::Left);
+            mouse.clear();
+        }
+        app.world_mut()
+            .get_mut::<Window>(win_b_e)
+            .unwrap()
+            .set_cursor_position(Some(Vec2::new(400.0, 187.5)));
+        app.update();
+
+        // Frame 1: click thumb center at screen y=187.5 (world y=+0.75).
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.update();
+        assert!(app.world().get::<UScrollbarThumb>(thumb).unwrap().is_dragging);
+
+        // Frame 2: drag down 150 screen px (y=337.5, -1.0 world = -100 logical px).
+        // Travel = 200 - 50 = 150, max_offset = 600 -> offset_y = 100 * 4 = 400.
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .clear_just_pressed(MouseButton::Left);
+        app.world_mut()
+            .get_mut::<Window>(win_b_e)
+            .unwrap()
+            .set_cursor_position(Some(Vec2::new(400.0, 337.5)));
+        app.update();
+
+        let offset_after_f2 = app
+            .world()
+            .get::<UScrollContainer>(container)
+            .unwrap()
+            .target_offset
+            .y;
+        assert!(
+            (offset_after_f2 - 400.0).abs() < 0.5,
+            "Expected 400.0 after -100px 3D drag, got {offset_after_f2}"
+        );
+
+        // Frame 3: simulate sync_scrollbar_thumbs moving the thumb down, then drag -37.5px more (y=375.0).
+        // Total delta = -125 logical px -> offset_y = 125 * 4 = 500 without thumb-feedback drift.
+        *app.world_mut().get_mut::<GlobalTransform>(thumb).unwrap() =
+            GlobalTransform::from(Transform::from_xyz(0.0, -0.25, 0.0));
+        app.world_mut()
+            .get_mut::<Window>(win_b_e)
+            .unwrap()
+            .set_cursor_position(Some(Vec2::new(400.0, 375.0)));
+        app.update();
+
+        let offset_after_f3 = app
+            .world()
+            .get::<UScrollContainer>(container)
+            .unwrap()
+            .target_offset
+            .y;
+        assert!(
+            (offset_after_f3 - 500.0).abs() < 0.5,
+            "Expected 500.0 after synced thumb drag, got {offset_after_f3}"
+        );
     }
 }

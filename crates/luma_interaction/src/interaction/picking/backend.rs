@@ -2,7 +2,8 @@ use super::*;
 
 pub fn univis_picking_backend(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    cameras: Query<(Entity, &Camera, &GlobalTransform)>,
+    cameras: Query<(Entity, &Camera, &GlobalTransform, Option<&RenderTarget>)>,
+    windows: Query<(Entity, Option<&PrimaryWindow>), With<Window>>,
     nodes_query: Query<
         (
             Entity,
@@ -11,8 +12,9 @@ pub fn univis_picking_backend(
             &ComputedSize,
             Option<&UiPickingContext>,
         ),
-        With<UInteraction>,
+        PickableNodeFilter,
     >,
+    visibility_query: Query<&Visibility>,
     parents_query: Query<&ChildOf>,
     clipper_query: Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
     mut profiler: Option<ResMut<LayoutProfiler>>,
@@ -24,7 +26,9 @@ pub fn univis_picking_backend(
     emit_pointer_hits(
         &pointers,
         &cameras,
+        &windows,
         &nodes_query,
+        &visibility_query,
         &parents_query,
         &clipper_query,
         profiler.as_deref_mut(),

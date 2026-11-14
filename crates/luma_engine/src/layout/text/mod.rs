@@ -11,18 +11,29 @@ use bevy::sprite_render::Material2dPlugin;
 mod measure;
 mod model;
 mod render;
+mod selection;
 
 use self::measure::invalidation::mark_text_label_layout_dirty;
 pub use self::measure::{
     fit_node_to_text_size, measure_text_label_layout, sync_text_label_intrinsic_size,
 };
 pub use self::model::{
-    TextChildMarker, UCopyText, USelectableText, UText, UTextLabel, UTextLabelLayoutCache,
-    UTextOverflow, UTextSpan, UTextSpansTemplate, UTextTruncateSide, UTextWrapMode,
+    TextChildMarker, TextSelectionHighlightMarker, UCopyText, USelectableText, UText, UTextLabel,
+    UTextLabelLayoutCache, UTextOverflow, UTextSpan, UTextSpansTemplate, UTextTruncateSide,
+    UTextWrapMode,
+};
+pub use self::selection::{
+    UTextSelectionRect, compute_text_selection_rects, local_logical_to_parley,
+    selectable_effective_text, selectable_text_extracted_copy, text_byte_index_from_local_point,
+    text_caret_rect_from_byte_index, text_move_caret_line_edge, text_move_caret_vertical,
+    text_word_range_from_local_point,
 };
 use self::render::atlas::UTextLabelAtlasCache;
-use self::render::clip_sync::sync_text_clipper_materials;
-use self::render::{UTextLabelSdfMaterial, UTextLabelSdfMaterial3d, sync_text_label_meshes};
+use self::render::clip_sync::{sync_text_clipper_materials, sync_text_render_transforms};
+pub(crate) use self::render::UTextLabelSdfMaterial3d;
+use self::render::{
+    UTextLabelSdfMaterial, sync_selectable_text_highlights, sync_text_label_meshes,
+};
 
 #[cfg(test)]
 use self::measure::bidi::{
@@ -62,8 +73,14 @@ impl Plugin for UnivisTextPlugin {
             .register_type::<UTextLabelLayoutCache>()
             .init_resource::<UTextLabelAtlasCache>()
             .add_plugins(Material2dPlugin::<UTextLabelSdfMaterial>::default())
-            .add_plugins(MaterialPlugin::<UTextLabelSdfMaterial3d>::default())
-            .add_systems(
+            .add_plugins(MaterialPlugin::<UTextLabelSdfMaterial3d>::default());
+        crate::layout::render::depth_sync::install_material2d_depth_sync::<UTextLabelSdfMaterial>(
+            app,
+        );
+        crate::layout::render::depth_sync::install_material3d_transform_sync::<
+            UTextLabelSdfMaterial3d,
+        >(app);
+        app.add_systems(
                 UiSettlementSchedule,
                 measure_text_label_layout
                     .in_set(UnivisPostUpdateSet::ExternalPrepare)
@@ -89,13 +106,20 @@ impl Plugin for UnivisTextPlugin {
             )
             .add_systems(
                 UiSettlementSchedule,
-                sync_text_label_meshes
-                    .in_set(UnivisPostUpdateSet::RenderSync)
-                    .after(crate::layout::layout_system::sync_cached_ui3d),
+                (
+                    sync_text_label_meshes,
+                    sync_selectable_text_highlights,
+                    sync_text_render_transforms,
+                )
+                    .chain()
+                    .after(crate::layout::layout_system::sync_cached_ui3d)
+                    .in_set(UnivisPostUpdateSet::RenderSync),
             )
             .add_systems(
-                UiSettlementSchedule,
-                sync_text_clipper_materials.in_set(UnivisPostUpdateSet::RenderSync),
+                PostUpdate,
+                sync_text_clipper_materials
+                    .after(crate::layout::settlement_loop::run_ui_settlement_loop)
+                    .after(bevy::transform::TransformSystems::Propagate),
             );
     }
 }
@@ -659,6 +683,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins((
             MinimalPlugins,
+            TransformPlugin,
             bevy::asset::AssetPlugin::default(),
             bevy::text::TextPlugin,
             crate::layout::UnivisLayoutPlugin,
@@ -735,6 +760,418 @@ mod tests {
         assert!(
             picking_a_after > picking_b_after,
             "text_a should now have greater depth than text_b after UZIndex change (a={picking_a_after}, b={picking_b_after})"
+        );
+    }
+
+    #[test]
+    fn dense_screen_tree_keeps_text_z_between_siblings_and_world2d_inside_capsule() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            TransformPlugin,
+            bevy::asset::AssetPlugin::default(),
+            bevy::text::TextPlugin,
+            crate::LumaEnginePlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<Image>()
+        .init_asset::<TextureAtlasLayout>();
+        app.world_mut()
+            .spawn((Window::default(), bevy::window::PrimaryWindow));
+        app.world_mut().spawn(Camera2d);
+
+        let font = app.world_mut().resource_mut::<Assets<Font>>().add(Font::from_bytes(
+            include_bytes!("../../../../luma_style/src/style/assets/fonts/Inter-Regular.ttf")
+                .to_vec(),
+        ));
+
+        let screen_root = app
+            .world_mut()
+            .spawn((
+                crate::layout::layout_system::URootUi::screen(),
+                crate::layout::univis_node::UNode {
+                    width: crate::layout::geometry::UVal::Percent(1.0),
+                    height: crate::layout::geometry::UVal::Percent(1.0),
+                    ..default()
+                },
+            ))
+            .id();
+
+        // Spawn 1300 siblings so paint_order > 1200 and slot_span = 1/total < 0.001,
+        // with a UTextLabel inside the first sibling.
+        let mut siblings = Vec::with_capacity(1300);
+        for _ in 0..1300 {
+            let panel = app
+                .world_mut()
+                .spawn((
+                    ChildOf(screen_root),
+                    crate::layout::univis_node::UNode {
+                        width: crate::layout::geometry::UVal::Px(40.0),
+                        height: crate::layout::geometry::UVal::Px(20.0),
+                        ..default()
+                    },
+                ))
+                .id();
+            siblings.push(panel);
+        }
+
+        let dense_label = app
+            .world_mut()
+            .spawn((
+                ChildOf(siblings[0]),
+                UTextLabel {
+                    text: "Alpha".to_string(),
+                    font: font.clone(),
+                    ..default()
+                },
+            ))
+            .id();
+
+        // Also spawn a World2d root with UTextLabel to verify capsule_band_step (0.00004) ceiling safety.
+        let world_root = app
+            .world_mut()
+            .spawn((
+                crate::layout::layout_system::URootUi::world_2d(Vec2::new(400.0, 200.0)),
+                crate::layout::univis_node::UNode {
+                    width: crate::layout::geometry::UVal::Px(400.0),
+                    height: crate::layout::geometry::UVal::Px(200.0),
+                    ..default()
+                },
+            ))
+            .id();
+        let world_label = app
+            .world_mut()
+            .spawn((
+                ChildOf(world_root),
+                UTextLabel {
+                    text: "World2d Text".to_string(),
+                    font,
+                    ..default()
+                },
+            ))
+            .id();
+
+        app.update();
+        app.update();
+        app.update();
+
+        let text_0 = app
+            .world()
+            .entity(dense_label)
+            .get::<Children>()
+            .unwrap()
+            .iter()
+            .find(|e| app.world().entity(*e).contains::<TextChildMarker>())
+            .expect("dense_label should have a TextChildMarker child");
+
+        let z_label_0 = app
+            .world()
+            .entity(dense_label)
+            .get::<GlobalTransform>()
+            .unwrap()
+            .translation()
+            .z;
+        let z_text_0 = app
+            .world()
+            .entity(text_0)
+            .get::<GlobalTransform>()
+            .unwrap()
+            .translation()
+            .z;
+        let z_sibling_1 = app
+            .world()
+            .entity(siblings[1])
+            .get::<GlobalTransform>()
+            .unwrap()
+            .translation()
+            .z;
+        assert!(
+            z_label_0 < z_text_0 && z_text_0 < z_sibling_1,
+            "dense screen text child must stay between label ({z_label_0}) and next sibling ({z_sibling_1}), got {z_text_0}"
+        );
+
+        let world_stack = *app
+            .world()
+            .entity(world_root)
+            .get::<crate::layout::layout_system::ResolvedRootStack>()
+            .unwrap();
+        let world_text = app
+            .world()
+            .entity(world_label)
+            .get::<Children>()
+            .unwrap()
+            .iter()
+            .find(|e| app.world().entity(*e).contains::<TextChildMarker>())
+            .expect("world_label should have a TextChildMarker child");
+        let z_world_label = app
+            .world()
+            .entity(world_label)
+            .get::<GlobalTransform>()
+            .unwrap()
+            .translation()
+            .z;
+        let z_world_text = app
+            .world()
+            .entity(world_text)
+            .get::<GlobalTransform>()
+            .unwrap()
+            .translation()
+            .z;
+        assert!(
+            z_world_label < z_world_text && z_world_text < world_stack.capsule_ceiling(),
+            "World2d text child ({z_world_text}) must sit above parent ({z_world_label}) and inside capsule ceiling ({})",
+            world_stack.capsule_ceiling()
+        );
+    }
+
+    #[test]
+    fn translated_clipper_updates_text_clip_uniforms_in_same_frame() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            TransformPlugin,
+            bevy::asset::AssetPlugin::default(),
+            bevy::text::TextPlugin,
+            crate::LumaEnginePlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<Image>()
+        .init_asset::<TextureAtlasLayout>();
+        app.world_mut()
+            .spawn((Window::default(), bevy::window::PrimaryWindow));
+        app.world_mut().spawn(Camera2d);
+
+        let font = app.world_mut().resource_mut::<Assets<Font>>().add(Font::from_bytes(
+            include_bytes!("../../../../luma_style/src/style/assets/fonts/Inter-Regular.ttf")
+                .to_vec(),
+        ));
+
+        let root = app
+            .world_mut()
+            .spawn((
+                crate::layout::layout_system::URootUi::screen(),
+                crate::layout::univis_node::UNode {
+                    width: crate::layout::geometry::UVal::Percent(1.0),
+                    height: crate::layout::geometry::UVal::Percent(1.0),
+                    ..default()
+                },
+            ))
+            .id();
+
+        let clipper = app
+            .world_mut()
+            .spawn((
+                ChildOf(root),
+                crate::layout::univis_node::UNode {
+                    width: crate::layout::geometry::UVal::Px(200.0),
+                    height: crate::layout::geometry::UVal::Px(100.0),
+                    ..default()
+                },
+                crate::layout::univis_node::UClip::enabled(true),
+            ))
+            .id();
+
+        let label = app
+            .world_mut()
+            .spawn((
+                ChildOf(clipper),
+                UTextLabel {
+                    text: "Clipped Text".to_string(),
+                    font,
+                    ..default()
+                },
+            ))
+            .id();
+
+        app.update();
+        app.update();
+        app.update();
+
+        let text_child = app
+            .world()
+            .entity(label)
+            .get::<Children>()
+            .unwrap()
+            .iter()
+            .find(|e| app.world().entity(*e).contains::<TextChildMarker>())
+            .expect("label should spawn TextChildMarker");
+
+        let mat_handle = app
+            .world()
+            .entity(text_child)
+            .get::<MeshMaterial2d<render::UTextLabelSdfMaterial>>()
+            .expect("TextChildMarker should have UTextLabelSdfMaterial")
+            .0
+            .clone();
+
+        let before_w = app
+            .world()
+            .resource::<Assets<render::UTextLabelSdfMaterial>>()
+            .get(&mat_handle)
+            .unwrap()
+            .clip_inv_x[0]
+            .w;
+
+        // Translate the clipper and run ONE app.update(): PostUpdate sync must see the updated GlobalTransform.
+        app.world_mut()
+            .entity_mut(clipper)
+            .get_mut::<Transform>()
+            .unwrap()
+            .translation
+            .x += 120.0;
+        app.update();
+
+        let after_w = app
+            .world()
+            .resource::<Assets<render::UTextLabelSdfMaterial>>()
+            .get(&mat_handle)
+            .unwrap()
+            .clip_inv_x[0]
+            .w;
+        assert!(
+            (after_w - (before_w - 120.0)).abs() < 1e-3,
+            "PostUpdate clip sync must observe propagated clipper translation in the same frame (before={before_w}, after={after_w})"
+        );
+    }
+
+    #[test]
+    fn world3d_text_and_selection_highlight_scale_meshes_once_without_double_transform_scaling() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            TransformPlugin,
+            bevy::asset::AssetPlugin::default(),
+            bevy::text::TextPlugin,
+            crate::LumaEnginePlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<Image>()
+        .init_asset::<TextureAtlasLayout>();
+        app.world_mut()
+            .spawn((Window::default(), bevy::window::PrimaryWindow));
+        app.world_mut().spawn((Camera::default(), Camera3d::default()));
+
+        let font = app.world_mut().resource_mut::<Assets<Font>>().add(
+            Font::from_bytes(
+                include_bytes!("../../../../luma_style/src/style/assets/fonts/Inter-Regular.ttf")
+                    .to_vec(),
+            ),
+        );
+
+        let mut root_ui =
+            crate::layout::layout_system::URootUi::world_3d(Vec2::new(400.0, 200.0));
+        root_ui.meters_per_unit = 0.01;
+        let root = app
+            .world_mut()
+            .spawn((
+                root_ui,
+                crate::layout::univis_node::UNode {
+                    width: crate::layout::geometry::UVal::Percent(1.0),
+                    height: crate::layout::geometry::UVal::Percent(1.0),
+                    ..default()
+                },
+            ))
+            .id();
+
+        let label = app
+            .world_mut()
+            .spawn((
+                ChildOf(root),
+                UTextLabel {
+                    text: "Hello 3D".into(),
+                    font,
+                    font_size: 24.0,
+                    ..default()
+                },
+                USelectableText::new().with_selection(0, 8),
+            ))
+            .id();
+
+        for _ in 0..6 {
+            app.update();
+        }
+
+        let children: Vec<Entity> = app
+            .world()
+            .entity(label)
+            .get::<Children>()
+            .expect("World3d UTextLabel should spawn text and highlight children")
+            .iter()
+            .collect();
+
+        let text_child = children
+            .iter()
+            .copied()
+            .find(|&e| app.world().entity(e).contains::<TextChildMarker>())
+            .expect("should spawn TextChildMarker child");
+        let highlight_child = children
+            .iter()
+            .copied()
+            .find(|&e| app.world().entity(e).contains::<TextSelectionHighlightMarker>())
+            .expect("should spawn TextSelectionHighlightMarker child");
+
+        let text_tf = app.world().entity(text_child).get::<Transform>().unwrap();
+        let hl_tf = app.world().entity(highlight_child).get::<Transform>().unwrap();
+        assert_eq!(
+            text_tf.scale,
+            Vec3::ONE,
+            "Mesh3d vertices are already scaled to meters; Transform scale must remain ONE"
+        );
+        assert_eq!(
+            hl_tf.scale,
+            Vec3::ONE,
+            "Highlight Mesh3d vertices are already scaled to meters; Transform scale must remain ONE"
+        );
+
+        let mesh_width = |entity: Entity| -> f32 {
+            let mesh_handle = app
+                .world()
+                .entity(entity)
+                .get::<Mesh3d>()
+                .expect("World3d child must use Mesh3d")
+                .0
+                .clone();
+            let mesh = app.world().resource::<Assets<Mesh>>().get(&mesh_handle).unwrap();
+            let Some(bevy::mesh::VertexAttributeValues::Float32x3(positions)) =
+                mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+            else {
+                panic!("missing positions");
+            };
+            let min_x = positions.iter().map(|p| p[0]).fold(f32::INFINITY, f32::min);
+            let max_x = positions
+                .iter()
+                .map(|p| p[0])
+                .fold(f32::NEG_INFINITY, f32::max);
+            max_x - min_x
+        };
+
+        let text_width_m = mesh_width(text_child);
+        let hl_width_m = mesh_width(highlight_child);
+        assert!(
+            text_width_m > 0.2 && text_width_m < 3.0,
+            "expected text mesh scaled once by 0.01 (~0.5-1.5m), got {text_width_m}m"
+        );
+        assert!(
+            hl_width_m > 0.2 && hl_width_m < 3.0,
+            "expected highlight mesh scaled once by 0.01 (~0.5-1.5m), got {hl_width_m}m"
+        );
+
+        let hl_mat_handle = app
+            .world()
+            .entity(highlight_child)
+            .get::<MeshMaterial3d<UTextLabelSdfMaterial3d>>()
+            .unwrap()
+            .0
+            .clone();
+        let hl_mat = app
+            .world()
+            .resource::<Assets<UTextLabelSdfMaterial3d>>()
+            .get(&hl_mat_handle)
+            .unwrap();
+        assert_eq!(
+            Material::alpha_mode(hl_mat),
+            AlphaMode::Premultiplied,
+            "UTextLabelSdfMaterial3d must use AlphaMode::Premultiplied"
         );
     }
 }

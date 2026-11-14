@@ -1,4 +1,5 @@
 use bevy::asset::AssetEventSystems;
+use bevy::camera::visibility::VisibilitySystems;
 use bevy::prelude::*;
 use bevy::sprite::update_text2d_layout;
 use bevy::transform::TransformSystems;
@@ -164,7 +165,8 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
                 motion::advance_motion_color_system,
             )
                 .chain()
-                .after(settlement_loop::run_ui_settlement_loop),
+                .after(settlement_loop::run_ui_settlement_loop)
+                .before(TransformSystems::Propagate),
         )
         .add_systems(
             Update,
@@ -186,12 +188,29 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
                 scroll::apply_scroll_transitions,
                 scroll::recycle_virtual_items,
                 scroll::sync_scrollbar_thumbs,
-                scroll::cull_scrolled_viewport_children,
+                ApplyDeferred,
+                render::layers::sync_ui_render_layers,
+            )
+                .chain()
+                .after(settlement_loop::run_ui_settlement_loop)
+                .before(TransformSystems::Propagate)
+                .before(VisibilitySystems::VisibilityPropagate),
+        )
+        .add_systems(
+            PostUpdate,
+            scroll::cull_scrolled_viewport_children
+                .after(TransformSystems::Propagate)
+                .before(VisibilitySystems::VisibilityPropagate),
+        )
+        .add_systems(
+            PostUpdate,
+            (
                 render::clip_sync::sync_node_clipper_materials,
                 render::clip_sync::sync_node_active_clips,
             )
                 .chain()
-                .after(settlement_loop::run_ui_settlement_loop),
+                .after(settlement_loop::run_ui_settlement_loop)
+                .after(TransformSystems::Propagate),
         )
         .add_systems(
             UiSettlementSchedule,
@@ -203,6 +222,8 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
         .add_systems(
             UiSettlementSchedule,
             (
+                ApplyDeferred,
+                render::layers::sync_ui_render_layers,
                 settlement_loop::refresh_root_settlement_state,
                 settlement_loop::mark_measure_complete,
                 settlement_loop::mark_solve_complete,

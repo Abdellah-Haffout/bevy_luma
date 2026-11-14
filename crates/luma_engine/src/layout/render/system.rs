@@ -1,25 +1,64 @@
 #![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
+use super::clip_sync::{
+    ClipUniformData, ClipUniformTarget, collect_active_cursor_windows, collect_clip_stack_for_entity,
+    project_screen_point_to_node, resolve_node_world_scale,
+};
 use crate::internal_prelude::*;
+use crate::layout::query::UiPickingContext;
+use bevy::camera::RenderTarget;
+use bevy::window::PrimaryWindow;
 use bevy::{ecs::relationship::Relationship, prelude::*};
 use std::collections::HashMap;
 
-const UNODE_HOST_SHADER_TEMPLATE: &str = include_str!("shaders/unode.wgsl");
+const UNODE_HOST_SHADER_TEMPLATE_2D: &str = include_str!("shaders/unode.wgsl");
+const UNODE_HOST_SHADER_TEMPLATE_3D: &str = include_str!("shaders/unode_3d.wesl");
 const HOOK_START_MARKER: &str = "// __LUMA_CUSTOM_SHADER_HOOK_START__";
 const HOOK_END_MARKER: &str = "// __LUMA_CUSTOM_SHADER_HOOK_END__";
+
+fn inject_custom_shader_hook(template: &str, snippet: &str) -> String {
+    let injected_hook = if snippet.contains("fn sample_custom_shader") {
+        snippet.to_string()
+    } else {
+        format!(
+            "fn sample_custom_shader(\n    uv: vec2<f32>,\n    size: vec2<f32>,\n    time: f32,\n    params: array<vec4<f32>, 4>,\n) -> vec4<f32> {{\n{snippet}\n}}"
+        )
+    };
+
+    if let (Some(start), Some(end)) = (template.find(HOOK_START_MARKER), template.find(HOOK_END_MARKER)) {
+        let mut composed = String::with_capacity(template.len() + injected_hook.len());
+        composed.push_str(&template[..start]);
+        composed.push_str(&injected_hook);
+        composed.push_str(&template[end + HOOK_END_MARKER.len()..]);
+        composed
+    } else {
+        template.to_string()
+    }
+}
 
 /// Caches compiled `Handle<Shader>` instances for inline WGSL and asset-path [`UShader`] components.
 #[derive(Resource, Default)]
 pub struct UShaderCache {
-    by_hash: HashMap<u64, Handle<Shader>>,
+    by_hash: HashMap<(bool, u64), Handle<Shader>>,
     by_path: HashMap<String, Handle<Shader>>,
 }
 
 impl UShaderCache {
-    /// Resolves or compiles a custom fragment shader handle for the given [`UShaderSource`].
+    /// Resolves or compiles a custom 2D fragment shader handle for the given [`UShaderSource`].
     pub fn resolve(
         &mut self,
         source: &UShaderSource,
+        shaders: &mut Assets<Shader>,
+        asset_server: Option<&AssetServer>,
+    ) -> Option<Handle<Shader>> {
+        self.resolve_for_mode(source, false, shaders, asset_server)
+    }
+
+    /// Resolves or compiles a custom 2D (`is_3d == false`) or 3D (`is_3d == true`) fragment shader handle.
+    pub fn resolve_for_mode(
+        &mut self,
+        source: &UShaderSource,
+        is_3d: bool,
         shaders: &mut Assets<Shader>,
         asset_server: Option<&AssetServer>,
     ) -> Option<Handle<Shader>> {
@@ -37,42 +76,24 @@ impl UShaderCache {
             UShaderSource::Wgsl(snippet) => {
                 use std::hash::{Hash, Hasher};
                 let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                is_3d.hash(&mut hasher);
                 snippet.hash(&mut hasher);
                 let hash = hasher.finish();
 
-                if let Some(existing) = self.by_hash.get(&hash) {
+                if let Some(existing) = self.by_hash.get(&(is_3d, hash)) {
                     return Some(existing.clone());
                 }
 
-                let injected_hook = if snippet.contains("fn sample_custom_shader") {
-                    snippet.clone()
+                let shader = if is_3d {
+                    let full_wesl = inject_custom_shader_hook(UNODE_HOST_SHADER_TEMPLATE_3D, snippet);
+                    Shader::from_wesl(full_wesl, format!("luma/ushader/inline3d_{hash:016x}.wesl"))
                 } else {
-                    format!(
-                        "fn sample_custom_shader(\n    uv: vec2<f32>,\n    size: vec2<f32>,\n    time: f32,\n    params: array<vec4<f32>, 4>,\n) -> vec4<f32> {{\n{}\n}}",
-                        snippet
-                    )
+                    let full_wgsl = inject_custom_shader_hook(UNODE_HOST_SHADER_TEMPLATE_2D, snippet);
+                    Shader::from_wgsl(full_wgsl, format!("luma://ushader/inline_{hash:016x}.wgsl"))
                 };
 
-                let full_wgsl = if let (Some(start), Some(end)) = (
-                    UNODE_HOST_SHADER_TEMPLATE.find(HOOK_START_MARKER),
-                    UNODE_HOST_SHADER_TEMPLATE.find(HOOK_END_MARKER),
-                ) {
-                    let mut composed = String::with_capacity(
-                        UNODE_HOST_SHADER_TEMPLATE.len() + injected_hook.len(),
-                    );
-                    composed.push_str(&UNODE_HOST_SHADER_TEMPLATE[..start]);
-                    composed.push_str(&injected_hook);
-                    composed.push_str(&UNODE_HOST_SHADER_TEMPLATE[end + HOOK_END_MARKER.len()..]);
-                    composed
-                } else {
-                    UNODE_HOST_SHADER_TEMPLATE.to_string()
-                };
-
-                let handle = shaders.add(Shader::from_wgsl(
-                    full_wgsl,
-                    format!("luma://ushader/inline_{hash:016x}.wgsl"),
-                ));
-                self.by_hash.insert(hash, handle.clone());
+                let handle = shaders.add(shader);
+                self.by_hash.insert((is_3d, hash), handle.clone());
                 Some(handle)
             }
         }
@@ -356,10 +377,20 @@ fn sync_entity_material(
     };
     let render_context = resolve_render_context(entity, cached_context, parents_query, root_query);
 
-    // Fast-path: Pure 2D SDF nodes without textures, gradients, or custom shaders are rendered
-    // entirely via the single-draw instanced batch pipeline!
+    let world_scale = render_context.ui_to_world_scale;
+    let clip_data = collect_clip_stack_for_entity(
+        entity,
+        Some(world_scale),
+        parents_query,
+        clipper_query,
+        root_query,
+    );
+
+    // Fast-path: Pure 2D SDF nodes without textures, gradients, custom shaders, or complex clips
+    // are rendered via the single-draw instanced batch pipeline.
     if use_instanced_batching
         && render_context.mode == ResolvedRenderMode::Flat2d
+        && !clip_data.is_complex_for_batch
         && image.is_none()
         && gradient_opt.is_none()
         && inner_glow_opt.is_none()
@@ -373,9 +404,15 @@ fn sync_entity_material(
         return;
     }
 
-    let world_scale = render_context.ui_to_world_scale;
     let size_vec = logical_size * world_scale;
-    let softness = minimum_local_softness(world_scale);
+    let is_world_3d = render_context.mode == ResolvedRenderMode::World3d;
+    // In perspective 3D, let screen-space derivatives drive crisp pixel-exact AA instead of clamping
+    // softness to world-scale fractions that blur zoomed-in panels and clips.
+    let softness = if is_world_3d {
+        1.0e-5
+    } else {
+        minimum_local_softness(world_scale)
+    };
 
     // --- shared material inputs ---
     let (tex_handle, use_tex, base_color) = if let Some(img) = image {
@@ -413,11 +450,6 @@ fn sync_entity_material(
         UShapeMode::Round => 0,
         UShapeMode::Cut => 1,
     };
-
-    let (clip_center, clip_size, clip_radius, use_clip) =
-        resolve_clipper(cached_context, entity, parents_query, clipper_query);
-    let clip_size = clip_size * world_scale;
-    let clip_radius = clip_radius * world_scale;
 
     // --- visual inputs ---
     let (grad_colors, grad_stops, grad_params, grad_center) = if let Some(grad) = gradient_opt {
@@ -493,7 +525,7 @@ fn sync_entity_material(
         };
         let meta = Vec4::new(t, shader.blend_mode.as_f32(), shader.opacity, 1.0);
         let handle = if let (Some(cache), Some(shader_assets)) = (shader_cache, shaders) {
-            cache.resolve(&shader.source, shader_assets, asset_server)
+            cache.resolve_for_mode(&shader.source, is_world_3d, shader_assets, asset_server)
         } else {
             None
         };
@@ -520,10 +552,41 @@ fn sync_entity_material(
 
     match render_context.mode {
         ResolvedRenderMode::World3d => {
-            let (metallic, roughness, emissive_val) = if let Some(pbr) = pbr_opt {
-                (pbr.metallic, pbr.roughness, pbr.emissive.to_vec4())
+            let (pbr_enabled, metallic, roughness, emissive_val) = if let Some(pbr) = pbr_opt {
+                (1u32, pbr.metallic, pbr.roughness, pbr.emissive.to_vec4())
             } else {
-                (0.0, 0.5, Vec4::ZERO)
+                (0u32, 0.0, 0.5, Vec4::ZERO)
+            };
+
+            let build_mat_3d = || {
+                create_3d_material(
+                    base_color,
+                    size_vec,
+                    radius,
+                    b_color,
+                    emissive_val,
+                    b_width,
+                    b_offset,
+                    softness,
+                    metallic,
+                    roughness,
+                    use_tex,
+                    shape_mode,
+                    pbr_enabled,
+                    tex_handle.clone(),
+                    clip_data,
+                    grad_colors,
+                    grad_stops,
+                    grad_params,
+                    grad_center,
+                    shadow_color.to_vec4(),
+                    shadow_params,
+                    inner_glow_color.to_vec4(),
+                    inner_glow_params,
+                    custom_params,
+                    custom_meta,
+                    custom_shader.clone(),
+                )
             };
 
             let material_handle = if let Some(mut handles) = handles_opt {
@@ -535,11 +598,13 @@ fn sync_entity_material(
                         existing_mat.border_color = b_color.to_vec4();
                         existing_mat.emissive = emissive_val;
                         existing_mat.border_width = b_width;
+                        existing_mat.border_offset = b_offset;
                         existing_mat.softness = softness;
                         existing_mat.metallic = metallic;
                         existing_mat.roughness = roughness;
                         existing_mat.use_texture = use_tex;
                         existing_mat.shape_mode = shape_mode;
+                        existing_mat.pbr_enabled = pbr_enabled;
                         existing_mat.texture = tex_handle.clone();
                         existing_mat.grad_colors = grad_colors;
                         existing_mat.grad_stops = grad_stops;
@@ -551,92 +616,25 @@ fn sync_entity_material(
                         existing_mat.inner_glow_params = inner_glow_params;
                         existing_mat.custom_params = custom_params;
                         existing_mat.custom_meta = custom_meta;
+                        existing_mat.custom_shader = custom_shader.clone();
+                        existing_mat.apply_clip_uniforms(&clip_data);
 
                         pool.reused_count += 1;
                         existing_handle.clone()
                     } else {
-                        let new_mat = materials_3d.add(create_3d_material(
-                            base_color,
-                            size_vec,
-                            radius,
-                            b_color,
-                            emissive_val,
-                            b_width,
-                            softness,
-                            metallic,
-                            roughness,
-                            use_tex,
-                            shape_mode,
-                            tex_handle.clone(),
-                            grad_colors,
-                            grad_stops,
-                            grad_params,
-                            grad_center,
-                            shadow_color.to_vec4(),
-                            shadow_params,
-                            inner_glow_color.to_vec4(),
-                            inner_glow_params,
-                            custom_params,
-                            custom_meta,
-                        ));
+                        let new_mat = materials_3d.add(build_mat_3d());
                         handles.material_3d = Some(new_mat.clone());
                         pool.created_count += 1;
                         new_mat
                     }
                 } else {
-                    let new_mat = materials_3d.add(create_3d_material(
-                        base_color,
-                        size_vec,
-                        radius,
-                        b_color,
-                        emissive_val,
-                        b_width,
-                        softness,
-                        metallic,
-                        roughness,
-                        use_tex,
-                        shape_mode,
-                        tex_handle.clone(),
-                        grad_colors,
-                        grad_stops,
-                        grad_params,
-                        grad_center,
-                        shadow_color.to_vec4(),
-                        shadow_params,
-                        inner_glow_color.to_vec4(),
-                        inner_glow_params,
-                        custom_params,
-                        custom_meta,
-                    ));
+                    let new_mat = materials_3d.add(build_mat_3d());
                     handles.material_3d = Some(new_mat.clone());
                     pool.created_count += 1;
                     new_mat
                 }
             } else {
-                let new_mat = materials_3d.add(create_3d_material(
-                    base_color,
-                    size_vec,
-                    radius,
-                    b_color,
-                    emissive_val,
-                    b_width,
-                    softness,
-                    metallic,
-                    roughness,
-                    use_tex,
-                    shape_mode,
-                    tex_handle.clone(),
-                    grad_colors,
-                    grad_stops,
-                    grad_params,
-                    grad_center,
-                    shadow_color.to_vec4(),
-                    shadow_params,
-                    inner_glow_color.to_vec4(),
-                    inner_glow_params,
-                    custom_params,
-                    custom_meta,
-                ));
+                let new_mat = materials_3d.add(build_mat_3d());
                 if let Ok(mut cmd) = commands.get_entity(entity) {
                     cmd.try_insert(MaterialHandles {
                         material_2d: None,
@@ -666,10 +664,7 @@ fn sync_entity_material(
                         existing_mat.use_texture = use_tex;
                         existing_mat.shape_mode = shape_mode;
                         existing_mat.texture = tex_handle.clone();
-                        existing_mat.clip_center = clip_center;
-                        existing_mat.clip_size = clip_size;
-                        existing_mat.clip_radius = clip_radius;
-                        existing_mat.use_clip = use_clip;
+                        existing_mat.apply_clip_uniforms(&clip_data);
                         existing_mat.grad_colors = grad_colors;
                         existing_mat.grad_stops = grad_stops;
                         existing_mat.grad_params = grad_params;
@@ -696,10 +691,7 @@ fn sync_entity_material(
                             use_tex,
                             shape_mode,
                             tex_handle.clone(),
-                            clip_center,
-                            clip_size,
-                            clip_radius,
-                            use_clip,
+                            clip_data,
                             grad_colors,
                             grad_stops,
                             grad_params,
@@ -728,10 +720,7 @@ fn sync_entity_material(
                         use_tex,
                         shape_mode,
                         tex_handle.clone(),
-                        clip_center,
-                        clip_size,
-                        clip_radius,
-                        use_clip,
+                        clip_data,
                         grad_colors,
                         grad_stops,
                         grad_params,
@@ -760,10 +749,7 @@ fn sync_entity_material(
                     use_tex,
                     shape_mode,
                     tex_handle.clone(),
-                    clip_center,
-                    clip_size,
-                    clip_radius,
-                    use_clip,
+                    clip_data,
                     grad_colors,
                     grad_stops,
                     grad_params,
@@ -850,53 +836,11 @@ fn resolve_root_for_entity(
 }
 
 // ===== Helper Functions =====
-// 1. Shared clip resolution helper
-fn resolve_clipper(
-    cached_context: Option<&CachedUiContext>,
-    start_entity: Entity,
-    parents_query: &Query<&ChildOf>,
-    clipper_query: &Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
-) -> (Vec2, Vec2, Vec4, u32) {
-    if let Some(clip_entity) = cached_context.and_then(|context| context.clip_ancestor)
-        && let Ok((transform, size, node, clip)) = clipper_query.get(clip_entity)
-        && clip.enabled
-    {
-        let center = transform.translation().truncate();
-        let clip_size = Vec2::new(size.width, size.height);
-        let radius = Vec4::new(
-            node.border_radius.top_right,
-            node.border_radius.bottom_right,
-            node.border_radius.top_left,
-            node.border_radius.bottom_left,
-        );
-        return (center, clip_size, radius, 1);
-    }
-
-    let mut current_entity = start_entity;
-    while let Ok(parent) = parents_query.get(current_entity) {
-        current_entity = parent.get();
-        if let Ok((transform, size, node, clip)) = clipper_query.get(current_entity)
-            && clip.enabled
-        {
-            let center = transform.translation().truncate();
-            let clip_size = Vec2::new(size.width, size.height);
-            let radius = Vec4::new(
-                node.border_radius.top_right,
-                node.border_radius.bottom_right,
-                node.border_radius.top_left,
-                node.border_radius.bottom_left,
-            );
-            return (center, clip_size, radius, 1);
-        }
-    }
-    (Vec2::ZERO, Vec2::ZERO, Vec4::ZERO, 0)
-}
-
 fn minimum_local_softness(ui_to_world_scale: f32) -> f32 {
     (0.5 * ui_to_world_scale).max(1.0e-4)
 }
 
-// 2. 2D material builder with clip data
+// 1. 2D material builder with multi-layer clip data
 fn create_2d_material(
     base_color: LinearRgba,
     radius: Vec4,
@@ -908,11 +852,7 @@ fn create_2d_material(
     use_tex: u32,
     shape_mode: u32,
     tex: Option<Handle<Image>>,
-    // Clip payload
-    clip_center: Vec2,
-    clip_size: Vec2,
-    clip_radius: Vec4,
-    use_clip: u32,
+    clip_data: ClipUniformData,
     grad_colors: [Vec4; 8],
     grad_stops: [Vec4; 2],
     grad_params: Vec4,
@@ -925,7 +865,7 @@ fn create_2d_material(
     custom_meta: Vec4,
     custom_shader: Option<Handle<Shader>>,
 ) -> UNodeMaterial {
-    UNodeMaterial {
+    let mut material = UNodeMaterial {
         color: base_color,
         radius,
         border_color: b_color,
@@ -936,14 +876,6 @@ fn create_2d_material(
         use_texture: use_tex,
         shape_mode,
         texture: tex,
-        _pad: 0.0,
-        clip_center,
-        clip_size,
-        clip_radius,
-        use_clip,
-        _pad1_0: 0.0,
-        _pad1_1: 0.0,
-        _pad1_2: 0.0,
         grad_colors,
         grad_stops,
         grad_params,
@@ -956,10 +888,13 @@ fn create_2d_material(
         custom_meta,
         custom_cursor: Vec4::new(0.5, 0.5, 0.0, 0.0),
         custom_shader,
-    }
+        ..default()
+    };
+    material.apply_clip_uniforms(&clip_data);
+    material
 }
 
-// 3. 3D material builder
+// 2. 3D material builder with multi-layer clip data
 fn create_3d_material(
     base_color: LinearRgba,
     size_vec: Vec2,
@@ -967,12 +902,15 @@ fn create_3d_material(
     b_color: LinearRgba,
     emissive: Vec4,
     b_width: f32,
+    b_offset: f32,
     softness: f32,
     metallic: f32,
     roughness: f32,
     use_tex: u32,
     shape_mode: u32,
+    pbr_enabled: u32,
     tex: Option<Handle<Image>>,
+    clip_data: ClipUniformData,
     grad_colors: [Vec4; 8],
     grad_stops: [Vec4; 2],
     grad_params: Vec4,
@@ -983,19 +921,22 @@ fn create_3d_material(
     inner_glow_params: Vec4,
     custom_params: [Vec4; 4],
     custom_meta: Vec4,
+    custom_shader: Option<Handle<Shader>>,
 ) -> UNodeMaterial3d {
-    UNodeMaterial3d {
+    let mut material = UNodeMaterial3d {
         color: base_color.to_vec4(),
         size: size_vec,
         radius,
         border_color: b_color.to_vec4(),
         emissive,
         border_width: b_width,
+        border_offset: b_offset,
         softness,
         metallic,
         roughness,
         use_texture: use_tex,
         shape_mode,
+        pbr_enabled,
         texture: tex,
         grad_colors,
         grad_stops,
@@ -1007,23 +948,50 @@ fn create_3d_material(
         inner_glow_params,
         custom_params,
         custom_meta,
-        custom_cursor: Vec4::new(0.5, 0.5, 0.0, 0.0),
+        custom_shader,
+        ..default()
+    };
+    material.apply_clip_uniforms(&clip_data);
+    material
+}
+
+fn apply_shader_cursor_state(
+    custom_meta: &mut Vec4,
+    custom_cursor: &mut Vec4,
+    animate: bool,
+    time_value: f32,
+    target_uv: Vec2,
+    target_hover: f32,
+    target_press: f32,
+    smooth_rate: f32,
+) {
+    if animate {
+        custom_meta.x = time_value;
     }
+    let prev = *custom_cursor;
+    let next_uv = prev.xy().lerp(target_uv, smooth_rate);
+    let next_hover = prev.z + (target_hover - prev.z) * smooth_rate;
+    let next_press = prev.w + (target_press - prev.w) * smooth_rate;
+    *custom_cursor = Vec4::new(next_uv.x, next_uv.y, next_hover, next_press);
 }
 
 /// Lightweight frame-by-frame time and mouse cursor updater for [`UShader`] nodes.
-/// Updates `custom_meta.x` and `custom_cursor` directly in `Assets<UNodeMaterial>`
-/// without dirtying UI layout.
+/// Updates `custom_meta.x` and `custom_cursor` directly in `Assets<UNodeMaterial>` / `Assets<UNodeMaterial3d>`
+/// across 2D, `World2d`, `World3d`, and multiple windows without dirtying UI layout.
 pub fn sync_animated_ushaders(
     time: Res<Time>,
-    windows: Query<&Window>,
-    cameras: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    windows: Query<(Entity, &Window, Option<&PrimaryWindow>)>,
+    cameras: Query<(Entity, &Camera, &GlobalTransform, Option<&RenderTarget>)>,
+    parents_query: Query<&ChildOf>,
+    root_query: Query<&ResolvedRootUi>,
     mouse_buttons: Option<Res<ButtonInput<MouseButton>>>,
     query: Query<(
+        Entity,
         &UShader,
         &MaterialHandles,
         Option<&GlobalTransform>,
         Option<&ComputedSize>,
+        Option<&UiPickingContext>,
     )>,
     mut materials_2d: Option<ResMut<Assets<UNodeMaterial>>>,
     mut materials_3d: Option<ResMut<Assets<UNodeMaterial3d>>>,
@@ -1034,16 +1002,10 @@ pub fn sync_animated_ushaders(
         .as_ref()
         .is_some_and(|btn| btn.pressed(MouseButton::Left));
 
-    let cursor_world_2d = windows
-        .iter()
-        .find_map(|w| w.cursor_position())
-        .and_then(|screen_pos| {
-            cameras
-                .iter()
-                .find_map(|(cam, tf)| cam.viewport_to_world_2d(tf, screen_pos).ok())
-        });
+    let active_windows = collect_active_cursor_windows(&windows);
+    let smooth_rate = (dt * 12.0).clamp(0.0, 1.0);
 
-    for (shader, handles, global_tf, computed_size) in query.iter() {
+    for (entity, shader, handles, global_tf, computed_size, picking_ctx) in query.iter() {
         let t = if shader.animate {
             elapsed * shader.speed + shader.time_offset
         } else {
@@ -1057,16 +1019,38 @@ pub fn sync_animated_ushaders(
         );
         let mut is_hovered = false;
 
-        if let (Some(world_pos), Some(tf), Some(size)) = (cursor_world_2d, global_tf, computed_size)
+        if !active_windows.is_empty()
+            && let (Some(tf), Some(size)) = (global_tf, computed_size)
             && size.width > 1.0
             && size.height > 1.0
         {
-            let center = tf.translation().truncate();
-            let uv_x = (world_pos.x - center.x) / size.width + 0.5;
-            let uv_y = (center.y - world_pos.y) / size.height + 0.5;
-            if (-0.15..=1.15).contains(&uv_x) && (-0.15..=1.15).contains(&uv_y) {
-                target_uv = Vec2::new(uv_x.clamp(0.0, 1.0), uv_y.clamp(0.0, 1.0));
-                is_hovered = (0.0..=1.0).contains(&uv_x) && (0.0..=1.0).contains(&uv_y);
+            let world_scale =
+                resolve_node_world_scale(entity, picking_ctx, &parents_query, &root_query);
+            let preferred_camera = picking_ctx.and_then(|ctx| ctx.camera_entity);
+
+            if let Some((_, _, _, local_logical, _)) =
+                active_windows
+                    .iter()
+                    .find_map(|&(win_entity, cursor_pos, primary_window)| {
+                        project_screen_point_to_node(
+                            cursor_pos,
+                            None,
+                            Some(win_entity),
+                            primary_window,
+                            preferred_camera,
+                            tf,
+                            world_scale,
+                            true,
+                            &cameras,
+                        )
+                    })
+            {
+                let uv_x = local_logical.x / size.width + 0.5;
+                let uv_y = 0.5 - local_logical.y / size.height;
+                if (-0.15..=1.15).contains(&uv_x) && (-0.15..=1.15).contains(&uv_y) {
+                    target_uv = Vec2::new(uv_x.clamp(0.0, 1.0), uv_y.clamp(0.0, 1.0));
+                    is_hovered = (0.0..=1.0).contains(&uv_x) && (0.0..=1.0).contains(&uv_y);
+                }
             }
         }
 
@@ -1076,31 +1060,310 @@ pub fn sync_animated_ushaders(
         } else {
             0.0
         };
-        let smooth_rate = (dt * 12.0).clamp(0.0, 1.0);
 
         if let (Some(h2d), Some(mats2d)) = (&handles.material_2d, materials_2d.as_mut())
             && let Some(mut mat) = mats2d.get_mut(h2d)
         {
-            if shader.animate {
-                mat.custom_meta.x = t;
-            }
-            let prev = mat.custom_cursor;
-            let next_uv = prev.xy().lerp(target_uv, smooth_rate);
-            let next_hover = prev.z + (target_hover - prev.z) * smooth_rate;
-            let next_press = prev.w + (target_press - prev.w) * smooth_rate;
-            mat.custom_cursor = Vec4::new(next_uv.x, next_uv.y, next_hover, next_press);
+            let mat = &mut *mat;
+            apply_shader_cursor_state(
+                &mut mat.custom_meta,
+                &mut mat.custom_cursor,
+                shader.animate,
+                t,
+                target_uv,
+                target_hover,
+                target_press,
+                smooth_rate,
+            );
         }
         if let (Some(h3d), Some(mats3d)) = (&handles.material_3d, materials_3d.as_mut())
             && let Some(mut mat) = mats3d.get_mut(h3d)
         {
-            if shader.animate {
-                mat.custom_meta.x = t;
-            }
-            let prev = mat.custom_cursor;
-            let next_uv = prev.xy().lerp(target_uv, smooth_rate);
-            let next_hover = prev.z + (target_hover - prev.z) * smooth_rate;
-            let next_press = prev.w + (target_press - prev.w) * smooth_rate;
-            mat.custom_cursor = Vec4::new(next_uv.x, next_uv.y, next_hover, next_press);
+            let mat = &mut *mat;
+            apply_shader_cursor_state(
+                &mut mat.custom_meta,
+                &mut mat.custom_cursor,
+                shader.animate,
+                t,
+                target_uv,
+                target_hover,
+                target_press,
+                smooth_rate,
+            );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::camera::{CameraProjection, ComputedCameraValues, RenderTargetInfo};
+    use bevy::time::TimeUpdateStrategy;
+    use bevy::window::WindowRef;
+    use std::time::Duration;
+
+    #[test]
+    fn sync_animated_ushaders_projects_secondary_window_world3d_with_world_scale() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, TransformPlugin, bevy::asset::AssetPlugin::default()));
+        app.init_asset::<UNodeMaterial>();
+        app.init_asset::<UNodeMaterial3d>();
+        app.init_resource::<ButtonInput<MouseButton>>();
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(50)));
+        app.add_systems(Update, sync_animated_ushaders);
+
+        app.world_mut()
+            .spawn((Window::default(), PrimaryWindow));
+        let mut secondary_window = Window::default();
+        secondary_window.resolution.set_physical_resolution(800, 600);
+
+        let mut camera = Camera::default();
+        camera.computed = ComputedCameraValues {
+            target_info: Some(RenderTargetInfo {
+                physical_size: UVec2::new(800, 600),
+                scale_factor: 1.0,
+            }),
+            clip_from_view: PerspectiveProjection {
+                fov: core::f32::consts::FRAC_PI_2,
+                aspect_ratio: 800.0 / 600.0,
+                near: 0.1,
+                ..default()
+            }
+            .get_clip_from_view(),
+            ..default()
+        };
+        let cam_transform = Transform::from_xyz(0.0, 0.0, 5.0);
+        let cam_gt = GlobalTransform::from(cam_transform);
+
+        let world_scale = 0.01;
+        // Pick a point at (+25, -20) logical px relative to a 100x80 node => expected UV = (0.75, 0.75).
+        let target_world = Vec3::new(25.0 * world_scale, -20.0 * world_scale, 0.0);
+        let viewport_pos = camera.world_to_viewport(&cam_gt, target_world).unwrap();
+        secondary_window.set_cursor_position(Some(viewport_pos));
+
+        let sec_win_entity = app.world_mut().spawn(secondary_window).id();
+        let sec_camera = app
+            .world_mut()
+            .spawn((
+                camera,
+                RenderTarget::Window(WindowRef::Entity(sec_win_entity)),
+                cam_transform,
+                cam_gt,
+            ))
+            .id();
+
+        let mat3d_handle = app
+            .world_mut()
+            .resource_mut::<Assets<UNodeMaterial3d>>()
+            .add(create_3d_material(
+                LinearRgba::WHITE,
+                Vec2::new(100.0 * world_scale, 80.0 * world_scale),
+                Vec4::ZERO,
+                LinearRgba::NONE,
+                Vec4::ZERO,
+                0.0,
+                0.0,
+                0.01,
+                0.0,
+                0.5,
+                0,
+                0,
+                0,
+                None,
+                ClipUniformData::default(),
+                [Vec4::ZERO; 8],
+                [Vec4::ZERO; 2],
+                Vec4::ZERO,
+                Vec4::ZERO,
+                Vec4::ZERO,
+                Vec4::ZERO,
+                Vec4::ZERO,
+                Vec4::ZERO,
+                [Vec4::ZERO; 4],
+                Vec4::ZERO,
+                None,
+            ));
+
+        let shader_node = app
+            .world_mut()
+            .spawn((
+                UShader::default(),
+                MaterialHandles {
+                    material_2d: None,
+                    material_3d: Some(mat3d_handle.clone()),
+                },
+                Transform::default(),
+                GlobalTransform::default(),
+                ComputedSize {
+                    width: 100.0,
+                    height: 80.0,
+                    ..default()
+                },
+                UiPickingContext {
+                    root_entity: None,
+                    camera_entity: Some(sec_camera),
+                    space: UiSpace::World3d,
+                    clip_ancestor: None,
+                    root_sort_key: 0.0,
+                    local_depth_key: 0.0,
+                    world_scale,
+                },
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+
+        for _ in 0..8 {
+            app.update();
+        }
+
+        let mat = app
+            .world()
+            .resource::<Assets<UNodeMaterial3d>>()
+            .get(&mat3d_handle)
+            .unwrap();
+        assert!(app.world().get_entity(shader_node).is_ok());
+        assert!(
+            (mat.custom_cursor.x - 0.75).abs() < 0.02,
+            "expected UV.x near 0.75, got {}",
+            mat.custom_cursor.x
+        );
+        assert!(
+            (mat.custom_cursor.y - 0.75).abs() < 0.02,
+            "expected UV.y near 0.75, got {}",
+            mat.custom_cursor.y
+        );
+        assert!(
+            mat.custom_cursor.z > 0.85,
+            "expected hover near 1.0, got {}",
+            mat.custom_cursor.z
+        );
+        assert!(
+            mat.custom_cursor.w > 0.85,
+            "expected press near 1.0, got {}",
+            mat.custom_cursor.w
+        );
+    }
+
+    #[test]
+    fn world3d_material_parity_gates_pbr_border_offset_softness_and_custom_shader() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            TransformPlugin,
+            bevy::asset::AssetPlugin::default(),
+            bevy::text::TextPlugin,
+            crate::LumaEnginePlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<Image>()
+        .init_asset::<TextureAtlasLayout>()
+        .init_asset::<Shader>();
+
+        app.world_mut()
+            .spawn((Window::default(), bevy::window::PrimaryWindow));
+        app.world_mut().spawn((Camera::default(), Camera3d::default()));
+
+        let mut root_ui = crate::layout::layout_system::URootUi::world_3d(Vec2::new(400.0, 200.0));
+        root_ui.meters_per_unit = 0.01;
+        let world_scale = 0.01_f32;
+
+        let root = app.world_mut().spawn(root_ui).id();
+        let unlit_shader_node = app
+            .world_mut()
+            .spawn((
+                ChildOf(root),
+                UNode {
+                    width: UVal::Px(120.0),
+                    height: UVal::Px(60.0),
+                    background_color: Color::srgba(0.2, 0.4, 0.9, 0.6),
+                    ..default()
+                },
+                crate::layout::univis_node::UBorder {
+                    color: Color::WHITE,
+                    width: 2.0,
+                    offset: 3.0,
+                    ..default()
+                },
+                crate::layout::visual::UShader::from_wgsl(
+                    "fn fragment_color(in: LumaShaderInput) -> vec4<f32> { return vec4<f32>(in.uv, 0.5, 1.0); }",
+                ),
+            ))
+            .id();
+
+        let lit_pbr_node = app
+            .world_mut()
+            .spawn((
+                ChildOf(root),
+                UNode {
+                    width: UVal::Px(80.0),
+                    height: UVal::Px(40.0),
+                    background_color: Color::srgba(0.9, 0.3, 0.2, 1.0),
+                    ..default()
+                },
+                crate::layout::pbr::UPbr {
+                    metallic: 0.8,
+                    roughness: 0.2,
+                    emissive: LinearRgba::rgb(0.2, 0.4, 0.6),
+                },
+            ))
+            .id();
+
+        for _ in 0..4 {
+            app.update();
+        }
+
+        let materials = app.world().resource::<Assets<UNodeMaterial3d>>();
+
+        let unlit_mat_handle = app
+            .world()
+            .entity(unlit_shader_node)
+            .get::<MeshMaterial3d<UNodeMaterial3d>>()
+            .expect("World3d node should use UNodeMaterial3d")
+            .0
+            .clone();
+        let unlit_mat = materials
+            .get(&unlit_mat_handle)
+            .expect("unlit UNodeMaterial3d asset should exist");
+
+        assert_eq!(unlit_mat.pbr_enabled, 0);
+        assert!(
+            (unlit_mat.border_offset - 3.0 * world_scale).abs() < 1e-5,
+            "expected scaled border_offset={}, got {}",
+            3.0 * world_scale,
+            unlit_mat.border_offset
+        );
+        assert!(
+            (unlit_mat.softness - 1.0e-5).abs() < 1e-7,
+            "expected World3d softness=1e-5, got {}",
+            unlit_mat.softness
+        );
+        assert!(
+            unlit_mat.custom_shader.is_some(),
+            "World3d UNode with UShader must specialize custom_shader"
+        );
+        assert_eq!(
+            Material::alpha_mode(unlit_mat),
+            AlphaMode::Premultiplied,
+            "UNodeMaterial3d must use AlphaMode::Premultiplied to avoid alpha^2 fringes"
+        );
+
+        let lit_mat_handle = app
+            .world()
+            .entity(lit_pbr_node)
+            .get::<MeshMaterial3d<UNodeMaterial3d>>()
+            .expect("lit World3d node should use UNodeMaterial3d")
+            .0
+            .clone();
+        let lit_mat = materials
+            .get(&lit_mat_handle)
+            .expect("lit UNodeMaterial3d asset should exist");
+
+        assert_eq!(lit_mat.pbr_enabled, 1);
+        assert!((lit_mat.metallic - 0.8).abs() < 1e-5);
+        assert!((lit_mat.roughness - 0.2).abs() < 1e-5);
+        assert!(lit_mat.custom_shader.is_none());
     }
 }

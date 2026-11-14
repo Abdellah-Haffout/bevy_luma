@@ -10,7 +10,9 @@
 //! local ordering stays inside the root and descendants do not automatically
 //! interleave above another root.
 
+use bevy::camera::RenderTarget;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 
 mod legacy_compat;
 mod root_resolution;
@@ -21,8 +23,11 @@ mod ui3d_sync;
 
 use self::legacy_compat::effective_root_ui;
 use self::root_resolution::{
-    emit_root_resolution_warning, resolve_root_camera, resolve_root_canvas_size,
+    emit_root_resolution_warning, resolve_root_camera_for_primary_window,
+    resolve_root_canvas_size,
 };
+#[cfg(test)]
+use self::root_resolution::resolve_root_camera;
 pub(crate) use self::root_stacking::{
     resolve_root_stacking, sync_fit_content_root_canvas_sizes, sync_root_capsule_transforms,
 };
@@ -56,19 +61,34 @@ pub(crate) fn resolve_root_ui(
         ),
         Or<(With<URootUi>, With<UScreenRoot>, With<UWorldRoot>)>,
     >,
-    cameras: Query<(Entity, &Camera)>,
+    cameras: Query<(
+        Entity,
+        &Camera,
+        Option<&RenderTarget>,
+        Has<Camera2d>,
+        Has<Camera3d>,
+    )>,
+    camera_basics: Query<(Entity, &Camera)>,
     windows: Query<&Window>,
+    primary_windows: Query<Entity, With<PrimaryWindow>>,
 ) {
+    let primary_window = primary_windows.iter().next();
+
     for (entity, root_ui, screen_root, world_root, mut resolved, mut state) in roots.iter_mut() {
         let Some(effective) = effective_root_ui(root_ui, screen_root, world_root) else {
             continue;
         };
 
-        let (camera_entity, mut issue) = resolve_root_camera(effective.camera, &cameras);
+        let (camera_entity, mut issue) = resolve_root_camera_for_primary_window(
+            effective.camera,
+            effective.space,
+            &cameras,
+            primary_window,
+        );
         let canvas_size = resolve_root_canvas_size(
             effective.canvas,
             camera_entity,
-            &cameras,
+            &camera_basics,
             &windows,
             &mut issue,
         );
@@ -714,31 +734,191 @@ mod tests {
 
     #[test]
     fn resolve_root_camera_auto_reports_missing_single_and_ambiguous_states() {
+        type CamQuery = Query<
+            'static,
+            'static,
+            (
+                Entity,
+                &'static Camera,
+                Option<&'static RenderTarget>,
+                Has<Camera2d>,
+                Has<Camera3d>,
+            ),
+        >;
         let mut app = App::new();
 
-        let mut camera_state = SystemState::<Query<(Entity, &Camera)>>::new(app.world_mut());
+        let mut camera_state = SystemState::<CamQuery>::new(app.world_mut());
         let cameras = camera_state.get(app.world()).unwrap();
-        let (camera_entity, issue) = resolve_root_camera(UiCameraRef::Auto, &cameras);
+        let (camera_entity, issue) =
+            resolve_root_camera(UiCameraRef::Auto, UiSpace::Screen, &cameras);
         assert_eq!(camera_entity, None);
         assert_eq!(issue, RootResolutionIssue::AutoMissingCamera);
 
         let expected = app.world_mut().spawn(Camera::default()).id();
-        let mut camera_state = SystemState::<Query<(Entity, &Camera)>>::new(app.world_mut());
+        let mut camera_state = SystemState::<CamQuery>::new(app.world_mut());
         let cameras = camera_state.get(app.world()).unwrap();
-        let (camera_entity, issue) = resolve_root_camera(UiCameraRef::Auto, &cameras);
+        let (camera_entity, issue) =
+            resolve_root_camera(UiCameraRef::Auto, UiSpace::Screen, &cameras);
         assert_eq!(camera_entity, Some(expected));
         assert_eq!(issue, RootResolutionIssue::None);
 
-        app.world_mut().spawn(Camera::default());
-        let mut camera_state = SystemState::<Query<(Entity, &Camera)>>::new(app.world_mut());
+        // Offscreen RenderTarget::Image cameras do not cause Auto ambiguity or match Auto.
+        let offscreen = app
+            .world_mut()
+            .spawn((
+                Camera::default(),
+                RenderTarget::Image(Handle::<Image>::default().into()),
+            ))
+            .id();
+        let mut camera_state = SystemState::<CamQuery>::new(app.world_mut());
         let cameras = camera_state.get(app.world()).unwrap();
-        let (camera_entity, issue) = resolve_root_camera(UiCameraRef::Auto, &cameras);
+        let (camera_entity, issue) =
+            resolve_root_camera(UiCameraRef::Auto, UiSpace::Screen, &cameras);
+        assert_eq!(camera_entity, Some(expected));
+        assert_eq!(issue, RootResolutionIssue::None);
+        // Explicit Entity targeting still resolves offscreen cameras.
+        let (explicit_entity, explicit_issue) =
+            resolve_root_camera(UiCameraRef::Entity(offscreen), UiSpace::Screen, &cameras);
+        assert_eq!(explicit_entity, Some(offscreen));
+        assert_eq!(explicit_issue, RootResolutionIssue::None);
+
+        app.world_mut().spawn(Camera::default());
+        let mut camera_state = SystemState::<CamQuery>::new(app.world_mut());
+        let cameras = camera_state.get(app.world()).unwrap();
+        let (camera_entity, issue) =
+            resolve_root_camera(UiCameraRef::Auto, UiSpace::Screen, &cameras);
         assert_eq!(camera_entity, None);
         assert_eq!(issue, RootResolutionIssue::AutoAmbiguousCamera);
     }
 
     #[test]
+    fn resolve_root_camera_auto_disambiguates_mixed_2d_and_3d_cameras() {
+        type CamQuery = Query<
+            'static,
+            'static,
+            (
+                Entity,
+                &'static Camera,
+                Option<&'static RenderTarget>,
+                Has<Camera2d>,
+                Has<Camera3d>,
+            ),
+        >;
+        let mut app = App::new();
+        let cam_2d = app.world_mut().spawn(Camera2d).id();
+        let cam_3d = app.world_mut().spawn(Camera3d::default()).id();
+
+        let mut camera_state = SystemState::<CamQuery>::new(app.world_mut());
+        let cameras = camera_state.get(app.world()).unwrap();
+
+        assert_eq!(
+            resolve_root_camera(UiCameraRef::Auto, UiSpace::Screen, &cameras),
+            (Some(cam_2d), RootResolutionIssue::None)
+        );
+        assert_eq!(
+            resolve_root_camera(UiCameraRef::Auto, UiSpace::World2d, &cameras),
+            (Some(cam_2d), RootResolutionIssue::None)
+        );
+        assert_eq!(
+            resolve_root_camera(UiCameraRef::Auto, UiSpace::World3d, &cameras),
+            (Some(cam_3d), RootResolutionIssue::None)
+        );
+    }
+
+    #[test]
+    fn resolve_root_camera_auto_ignores_secondary_window_cameras() {
+        use bevy::window::WindowRef;
+
+        type CamQuery = Query<
+            'static,
+            'static,
+            (
+                Entity,
+                &'static Camera,
+                Option<&'static RenderTarget>,
+                Has<Camera2d>,
+                Has<Camera3d>,
+            ),
+        >;
+        let mut app = App::new();
+        let primary_win = app.world_mut().spawn((Window::default(), PrimaryWindow)).id();
+        let secondary_win = app.world_mut().spawn(Window::default()).id();
+
+        let primary_2d = app
+            .world_mut()
+            .spawn((
+                Camera2d,
+                RenderTarget::Window(WindowRef::Entity(primary_win)),
+            ))
+            .id();
+        let primary_3d = app.world_mut().spawn(Camera3d::default()).id();
+        let secondary_2d = app
+            .world_mut()
+            .spawn((
+                Camera2d,
+                RenderTarget::Window(WindowRef::Entity(secondary_win)),
+            ))
+            .id();
+
+        let mut camera_state = SystemState::<CamQuery>::new(app.world_mut());
+        let cameras = camera_state.get(app.world()).unwrap();
+
+        assert_eq!(
+            resolve_root_camera_for_primary_window(
+                UiCameraRef::Auto,
+                UiSpace::Screen,
+                &cameras,
+                Some(primary_win),
+            ),
+            (Some(primary_2d), RootResolutionIssue::None)
+        );
+        assert_eq!(
+            resolve_root_camera_for_primary_window(
+                UiCameraRef::Auto,
+                UiSpace::World3d,
+                &cameras,
+                Some(primary_win),
+            ),
+            (Some(primary_3d), RootResolutionIssue::None)
+        );
+        assert_eq!(
+            resolve_root_camera_for_primary_window(
+                UiCameraRef::Entity(secondary_2d),
+                UiSpace::Screen,
+                &cameras,
+                Some(primary_win),
+            ),
+            (Some(secondary_2d), RootResolutionIssue::None)
+        );
+
+        // Two active 2D cameras on the primary window must still report ambiguity.
+        app.world_mut().spawn(Camera2d);
+        let mut camera_state = SystemState::<CamQuery>::new(app.world_mut());
+        let cameras = camera_state.get(app.world()).unwrap();
+        assert_eq!(
+            resolve_root_camera_for_primary_window(
+                UiCameraRef::Auto,
+                UiSpace::Screen,
+                &cameras,
+                Some(primary_win),
+            ),
+            (None, RootResolutionIssue::AutoAmbiguousCamera)
+        );
+    }
+
+    #[test]
     fn resolve_root_camera_reports_missing_and_inactive_explicit_targets() {
+        type CamQuery = Query<
+            'static,
+            'static,
+            (
+                Entity,
+                &'static Camera,
+                Option<&'static RenderTarget>,
+                Has<Camera2d>,
+                Has<Camera3d>,
+            ),
+        >;
         let mut app = App::new();
         let inactive = app
             .world_mut()
@@ -748,15 +928,19 @@ mod tests {
             })
             .id();
 
-        let mut camera_state = SystemState::<Query<(Entity, &Camera)>>::new(app.world_mut());
+        let mut camera_state = SystemState::<CamQuery>::new(app.world_mut());
         let cameras = camera_state.get(app.world()).unwrap();
 
-        let (camera_entity, issue) =
-            resolve_root_camera(UiCameraRef::Entity(Entity::PLACEHOLDER), &cameras);
+        let (camera_entity, issue) = resolve_root_camera(
+            UiCameraRef::Entity(Entity::PLACEHOLDER),
+            UiSpace::Screen,
+            &cameras,
+        );
         assert_eq!(camera_entity, None);
         assert_eq!(issue, RootResolutionIssue::ExplicitCameraMissing);
 
-        let (camera_entity, issue) = resolve_root_camera(UiCameraRef::Entity(inactive), &cameras);
+        let (camera_entity, issue) =
+            resolve_root_camera(UiCameraRef::Entity(inactive), UiSpace::Screen, &cameras);
         assert_eq!(camera_entity, None);
         assert_eq!(issue, RootResolutionIssue::ExplicitCameraInactive);
     }
@@ -1040,5 +1224,87 @@ mod tests {
         app.update();
 
         assert!(!app.world().entity(child).contains::<UI3d>());
+    }
+
+    #[test]
+    fn world3d_and_non_overlapping_world2d_roots_preserve_authored_z() {
+        let mut app = App::new();
+        app.init_resource::<RootSpawnRankCounter>();
+        app.add_systems(
+            Update,
+            (
+                assign_root_spawn_ranks,
+                resolve_root_stacking,
+                sync_root_capsule_transforms,
+            )
+                .chain(),
+        );
+
+        let (mut root_3d_a, mut resolved_3d_a) = world_root(UiSpace::World3d);
+        root_3d_a.is_3d = true;
+        resolved_3d_a.canvas_size = Vec2::new(400.0, 200.0);
+        let authored_3d_a = Vec3::new(-1.5, 2.0, -3.75);
+        let rot_3d_a = Quat::from_rotation_y(0.6);
+
+        let (mut root_3d_b, mut resolved_3d_b) = world_root(UiSpace::World3d);
+        root_3d_b.is_3d = true;
+        resolved_3d_b.canvas_size = Vec2::new(400.0, 200.0);
+        let authored_3d_b = Vec3::new(-1.5, 2.0, 4.25);
+
+        let e3d_a = app
+            .world_mut()
+            .spawn((
+                UNode::default(),
+                root_3d_a,
+                resolved_3d_a,
+                Transform::from_translation(authored_3d_a).with_rotation(rot_3d_a),
+            ))
+            .id();
+        let e3d_b = app
+            .world_mut()
+            .spawn((
+                UNode::default(),
+                root_3d_b,
+                resolved_3d_b,
+                Transform::from_translation(authored_3d_b),
+            ))
+            .id();
+
+        let (root_2d_left, mut res_2d_left) = world_root(UiSpace::World2d);
+        res_2d_left.canvas_size = Vec2::new(200.0, 200.0);
+        let (root_2d_right, mut res_2d_right) = world_root(UiSpace::World2d);
+        res_2d_right.canvas_size = Vec2::new(200.0, 200.0);
+
+        let e2d_left = app
+            .world_mut()
+            .spawn((
+                UNode::default(),
+                root_2d_left,
+                res_2d_left,
+                Transform::from_xyz(-10.0, 0.0, 1.5),
+            ))
+            .id();
+        let e2d_right = app
+            .world_mut()
+            .spawn((
+                UNode::default(),
+                root_2d_right,
+                res_2d_right,
+                Transform::from_xyz(10.0, 0.0, 2.25),
+            ))
+            .id();
+
+        app.update();
+
+        let tf_3d_a = app.world().entity(e3d_a).get::<Transform>().unwrap();
+        let tf_3d_b = app.world().entity(e3d_b).get::<Transform>().unwrap();
+        assert_eq!(tf_3d_a.translation, authored_3d_a);
+        assert_eq!(tf_3d_a.rotation, rot_3d_a);
+        assert_eq!(tf_3d_b.translation, authored_3d_b);
+
+        let tf_2d_left = app.world().entity(e2d_left).get::<Transform>().unwrap();
+        let tf_2d_right = app.world().entity(e2d_right).get::<Transform>().unwrap();
+        assert!((tf_2d_left.translation.z - 1.5).abs() < 1e-6);
+        assert!((tf_2d_right.translation.z - 2.25).abs() < 1e-6);
     }
 }

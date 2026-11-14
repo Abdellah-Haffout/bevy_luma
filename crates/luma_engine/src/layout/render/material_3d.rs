@@ -6,8 +6,24 @@ use bevy::render::render_resource::{
 };
 use bevy::shader::ShaderRef;
 
+/// Pipeline specialization key for [`UNodeMaterial3d`] allowing per-node custom fragment shader overrides.
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
+pub struct UNodeMaterial3dKey {
+    /// Optional custom fragment shader overriding the default `unode_3d.wesl`.
+    pub custom_shader: Option<Handle<Shader>>,
+}
+
+impl From<&UNodeMaterial3d> for UNodeMaterial3dKey {
+    fn from(material: &UNodeMaterial3d) -> Self {
+        Self {
+            custom_shader: material.custom_shader.clone(),
+        }
+    }
+}
+
 /// Custom 3D material shader for Univis UI nodes in the 3D world.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+#[bind_group_data(UNodeMaterial3dKey)]
 pub struct UNodeMaterial3d {
     // --- group 1: Vec4 values (16-byte aligned) ---
     /// Base background color.
@@ -23,15 +39,17 @@ pub struct UNodeMaterial3d {
     #[uniform(0)]
     pub emissive: Vec4,
 
-    // --- group 2: Vec2 values ---
+    // --- group 2: 16-byte aligned scalar/vec2 blocks ---
     /// Exact width and height of the node.
     #[uniform(0)]
     pub size: Vec2,
-
-    // --- group 3: scalar values ---
     /// Thickness of the border stroke.
     #[uniform(0)]
     pub border_width: f32,
+    /// Offset distance of the border from the element bounds.
+    #[uniform(0)]
+    pub border_offset: f32,
+
     /// Edge softness for anti-aliasing the SDF rendering.
     #[uniform(0)]
     pub softness: f32,
@@ -45,10 +63,18 @@ pub struct UNodeMaterial3d {
     #[uniform(0)]
     pub use_texture: u32,
 
-    // --- shape selector ---
     /// Shape mode selector (0 = Round, 1 = Cut).
     #[uniform(0)]
     pub shape_mode: u32,
+    /// Enables physical PBR scene lighting (`UPbr`); `0` uses clean self-lit UI rendering.
+    #[uniform(0)]
+    pub pbr_enabled: u32,
+    /// Padding for 16-byte uniform alignment.
+    #[uniform(0)]
+    pub _pad0: f32,
+    /// Padding for 16-byte uniform alignment.
+    #[uniform(0)]
+    pub _pad1: f32,
 
     // --- visual extensions (16-byte aligned blocks) ---
     /// Up to 8 gradient stop colors (RGBA).
@@ -88,11 +114,66 @@ pub struct UNodeMaterial3d {
     #[uniform(0)]
     pub custom_cursor: Vec4,
 
+    /// Row 0 of up to 4 nested clippers' inverse world transforms (`[x, y, z, w]`).
+    #[uniform(0)]
+    pub clip_inv_x: [Vec4; 4],
+    /// Row 1 of up to 4 nested clippers' inverse world transforms (`[x, y, z, w]`).
+    #[uniform(0)]
+    pub clip_inv_y: [Vec4; 4],
+    /// Clipper local bounds & flags: `xy = half_size`, `z = active (1.0/0.0)`, `w = shape_mode (0=round, 1=cut)`.
+    #[uniform(0)]
+    pub clip_bounds: [Vec4; 4],
+    /// Clipper corner radii `(tr, br, tl, bl)` in clipper-local units.
+    #[uniform(0)]
+    pub clip_radius: [Vec4; 4],
+
     // --- texture bindings ---
     /// Optional texture to draw inside the node bounds.
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
+
+    /// Optional specialized fragment shader handle compiled by `UShaderCache`.
+    pub custom_shader: Option<Handle<Shader>>,
+}
+
+impl Default for UNodeMaterial3d {
+    fn default() -> Self {
+        Self {
+            color: Vec4::ONE,
+            radius: Vec4::ZERO,
+            border_color: Vec4::ZERO,
+            emissive: Vec4::ZERO,
+            size: Vec2::new(1.0, 1.0),
+            border_width: 0.0,
+            border_offset: 0.0,
+            softness: 1.0e-5,
+            metallic: 0.0,
+            roughness: 0.5,
+            use_texture: 0,
+            shape_mode: 0,
+            pbr_enabled: 0,
+            _pad0: 0.0,
+            _pad1: 0.0,
+            grad_colors: [Vec4::ZERO; 8],
+            grad_stops: [Vec4::ZERO; 2],
+            grad_params: Vec4::ZERO,
+            grad_center: Vec4::ZERO,
+            shadow_color: Vec4::ZERO,
+            shadow_params: Vec4::ZERO,
+            inner_glow_color: Vec4::ZERO,
+            inner_glow_params: Vec4::ZERO,
+            custom_params: [Vec4::ZERO; 4],
+            custom_meta: Vec4::ZERO,
+            custom_cursor: Vec4::new(0.5, 0.5, 0.0, 0.0),
+            clip_inv_x: [Vec4::ZERO; 4],
+            clip_inv_y: [Vec4::ZERO; 4],
+            clip_bounds: [Vec4::ZERO; 4],
+            clip_radius: [Vec4::ZERO; 4],
+            texture: None,
+            custom_shader: None,
+        }
+    }
 }
 
 impl Material for UNodeMaterial3d {
@@ -101,16 +182,21 @@ impl Material for UNodeMaterial3d {
     }
 
     fn alpha_mode(&self) -> AlphaMode {
-        AlphaMode::Blend
+        AlphaMode::Premultiplied
     }
 
     fn specialize(
         _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
-        _key: MaterialPipelineKey<Self>,
+        key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.cull_mode = None;
+        if let Some(custom_shader) = &key.bind_group_data.custom_shader
+            && let Some(fragment) = &mut descriptor.fragment
+        {
+            fragment.shader = custom_shader.clone();
+        }
         Ok(())
     }
 }

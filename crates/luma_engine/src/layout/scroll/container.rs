@@ -7,7 +7,8 @@
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
 
-use crate::layout::query::ComputedSize;
+use crate::layout::query::{ComputedSize, UiPickingContext};
+use crate::layout::scroll::pointer::{ScrollHitCandidate, ScrollPointerContext};
 use crate::layout::univis_node::{UClip, UNode};
 
 /// Configures a scrollable viewport container.
@@ -226,17 +227,18 @@ pub fn sync_scroll_extents(
     }
 }
 
-/// Reads mouse wheel input and updates target scroll offsets on hovered scroll containers.
+/// Reads mouse wheel input and updates target scroll offsets on the topmost visible, unoccluded scroll container.
 pub fn handle_mouse_wheel_scroll(
     mouse_wheel: Option<MessageReader<MouseWheel>>,
     mut containers: Query<(
         Entity,
         &mut UScrollContainer,
+        &UNode,
         &GlobalTransform,
         &ComputedSize,
+        Option<&UiPickingContext>,
     )>,
-    windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform)>,
+    pointer: ScrollPointerContext,
 ) {
     let Some(mut mouse_wheel) = mouse_wheel else {
         return;
@@ -246,50 +248,101 @@ pub fn handle_mouse_wheel_scroll(
         return;
     }
 
-    let cursor_world_pos: Option<Vec2> = (|| {
-        let window = windows.iter().next()?;
-        let cursor_pos = window.cursor_position()?;
-        let (camera, cam_gt) = camera_q.iter().next()?;
-        camera.viewport_to_world_2d(cam_gt, cursor_pos).ok()
-    })();
-
     for ev in mouse_wheel.read() {
-        for (_entity, mut container, global_transform, computed) in containers.iter_mut() {
-            let is_inside = if let Some(cursor_pos) = cursor_world_pos {
-                let container_pos = global_transform.translation().xy();
-                let half_w = computed.width / 2.0;
-                let half_h = computed.height / 2.0;
-                (cursor_pos.x - container_pos.x).abs() <= half_w
-                    && (cursor_pos.y - container_pos.y).abs() <= half_h
-            } else {
-                false
-            };
+        let (window_entity_opt, primary_window, cursor_pos_opt) =
+            pointer.resolve_window(ev.window);
 
-            if !container.is_hovered && !is_inside {
+        let mut best_candidate: Option<ScrollHitCandidate> = None;
+
+        for (entity, container, node, global_transform, computed, picking_ctx) in containers.iter()
+        {
+            if !pointer.is_visible(entity) {
                 continue;
             }
 
-            let delta = match ev.unit {
-                MouseScrollUnit::Line => Vec2::new(ev.x, ev.y) * container.sensitivity,
-                MouseScrollUnit::Pixel => Vec2::new(ev.x, ev.y),
+            let cursor_hit = if let (Some(window_entity), Some(cursor_pos)) =
+                (window_entity_opt, cursor_pos_opt)
+            {
+                pointer.hit_test_node(
+                    entity,
+                    node,
+                    global_transform,
+                    computed,
+                    picking_ctx,
+                    window_entity,
+                    primary_window,
+                    cursor_pos,
+                )
+            } else {
+                None
             };
 
-            if container.vertical {
-                // Scrolling wheel down (ev.y < 0) reveals lower content: target offset increases
-                container.target_offset.y =
-                    (container.target_offset.y - delta.y).clamp(0.0, container.max_offset.y);
-            }
+            let candidate = if let Some(hit) = cursor_hit {
+                pointer.candidate_rank(
+                    entity,
+                    hit.camera_order,
+                    hit.hit_distance,
+                    true,
+                    global_transform,
+                    picking_ctx,
+                )
+            } else if container.is_hovered {
+                let cam_order = pointer.camera_order(picking_ctx);
+                pointer.candidate_rank(
+                    entity,
+                    cam_order,
+                    0.0,
+                    false,
+                    global_transform,
+                    picking_ctx,
+                )
+            } else {
+                continue;
+            };
 
-            if container.horizontal {
-                // For horizontal-only containers, allow standard vertical mouse wheel notches to scroll horizontally
-                let h_delta = if !container.vertical && ev.x.abs() < 0.001 {
-                    delta.y
-                } else {
-                    delta.x
-                };
-                container.target_offset.x =
-                    (container.target_offset.x - h_delta).clamp(0.0, container.max_offset.x);
+            if best_candidate
+                .as_ref()
+                .is_none_or(|best| candidate.rank_cmp(best) == std::cmp::Ordering::Greater)
+            {
+                best_candidate = Some(candidate);
             }
+        }
+
+        let Some(winner) = best_candidate else {
+            continue;
+        };
+
+        if winner.hit_by_cursor
+            && let (Some(window_entity), Some(cursor_pos)) = (window_entity_opt, cursor_pos_opt)
+            && pointer.is_hit_occluded(&winner, window_entity, primary_window, cursor_pos)
+        {
+            continue;
+        }
+
+        let Ok((_, mut container, _, _, _, _)) = containers.get_mut(winner.entity) else {
+            continue;
+        };
+
+        let delta = match ev.unit {
+            MouseScrollUnit::Line => Vec2::new(ev.x, ev.y) * container.sensitivity,
+            MouseScrollUnit::Pixel => Vec2::new(ev.x, ev.y),
+        };
+
+        if container.vertical {
+            // Scrolling wheel down (ev.y < 0) reveals lower content: target offset increases
+            container.target_offset.y =
+                (container.target_offset.y - delta.y).clamp(0.0, container.max_offset.y);
+        }
+
+        if container.horizontal {
+            // For horizontal-only containers, allow standard vertical mouse wheel notches to scroll horizontally
+            let h_delta = if !container.vertical && ev.x.abs() < 0.001 {
+                delta.y
+            } else {
+                delta.x
+            };
+            container.target_offset.x =
+                (container.target_offset.x - h_delta).clamp(0.0, container.max_offset.x);
         }
     }
 }
@@ -342,6 +395,8 @@ pub fn apply_scroll_transitions(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::camera::RenderTarget;
+    use bevy::window::PrimaryWindow;
 
     #[test]
     fn test_scroll_container_constructors() {
@@ -420,5 +475,326 @@ mod tests {
             "Scroll offset failed to glide to target: offset = {}",
             sc.scroll_offset.y
         );
+    }
+
+    fn spawn_scroll_test_camera(
+        app: &mut App,
+        target_window: Entity,
+        perspective: bool,
+        translation: Vec3,
+    ) -> Entity {
+        use bevy::camera::{CameraProjection, ComputedCameraValues, RenderTargetInfo, Viewport};
+        use bevy::window::WindowRef;
+
+        let mut camera = Camera::default();
+        camera.computed = ComputedCameraValues {
+            target_info: Some(RenderTargetInfo {
+                physical_size: UVec2::new(800, 600),
+                scale_factor: 1.0,
+            }),
+            clip_from_view: if perspective {
+                PerspectiveProjection {
+                    fov: core::f32::consts::FRAC_PI_2,
+                    aspect_ratio: 800.0 / 600.0,
+                    near: 0.1,
+                    ..default()
+                }
+                .get_clip_from_view()
+            } else {
+                OrthographicProjection {
+                    area: Rect::new(-400.0, -300.0, 400.0, 300.0),
+                    ..OrthographicProjection::default_2d()
+                }
+                .get_clip_from_view()
+            },
+            ..default()
+        };
+        camera.viewport = Some(Viewport {
+            physical_position: UVec2::ZERO,
+            physical_size: UVec2::new(800, 600),
+            ..default()
+        });
+
+        app.world_mut()
+            .spawn((
+                camera,
+                RenderTarget::Window(WindowRef::Entity(target_window)),
+                GlobalTransform::from(Transform::from_translation(translation)),
+            ))
+            .id()
+    }
+
+    fn scroll_test_picking_context(
+        camera_entity: Entity,
+        root_sort_key: f32,
+        local_depth_key: f32,
+        clip_ancestor: Option<Entity>,
+    ) -> UiPickingContext {
+        UiPickingContext {
+            root_entity: Some(Entity::PLACEHOLDER),
+            camera_entity: Some(camera_entity),
+            clip_ancestor,
+            root_sort_key,
+            local_depth_key,
+            ..default()
+        }
+    }
+
+    #[test]
+    fn mouse_wheel_scrolls_only_topmost_visible_unoccluded_container_and_respects_window_and_3d() {
+        use crate::layout::geometry::UVal;
+        use crate::layout::layout_system::UiSpace;
+
+        let mut app = App::new();
+        app.add_message::<MouseWheel>();
+        app.add_systems(Update, handle_mouse_wheel_scroll);
+
+        let mut win_a = Window::default();
+        win_a.set_cursor_position(Some(Vec2::new(400.0, 300.0)));
+        let window_a = app.world_mut().spawn((win_a, PrimaryWindow)).id();
+
+        let mut win_b = Window::default();
+        win_b.set_cursor_position(Some(Vec2::new(400.0, 300.0)));
+        let window_b = app.world_mut().spawn(win_b).id();
+
+        let cam_2d = spawn_scroll_test_camera(&mut app, window_a, false, Vec3::new(0.0, 0.0, 100.0));
+        let cam_3d = spawn_scroll_test_camera(&mut app, window_b, true, Vec3::new(0.0, 0.0, 5.0));
+
+        // 1. Lower and upper overlapping containers on window_a.
+        let lower = app
+            .world_mut()
+            .spawn((
+                UScrollContainer {
+                    max_offset: Vec2::new(0.0, 500.0),
+                    ..UScrollContainer::vertical()
+                },
+                UNode {
+                    width: UVal::Px(300.0),
+                    height: UVal::Px(300.0),
+                    ..default()
+                },
+                ComputedSize {
+                    width: 300.0,
+                    height: 300.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 0.0)),
+                scroll_test_picking_context(cam_2d, 0.0, 0.001, None),
+            ))
+            .id();
+
+        let upper = app
+            .world_mut()
+            .spawn((
+                UScrollContainer {
+                    max_offset: Vec2::new(0.0, 500.0),
+                    ..UScrollContainer::vertical()
+                },
+                UNode {
+                    width: UVal::Px(300.0),
+                    height: UVal::Px(300.0),
+                    ..default()
+                },
+                ComputedSize {
+                    width: 300.0,
+                    height: 300.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 1.0)),
+                scroll_test_picking_context(cam_2d, 1.0, 0.001, None),
+            ))
+            .id();
+
+        // Transparent fullscreen HUD wrapper on highest root must NOT block scrolling (overlapping_roots pattern).
+        let _transparent_hud = app
+            .world_mut()
+            .spawn((
+                UNode {
+                    background_color: Color::NONE,
+                    ..default()
+                },
+                ComputedSize {
+                    width: 800.0,
+                    height: 600.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 5.0)),
+                scroll_test_picking_context(cam_2d, 10.0, 0.001, None),
+            ))
+            .id();
+
+        // Solid descendant inside `upper` must NOT block scrolling `upper`.
+        let _inner_content_card = app
+            .world_mut()
+            .spawn((
+                ChildOf(upper),
+                UNode {
+                    background_color: Color::WHITE,
+                    ..default()
+                },
+                ComputedSize {
+                    width: 280.0,
+                    height: 280.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 1.002)),
+                scroll_test_picking_context(cam_2d, 1.0, 0.005, None),
+            ))
+            .id();
+
+        // Hidden and clipped containers above `upper` must be ignored.
+        let _hidden_top = app
+            .world_mut()
+            .spawn((
+                UScrollContainer {
+                    max_offset: Vec2::new(0.0, 500.0),
+                    ..UScrollContainer::vertical()
+                },
+                Visibility::Hidden,
+                ComputedSize {
+                    width: 300.0,
+                    height: 300.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 2.0)),
+                scroll_test_picking_context(cam_2d, 2.0, 0.001, None),
+            ))
+            .id();
+
+        let clipper = app
+            .world_mut()
+            .spawn((
+                UNode::default(),
+                ComputedSize {
+                    width: 50.0,
+                    height: 50.0,
+                    local_pos: Vec2::ZERO,
+                },
+                UClip::enabled(true),
+                GlobalTransform::from(Transform::from_xyz(200.0, 0.0, 3.0)),
+            ))
+            .id();
+        let clipped_top = app
+            .world_mut()
+            .spawn((
+                ChildOf(clipper),
+                UScrollContainer {
+                    max_offset: Vec2::new(0.0, 500.0),
+                    ..UScrollContainer::vertical()
+                },
+                ComputedSize {
+                    width: 500.0,
+                    height: 500.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 3.0)),
+                scroll_test_picking_context(cam_2d, 3.0, 0.001, Some(clipper)),
+            ))
+            .id();
+
+        // Window B has a tilted 3D scroll container under a perspective camera.
+        let world3d_container = app
+            .world_mut()
+            .spawn((
+                UScrollContainer {
+                    max_offset: Vec2::new(0.0, 500.0),
+                    ..UScrollContainer::vertical()
+                },
+                UNode::default(),
+                ComputedSize {
+                    width: 4.0,
+                    height: 4.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(
+                    Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(0.25)),
+                ),
+                UiPickingContext {
+                    space: UiSpace::World3d,
+                    camera_entity: Some(cam_3d),
+                    ..default()
+                },
+            ))
+            .id();
+
+        // Scroll on window_a -> only `upper` should scroll.
+        app.world_mut().write_message(MouseWheel {
+            unit: MouseScrollUnit::Line,
+            x: 0.0,
+            y: -1.0,
+            window: window_a,
+            phase: bevy::input::touch::TouchPhase::Moved,
+        });
+        app.update();
+
+        assert_eq!(app.world().entity(upper).get::<UScrollContainer>().unwrap().target_offset.y, 40.0);
+        assert_eq!(app.world().entity(lower).get::<UScrollContainer>().unwrap().target_offset.y, 0.0);
+        assert_eq!(
+            app.world().entity(clipped_top).get::<UScrollContainer>().unwrap().target_offset.y,
+            0.0
+        );
+        assert_eq!(
+            app.world()
+                .entity(world3d_container)
+                .get::<UScrollContainer>()
+                .unwrap()
+                .target_offset
+                .y,
+            0.0
+        );
+
+        // Spawning a solid non-descendant panel above `upper` blocks scrolling `upper`.
+        let solid_modal = app
+            .world_mut()
+            .spawn((
+                UNode {
+                    background_color: Color::srgba(0.0, 0.0, 0.0, 0.6),
+                    ..default()
+                },
+                ComputedSize {
+                    width: 400.0,
+                    height: 400.0,
+                    local_pos: Vec2::ZERO,
+                },
+                GlobalTransform::from(Transform::from_xyz(0.0, 0.0, 4.0)),
+                scroll_test_picking_context(cam_2d, 5.0, 0.001, None),
+            ))
+            .id();
+
+        app.world_mut().write_message(MouseWheel {
+            unit: MouseScrollUnit::Line,
+            x: 0.0,
+            y: -1.0,
+            window: window_a,
+            phase: bevy::input::touch::TouchPhase::Moved,
+        });
+        app.update();
+        assert_eq!(
+            app.world().entity(upper).get::<UScrollContainer>().unwrap().target_offset.y,
+            40.0,
+            "solid non-descendant panel above scroll container should block wheel scroll"
+        );
+
+        // Hiding the modal restores scrolling on `upper`, and scrolling window_b scrolls 3D container.
+        *app.world_mut().entity_mut(solid_modal).get_mut::<Visibility>().unwrap() =
+            Visibility::Hidden;
+        app.world_mut().write_message(MouseWheel {
+            unit: MouseScrollUnit::Line,
+            x: 0.0,
+            y: -1.0,
+            window: window_b,
+            phase: bevy::input::touch::TouchPhase::Moved,
+        });
+        app.update();
+        assert_eq!(
+            app.world()
+                .entity(world3d_container)
+                .get::<UScrollContainer>()
+                .unwrap()
+                .target_offset
+                .y,
+            40.0
+        );
+        assert_eq!(app.world().entity(upper).get::<UScrollContainer>().unwrap().target_offset.y, 40.0);
     }
 }

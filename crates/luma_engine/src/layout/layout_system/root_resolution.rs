@@ -1,4 +1,6 @@
+use bevy::camera::RenderTarget;
 use bevy::prelude::*;
+use bevy::window::WindowRef;
 
 use super::{URootUi, UiCameraRef, UiCanvasSize, UiSpace};
 
@@ -61,28 +63,90 @@ pub(super) fn normalize_meters_per_unit(value: f32) -> f32 {
     }
 }
 
+#[cfg(test)]
 pub(super) fn resolve_root_camera(
     camera_ref: UiCameraRef,
-    cameras: &Query<(Entity, &Camera)>,
+    space: UiSpace,
+    cameras: &Query<(
+        Entity,
+        &Camera,
+        Option<&RenderTarget>,
+        Has<Camera2d>,
+        Has<Camera3d>,
+    )>,
+) -> (Option<Entity>, RootResolutionIssue) {
+    resolve_root_camera_for_primary_window(camera_ref, space, cameras, None)
+}
+
+pub(super) fn resolve_root_camera_for_primary_window(
+    camera_ref: UiCameraRef,
+    space: UiSpace,
+    cameras: &Query<(
+        Entity,
+        &Camera,
+        Option<&RenderTarget>,
+        Has<Camera2d>,
+        Has<Camera3d>,
+    )>,
+    primary_window: Option<Entity>,
 ) -> (Option<Entity>, RootResolutionIssue) {
     match camera_ref {
         UiCameraRef::Entity(entity) => match cameras.get(entity) {
-            Ok((_, camera)) if camera.is_active => (Some(entity), RootResolutionIssue::None),
+            Ok((_, camera, _, _, _)) if camera.is_active => {
+                (Some(entity), RootResolutionIssue::None)
+            }
             Ok(_) => (None, RootResolutionIssue::ExplicitCameraInactive),
             Err(_) => (None, RootResolutionIssue::ExplicitCameraMissing),
         },
         UiCameraRef::Auto => {
-            let mut candidates = cameras
+            let candidates: Vec<(Entity, bool, bool)> = cameras
                 .iter()
-                .filter_map(|(entity, camera)| camera.is_active.then_some(entity));
+                .filter_map(|(entity, camera, render_target, is_2d, is_3d)| {
+                    // Only cameras targeting the primary window participate in `Auto` resolution;
+                    // secondary-window and offscreen cameras must be targeted via `UiCameraRef::Entity`.
+                    let targets_primary_window = match render_target {
+                        None | Some(RenderTarget::Window(WindowRef::Primary)) => true,
+                        Some(RenderTarget::Window(WindowRef::Entity(win))) => {
+                            primary_window == Some(*win)
+                        }
+                        _ => false,
+                    };
+                    (camera.is_active && targets_primary_window).then_some((entity, is_2d, is_3d))
+                })
+                .collect();
 
-            let first = candidates.next();
-            let second = candidates.next();
+            match candidates.as_slice() {
+                [] => (None, RootResolutionIssue::AutoMissingCamera),
+                [(entity, _, _)] => (Some(*entity), RootResolutionIssue::None),
+                many => {
+                    // Disambiguate cleanly when a scene mixes a single 2D camera and 3D camera(s),
+                    // or a single 3D camera and 2D HUD camera(s) on window render targets.
+                    let prefer_2d = matches!(space, UiSpace::Screen | UiSpace::World2d);
+                    let mut preferred = many.iter().copied().filter(|(_, is_2d, is_3d)| {
+                        if prefer_2d {
+                            *is_2d && !*is_3d
+                        } else {
+                            *is_3d && !*is_2d
+                        }
+                    });
+                    let first_pref = preferred.next();
+                    let second_pref = preferred.next();
+                    let others_are_complementary = many.iter().all(|(_, is_2d, is_3d)| {
+                        if prefer_2d {
+                            (*is_2d && !*is_3d) || (*is_3d && !*is_2d)
+                        } else {
+                            (*is_3d && !*is_2d) || (*is_2d && !*is_3d)
+                        }
+                    });
 
-            match (first, second) {
-                (Some(entity), None) => (Some(entity), RootResolutionIssue::None),
-                (Some(_), Some(_)) => (None, RootResolutionIssue::AutoAmbiguousCamera),
-                _ => (None, RootResolutionIssue::AutoMissingCamera),
+                    if let (Some((entity, _, _)), None) = (first_pref, second_pref)
+                        && others_are_complementary
+                    {
+                        (Some(entity), RootResolutionIssue::None)
+                    } else {
+                        (None, RootResolutionIssue::AutoAmbiguousCamera)
+                    }
+                }
             }
         }
     }

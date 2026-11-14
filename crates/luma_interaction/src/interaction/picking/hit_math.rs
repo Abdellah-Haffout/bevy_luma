@@ -1,5 +1,7 @@
+use bevy::camera::RenderTarget;
 use bevy::picking::pointer::Location;
-use bevy::prelude::{Camera, Dir3, Entity, GlobalTransform, Query, Vec2, Vec3};
+use bevy::prelude::{Camera, Entity, GlobalTransform, Query, Vec2, Vec3};
+use luma_engine::layout::render::clip_sync::camera_matches_pointer_target;
 
 #[derive(Clone, Copy)]
 pub(super) struct CachedPointerRay {
@@ -11,11 +13,24 @@ pub(super) struct CachedPointerRay {
 pub(super) fn pointer_ray_for_camera(
     location: &Location,
     camera_entity: Entity,
-    cameras: &Query<(Entity, &Camera, &GlobalTransform)>,
+    cameras: &Query<(Entity, &Camera, &GlobalTransform, Option<&RenderTarget>)>,
+    primary_window: Option<Entity>,
+    has_any_window: bool,
 ) -> Option<CachedPointerRay> {
-    let Ok((_, camera, camera_transform)) = cameras.get(camera_entity) else {
+    let Ok((_, camera, camera_transform, render_target)) = cameras.get(camera_entity) else {
         return None;
     };
+
+    if !camera.is_active
+        || !camera_matches_pointer_target(
+            render_target,
+            &location.target,
+            primary_window,
+            has_any_window,
+        )
+    {
+        return None;
+    }
 
     if !camera
         .logical_viewport_rect()
@@ -38,28 +53,9 @@ pub(super) fn intersect_ray_with_node_plane(
     ray: &CachedPointerRay,
     global_transform: &GlobalTransform,
 ) -> Option<(Vec3, Vec2, Vec3, f32)> {
-    let plane_origin = global_transform.translation();
-    let z_axis = global_transform.affine().matrix3.z_axis;
-    let plane_normal = Dir3::new(z_axis.into())
-        .map(|d| d.as_vec3())
-        .unwrap_or(Vec3::Z);
-    let denominator = ray.direction.dot(plane_normal);
-
-    if denominator.abs() <= f32::EPSILON {
-        return None;
-    }
-
-    let distance = (plane_origin - ray.origin).dot(plane_normal) / denominator;
-    if distance < 0.0 {
-        return None;
-    }
-
-    let world_hit = ray.origin + ray.direction * distance;
-    let local_hit = global_transform
-        .to_matrix()
-        .inverse()
-        .transform_point3(world_hit)
-        .truncate();
-
-    Some((world_hit, local_hit, plane_normal, distance))
+    luma_engine::layout::render::clip_sync::intersect_ray_with_node_plane(
+        ray.origin,
+        ray.direction,
+        global_transform,
+    )
 }

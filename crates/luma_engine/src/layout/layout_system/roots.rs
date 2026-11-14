@@ -396,8 +396,30 @@ impl ResolvedRootStack {
     }
 
     /// Recommends an offset for text nodes specifically to ensure they render above generic backgrounds.
+    /// Returns the Z-offset for child text markers so text sits cleanly above its parent background
+    /// while staying strictly inside this root's stacking band.
     pub fn text_child_offset(&self) -> f32 {
-        self.capsule_band_step.max(0.001)
+        (self.capsule_band_step * 0.25).max(f32::EPSILON)
+    }
+
+    /// Returns a dense-tree-safe Z-offset for child text markers based on the parent's slot width
+    /// inside `paint_order`, guaranteeing text never jumps past the next painted sibling.
+    pub fn text_child_offset_for_stacking(
+        &self,
+        stacking: Option<&crate::layout::components::UiLocalStacking>,
+    ) -> f32 {
+        let Some(stacking) = stacking else {
+            return self.text_child_offset();
+        };
+        let span = if stacking.slot_span > 0.0 {
+            stacking.slot_span
+        } else {
+            1.0 / ROOT_CAPSULE_LOCAL_LAYER_DIVISOR
+        };
+        let next_fraction = (stacking.normalized + span * 0.5).min(1.0);
+        let delta = self.local_depth_offset_for_fraction(next_fraction)
+            - self.local_depth_offset_for_fraction(stacking.normalized);
+        delta.max(f32::EPSILON)
     }
 }
 

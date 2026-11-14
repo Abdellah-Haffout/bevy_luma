@@ -1,9 +1,13 @@
 use bevy::{asset::embedded_asset, prelude::*, sprite_render::Material2dPlugin};
 
+pub(crate) mod depth_sync;
+
 /// Single-draw instanced batch renderer for 2D SDF UI nodes.
 pub mod batch;
-/// Systems for synchronizing hardware SDF rounded clipping uniforms.
+/// Hardware SDF clipping synchronization and shared geometry helpers.
 pub mod clip_sync;
+/// Hierarchical [`RenderLayers`] propagation across UI roots and generated children.
+pub mod layers;
 /// Material definitions for the Univis UI engine.
 pub mod material;
 /// 3D material definitions for the Univis UI engine.
@@ -42,8 +46,11 @@ impl Plugin for UnivisRenderPlugin {
 
         app.add_plugins(UnivisBatchPlugin)
             .add_plugins(Material2dPlugin::<UNodeMaterial>::default())
-            .add_plugins(MaterialPlugin::<UNodeMaterial3d>::default())
-            .register_type::<UI3d>()
+            .add_plugins(MaterialPlugin::<UNodeMaterial3d>::default());
+        depth_sync::install_material2d_depth_sync::<UNodeMaterial>(app);
+        depth_sync::install_material3d_transform_sync::<UNodeMaterial3d>(app);
+        depth_sync::install_world3d_transparent_sort_sync(app);
+        app.register_type::<UI3d>()
             .register_type::<UPbr>()
             .register_type::<clip_sync::UActiveClip>()
             .init_resource::<MaterialPool>()
@@ -58,12 +65,7 @@ impl Plugin for UnivisRenderPlugin {
             )
             .add_systems(
                 UiSettlementSchedule,
-                (
-                    update_materials_optimized,
-                    clip_sync::sync_node_clipper_materials,
-                    clip_sync::sync_node_active_clips,
-                )
-                    .chain()
+                update_materials_optimized
                     .in_set(UnivisPostUpdateSet::RenderSync)
                     .after(sync_cached_ui3d),
             );

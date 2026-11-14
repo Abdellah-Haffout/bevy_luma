@@ -38,6 +38,26 @@ struct RootStackCandidate {
     priority: RootZPriority,
     spawn_rank: u64,
     band_width: f32,
+    xy_center: Vec2,
+    xy_half_extents: Vec2,
+}
+
+fn world_xy_half_extents(resolved: &ResolvedRootUi, transform: &Transform) -> Vec2 {
+    if resolved.canvas_size.x <= 0.0 || resolved.canvas_size.y <= 0.0 {
+        return Vec2::ZERO;
+    }
+    let half = resolved.world_size_for(resolved.canvas_size) * 0.5 * transform.scale.xy().abs();
+    let right = (transform.rotation * Vec3::X).truncate().abs();
+    let up = (transform.rotation * Vec3::Y).truncate().abs();
+    right * half.x + up * half.y
+}
+
+fn world2d_footprints_overlap(a: &RootStackCandidate, b_center: Vec2, b_half: Vec2) -> bool {
+    if a.xy_half_extents == Vec2::ZERO || b_half == Vec2::ZERO {
+        return true;
+    }
+    (a.xy_center.x - b_center.x).abs() < (a.xy_half_extents.x + b_half.x)
+        && (a.xy_center.y - b_center.y).abs() < (a.xy_half_extents.y + b_half.y)
 }
 
 fn capture_authored_root_z(current_root_z: f32, stack: &ResolvedRootStack) -> f32 {
@@ -95,6 +115,8 @@ pub(crate) fn resolve_root_stacking(
                 priority,
                 spawn_rank: spawn_rank.0,
                 band_width: root_capsule_band_width(resolved),
+                xy_center: transform.translation.xy(),
+                xy_half_extents: world_xy_half_extents(resolved, transform),
             });
     }
 
@@ -111,31 +133,68 @@ pub(crate) fn resolve_root_stacking(
         let mut next_floor = 0.0;
         let mut previous_band_width = 0.0;
         let mut first = true;
+        let mut placed_world2d: Vec<(f32, RootStackCandidate)> = Vec::new();
+        let mut world3d_sort_cursor = 0.0f32;
 
         for candidate in candidates {
-            let floor = match space {
+            let (floor, sort_key) = match space {
                 UiSpace::Screen => {
                     let base = if candidate.authored_root_z > 0.0 {
                         candidate.authored_root_z
                     } else {
                         0.0
                     };
-                    if first {
+                    let floor = if first {
                         base
                     } else {
                         (next_floor + root_capsule_gap(previous_band_width, candidate.band_width))
                             .max(base)
-                    }
+                    };
+                    next_floor = floor + candidate.band_width;
+                    previous_band_width = candidate.band_width;
+                    first = false;
+                    (floor, floor)
                 }
-                UiSpace::World2d | UiSpace::World3d => {
-                    if first {
+                UiSpace::World2d => {
+                    let mut floor = candidate.authored_root_z;
+                    for &(placed_floor, placed_candidate) in &placed_world2d {
+                        if world2d_footprints_overlap(
+                            &placed_candidate,
+                            candidate.xy_center,
+                            candidate.xy_half_extents,
+                        ) {
+                            let required = placed_floor
+                                + placed_candidate.band_width
+                                + root_capsule_gap(placed_candidate.band_width, candidate.band_width);
+                            floor = floor.max(required);
+                        }
+                    }
+                    let sort_key = if first {
+                        floor
+                    } else {
+                        floor.max(
+                            next_floor + root_capsule_gap(previous_band_width, candidate.band_width),
+                        )
+                    };
+                    next_floor = sort_key + candidate.band_width;
+                    previous_band_width = candidate.band_width;
+                    first = false;
+                    placed_world2d.push((floor, candidate));
+                    (floor, sort_key)
+                }
+                UiSpace::World3d => {
+                    let sort_key = if first {
                         candidate.authored_root_z
                     } else {
                         candidate.authored_root_z.max(
-                            next_floor
+                            world3d_sort_cursor
                                 + root_capsule_gap(previous_band_width, candidate.band_width),
                         )
-                    }
+                    };
+                    world3d_sort_cursor = sort_key + candidate.band_width;
+                    previous_band_width = candidate.band_width;
+                    first = false;
+                    (candidate.authored_root_z, sort_key)
                 }
             };
 
@@ -145,19 +204,18 @@ pub(crate) fn resolve_root_stacking(
                 candidate.authored_root_z,
                 candidate.spawn_rank,
                 floor,
+                sort_key,
                 candidate.band_width,
                 band_step,
             ));
-
-            next_floor = floor + candidate.band_width;
-            previous_band_width = candidate.band_width;
-            first = false;
         }
     }
 
     let mut writable_stacks = roots.p1();
 
-    for (entity, authored_root_z, spawn_rank, floor, band_width, band_step) in next_states {
+    for (entity, authored_root_z, spawn_rank, floor, sort_key, band_width, band_step) in
+        next_states
+    {
         let Ok(mut stack) = writable_stacks.get_mut(entity) else {
             continue;
         };
@@ -165,7 +223,7 @@ pub(crate) fn resolve_root_stacking(
         let next = ResolvedRootStack {
             authored_root_z,
             spawn_rank,
-            capsule_sort_key: floor,
+            capsule_sort_key: sort_key,
             capsule_band_base: floor,
             capsule_band_width: band_width,
             capsule_band_step: band_step,
@@ -205,11 +263,12 @@ pub(crate) fn sync_root_capsule_transforms(
                     *transform = next_transform;
                 }
             }
-            UiSpace::World2d | UiSpace::World3d => {
+            UiSpace::World2d => {
                 if (transform.translation.z - stack.capsule_band_base).abs() > f32::EPSILON {
                     transform.translation.z = stack.capsule_band_base;
                 }
             }
+            UiSpace::World3d => {}
         }
 
         if (stack.applied_root_z - transform.translation.z).abs() > f32::EPSILON {

@@ -17,6 +17,8 @@ pub mod focus;
 pub mod math;
 /// Picking backend and hit-resolution helpers for Univis roots.
 pub mod picking;
+/// Interactive text selection and copy support for [`USelectableText`] labels.
+pub mod selectable_text;
 /// Interactive text input fields, caret animation, and editing systems.
 pub mod text_input;
 
@@ -26,7 +28,7 @@ use crate::interaction::picking::univis_picking_backend;
 pub mod prelude {
     pub use crate::interaction::{
         LumaInteractionPlugin, UnivisInteractionPlugin, feedback::*, focus::*, picking::*,
-        text_input::*,
+        selectable_text::*, text_input::*,
     };
 }
 
@@ -45,6 +47,7 @@ impl Plugin for LumaInteractionPlugin {
             .init_resource::<UiPickingRuntimeState>()
             .init_resource::<focus::UFocusNavigationSettings>()
             .init_resource::<focus::UFocusState>()
+            .init_resource::<selectable_text::USelectableTextState>()
             .register_type::<focus::UFocusable>()
             .register_type::<focus::UFocused>()
             .register_type::<focus::UFocusVisual>()
@@ -55,11 +58,13 @@ impl Plugin for LumaInteractionPlugin {
             .register_type::<focus::NavDirection>()
             .register_type::<text_input::UTextInput>()
             .register_type::<text_input::UTextInputCaret>()
+            .register_type::<text_input::ImePreeditState>()
             .register_type::<text_input::TextInputMode>()
             .register_type::<text_input::TextInputFilter>()
             .register_type::<text_input::UTextInputCaretMarker>()
             .register_type::<text_input::UTextInputTextMarker>()
             .register_type::<text_input::UTextInputSelectionMarker>()
+            .register_type::<text_input::UTextInputViewportMarker>()
             .add_systems(
                 PreUpdate,
                 (picking::track_pointer_generation, univis_picking_backend)
@@ -73,10 +78,15 @@ impl Plugin for LumaInteractionPlugin {
                     focus::focus_keyboard_navigation_system,
                     focus::focus_gamepad_navigation_system,
                     focus::focus_motion_system,
-                    text_input::link_text_input_children_system,
-                    text_input::text_input_keyboard_system,
-                    text_input::text_input_caret_blink_system,
-                    text_input::text_input_sync_visual_system,
+                    (
+                        text_input::link_text_input_children_system,
+                        text_input::text_input_keyboard_system,
+                        text_input::text_input_ime_system,
+                        text_input::text_input_caret_blink_system,
+                        text_input::text_input_sync_visual_system,
+                    )
+                        .chain(),
+                    selectable_text::selectable_text_keyboard_system,
                 ),
             )
             .add_systems(
@@ -106,5 +116,8 @@ impl Plugin for LumaInteractionPlugin {
         app.add_observer(text_input::on_text_input_pointer_release);
         app.add_observer(text_input::on_text_input_pointer_click);
         app.add_observer(text_input::on_text_input_focus_lost);
+        app.add_observer(selectable_text::on_selectable_text_pointer_press);
+        app.add_observer(selectable_text::on_selectable_text_pointer_drag);
+        app.add_observer(selectable_text::on_copy_text_to_clipboard);
     }
 }

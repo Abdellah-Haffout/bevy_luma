@@ -18,7 +18,7 @@ use crate::schedule::{
     UiPendingStages, UiSettlementConfig, UiSettlementSchedule, UiWorkStage, UiWorkState,
 };
 
-pub(super) fn run_ui_settlement_loop(world: &mut World) {
+pub(crate) fn run_ui_settlement_loop(world: &mut World) {
     let max_iterations = world.resource::<UiSettlementConfig>().max_iterations.max(1);
 
     world.resource_mut::<UiWorkState>().begin_frame();

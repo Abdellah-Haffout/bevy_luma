@@ -10,6 +10,8 @@
 pub mod container;
 pub mod culling;
 pub mod kinetic;
+#[doc(hidden)]
+pub mod pointer;
 pub mod scrollbar;
 pub mod virtual_list;
 

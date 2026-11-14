@@ -257,6 +257,11 @@ pub struct UTextLabelLayoutCache {
 #[doc(hidden)]
 pub struct TextChildMarker;
 
+/// Internal marker for generated selection-highlight quad child entities.
+#[derive(Component)]
+#[doc(hidden)]
+pub struct TextSelectionHighlightMarker;
+
 impl Default for UTextLabel {
     fn default() -> Self {
         Self {
@@ -392,5 +397,294 @@ impl UTextLabel {
     /// Returns `true` if this label contains rich text spans.
     pub fn has_spans(&self) -> bool {
         !self.spans.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::LumaEnginePlugin;
+    use crate::layout::geometry::UVal;
+    use crate::layout::layout_system::URootUi;
+    use crate::layout::render::material::UNodeMaterial;
+    use crate::layout::text::UText;
+    use crate::layout::text::render::UTextLabelSdfMaterial;
+    use crate::layout::univis_node::{ULayout, UNode, UZIndex};
+    use bevy::asset::AssetPlugin;
+    use bevy::sprite_render::EntitiesNeedingSpecialization;
+    use bevy::text::TextPlugin;
+
+    #[test]
+    fn overlapping_screen_roots_requeue_material2d_sort_keys_when_root_zindex_swaps() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            AssetPlugin::default(),
+            TransformPlugin,
+            TextPlugin,
+            LumaEnginePlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<Image>()
+        .init_asset::<TextureAtlasLayout>();
+
+        app.world_mut()
+            .spawn((Window::default(), bevy::window::PrimaryWindow));
+        app.world_mut().spawn(Camera2d);
+
+        let font = app
+            .world_mut()
+            .resource_mut::<Assets<Font>>()
+            .add(Font::from_bytes(
+                include_bytes!("../../../../luma_style/src/style/assets/fonts/Inter-Regular.ttf")
+                    .to_vec(),
+            ));
+
+        let spawn_window = |app: &mut App, z: UZIndex, label: &str| {
+            let root = app
+                .world_mut()
+                .spawn((
+                    URootUi::screen(),
+                    z,
+                    UNode {
+                        width: UVal::Px(320.0),
+                        height: UVal::Px(220.0),
+                        background_color: Color::srgb(0.1, 0.2, 0.3),
+                        ..default()
+                    },
+                    ULayout::default(),
+                ))
+                .id();
+            let panel = app
+                .world_mut()
+                .spawn((
+                    ChildOf(root),
+                    UNode {
+                        width: UVal::Px(280.0),
+                        height: UVal::Px(140.0),
+                        background_color: Color::srgb(0.2, 0.3, 0.4),
+                        ..default()
+                    },
+                    ULayout::default(),
+                ))
+                .id();
+            let text = app
+                .world_mut()
+                .spawn((
+                    ChildOf(panel),
+                    UText {
+                        text: label.to_string(),
+                        font: font.clone(),
+                        ..default()
+                    },
+                ))
+                .id();
+            (root, panel, text)
+        };
+
+        let (root_a, panel_a, text_a) = spawn_window(&mut app, UZIndex::Global(1), "Window A");
+        let (root_b, panel_b, text_b) = spawn_window(&mut app, UZIndex::Global(2), "Window B");
+        let (_root_c, panel_c, text_c) = spawn_window(&mut app, UZIndex::Global(5), "Window C");
+
+        app.update();
+        app.update();
+        app.update();
+
+        let find_text_child = |app: &App, parent: Entity| -> Entity {
+            let q = app.world().entity(parent);
+            let children = q.get::<Children>().expect("text node should have children");
+            children
+                .iter()
+                .find(|&c| app.world().entity(c).contains::<TextChildMarker>())
+                .expect("text node should have a TextChildMarker render child")
+        };
+
+        let text_child_a = find_text_child(&app, text_a);
+        let text_child_b = find_text_child(&app, text_b);
+        let text_child_c = find_text_child(&app, text_c);
+
+        let z_of = |app: &App, e: Entity| -> f32 {
+            app.world()
+                .entity(e)
+                .get::<GlobalTransform>()
+                .unwrap()
+                .translation()
+                .z
+        };
+
+        assert!(z_of(&app, text_child_a) > z_of(&app, panel_a));
+        assert!(z_of(&app, panel_b) > z_of(&app, text_child_a));
+        assert!(z_of(&app, text_child_b) > z_of(&app, panel_b));
+        assert!(z_of(&app, panel_c) > z_of(&app, text_child_b));
+
+        // Bring root_a to front (above both root_b and untouched root_c) and lower root_b.
+        *app.world_mut().entity_mut(root_a).get_mut::<UZIndex>().unwrap() = UZIndex::Global(10);
+        *app.world_mut().entity_mut(root_b).get_mut::<UZIndex>().unwrap() = UZIndex::Global(1);
+
+        app.update();
+
+        assert!(z_of(&app, text_child_b) > z_of(&app, panel_b));
+        assert!(z_of(&app, panel_c) > z_of(&app, text_child_b));
+        assert!(z_of(&app, text_child_c) > z_of(&app, panel_c));
+        assert!(z_of(&app, panel_a) > z_of(&app, text_child_c));
+        assert!(z_of(&app, text_child_a) > z_of(&app, panel_a));
+
+        let text_dirty = &app
+            .world()
+            .resource::<EntitiesNeedingSpecialization<UTextLabelSdfMaterial>>()
+            .changed;
+        assert!(
+            text_dirty.contains(&text_child_a),
+            "text_child_a must be queued for Transparent2d sort_key refresh when root Z changes"
+        );
+        assert!(
+            text_dirty.contains(&text_child_b),
+            "text_child_b must be queued for Transparent2d sort_key refresh when root Z changes"
+        );
+        assert!(
+            text_dirty.contains(&text_child_c),
+            "text_child_c must be queued for Transparent2d sort_key refresh when sibling roots reorder"
+        );
+
+        let node_dirty = &app
+            .world()
+            .resource::<EntitiesNeedingSpecialization<UNodeMaterial>>()
+            .changed;
+        assert!(
+            node_dirty.contains(&panel_a)
+                && node_dirty.contains(&panel_b)
+                && node_dirty.contains(&panel_c),
+            "all panel UNodeMaterial entities whose world Z changed must be queued for Transparent2d sort_key refresh"
+        );
+
+        app.update();
+        let text_dirty_idle = &app
+            .world()
+            .resource::<EntitiesNeedingSpecialization<UTextLabelSdfMaterial>>()
+            .changed;
+        assert!(
+            !text_dirty_idle.contains(&text_child_a)
+                && !text_dirty_idle.contains(&text_child_b)
+                && !text_dirty_idle.contains(&text_child_c),
+            "text entities should not be re-queued once Z stabilizes"
+        );
+    }
+
+    #[test]
+    fn child_zindex_swap_requeues_text_child_without_touching_mesh() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            AssetPlugin::default(),
+            TransformPlugin,
+            TextPlugin,
+            LumaEnginePlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<Image>()
+        .init_asset::<TextureAtlasLayout>();
+        app.world_mut()
+            .spawn((Window::default(), bevy::window::PrimaryWindow));
+        app.world_mut().spawn(Camera2d);
+
+        let font = app
+            .world_mut()
+            .resource_mut::<Assets<Font>>()
+            .add(Font::from_bytes(
+                include_bytes!("../../../../luma_style/src/style/assets/fonts/Inter-Regular.ttf")
+                    .to_vec(),
+            ));
+
+        let root = app
+            .world_mut()
+            .spawn((
+                URootUi::world_2d(Vec2::new(400.0, 300.0)),
+                UNode {
+                    width: UVal::Px(400.0),
+                    height: UVal::Px(300.0),
+                    ..default()
+                },
+                ULayout::default(),
+            ))
+            .id();
+
+        let panel_a = app
+            .world_mut()
+            .spawn((
+                ChildOf(root),
+                UZIndex::Local(1),
+                UNode {
+                    width: UVal::Px(200.0),
+                    height: UVal::Px(100.0),
+                    ..default()
+                },
+                ULayout::default(),
+            ))
+            .id();
+        let text_a = app
+            .world_mut()
+            .spawn((
+                ChildOf(panel_a),
+                UText {
+                    text: "Panel A".to_string(),
+                    font: font.clone(),
+                    ..default()
+                },
+            ))
+            .id();
+
+        let panel_b = app
+            .world_mut()
+            .spawn((
+                ChildOf(root),
+                UZIndex::Local(2),
+                UNode {
+                    width: UVal::Px(200.0),
+                    height: UVal::Px(100.0),
+                    ..default()
+                },
+                ULayout::default(),
+            ))
+            .id();
+        let text_b = app
+            .world_mut()
+            .spawn((
+                ChildOf(panel_b),
+                UText {
+                    text: "Panel B".to_string(),
+                    font,
+                    ..default()
+                },
+            ))
+            .id();
+
+        app.update();
+        app.update();
+        app.update();
+
+        let text_child = |app: &App, e: Entity| -> Entity {
+            app.world()
+                .entity(e)
+                .get::<Children>()
+                .unwrap()
+                .iter()
+                .find(|&c| app.world().entity(c).contains::<TextChildMarker>())
+                .unwrap()
+        };
+        let child_a = text_child(&app, text_a);
+        let child_b = text_child(&app, text_b);
+
+        *app.world_mut()
+            .entity_mut(panel_a)
+            .get_mut::<UZIndex>()
+            .unwrap() = UZIndex::LocalMax;
+        app.update();
+
+        let dirty = &app
+            .world()
+            .resource::<EntitiesNeedingSpecialization<UTextLabelSdfMaterial>>()
+            .changed;
+        assert!(dirty.contains(&child_a));
+        assert!(dirty.contains(&child_b));
     }
 }

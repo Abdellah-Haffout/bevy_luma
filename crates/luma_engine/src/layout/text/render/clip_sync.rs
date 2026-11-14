@@ -1,4 +1,7 @@
 use super::*;
+use crate::layout::render::clip_sync::{
+    ClipUniformTarget, MAX_CLIP_LAYERS, collect_clip_stack_for_entity, resolve_world_scale_for_entity,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct LocalClipRect {
@@ -6,12 +9,72 @@ pub(crate) struct LocalClipRect {
     pub(crate) max: Vec2,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-struct MaterialClipInfo {
-    center: Vec2,
-    size: Vec2,
-    radius: Vec4,
-    use_clip: u32,
+impl ClipUniformTarget for UTextLabelSdfMaterial {
+    fn clip_fields(
+        &self,
+    ) -> (
+        &[Vec4; MAX_CLIP_LAYERS],
+        &[Vec4; MAX_CLIP_LAYERS],
+        &[Vec4; MAX_CLIP_LAYERS],
+        &[Vec4; MAX_CLIP_LAYERS],
+    ) {
+        (
+            &self.clip_inv_x,
+            &self.clip_inv_y,
+            &self.clip_bounds,
+            &self.clip_radius,
+        )
+    }
+
+    fn clip_fields_mut(
+        &mut self,
+    ) -> (
+        &mut [Vec4; MAX_CLIP_LAYERS],
+        &mut [Vec4; MAX_CLIP_LAYERS],
+        &mut [Vec4; MAX_CLIP_LAYERS],
+        &mut [Vec4; MAX_CLIP_LAYERS],
+    ) {
+        (
+            &mut self.clip_inv_x,
+            &mut self.clip_inv_y,
+            &mut self.clip_bounds,
+            &mut self.clip_radius,
+        )
+    }
+}
+
+impl ClipUniformTarget for UTextLabelSdfMaterial3d {
+    fn clip_fields(
+        &self,
+    ) -> (
+        &[Vec4; MAX_CLIP_LAYERS],
+        &[Vec4; MAX_CLIP_LAYERS],
+        &[Vec4; MAX_CLIP_LAYERS],
+        &[Vec4; MAX_CLIP_LAYERS],
+    ) {
+        (
+            &self.clip_inv_x,
+            &self.clip_inv_y,
+            &self.clip_bounds,
+            &self.clip_radius,
+        )
+    }
+
+    fn clip_fields_mut(
+        &mut self,
+    ) -> (
+        &mut [Vec4; MAX_CLIP_LAYERS],
+        &mut [Vec4; MAX_CLIP_LAYERS],
+        &mut [Vec4; MAX_CLIP_LAYERS],
+        &mut [Vec4; MAX_CLIP_LAYERS],
+    ) {
+        (
+            &mut self.clip_inv_x,
+            &mut self.clip_inv_y,
+            &mut self.clip_bounds,
+            &mut self.clip_radius,
+        )
+    }
 }
 
 pub(crate) fn clip_quad_to_rect(
@@ -82,25 +145,6 @@ pub(crate) fn label_content_clip_rect(
     })
 }
 
-fn text_world_scale_for_entity(
-    entity: Entity,
-    parents_query: &Query<&ChildOf>,
-    root_query: &Query<&ResolvedRootUi>,
-) -> f32 {
-    let mut current = entity;
-
-    loop {
-        if let Ok(root) = root_query.get(current) {
-            return root.ui_units_to_world_scale();
-        }
-
-        let Ok(parent) = parents_query.get(current) else {
-            return 1.0;
-        };
-        current = parent.parent();
-    }
-}
-
 fn text_root_stack_for_entity(
     entity: Entity,
     parents_query: &Query<&ChildOf>,
@@ -128,109 +172,88 @@ fn text_render_transform(world_scale: f32, depth_offset: f32) -> Transform {
     }
 }
 
-fn active_clipper_for_entity(
-    start_entity: Entity,
-    parents_query: &Query<&ChildOf>,
-    clipper_query: &Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
-    root_query: &Query<&ResolvedRootUi>,
-) -> MaterialClipInfo {
-    let mut current = start_entity;
-    let world_scale = text_world_scale_for_entity(start_entity, parents_query, root_query);
-
-    while let Ok(parent) = parents_query.get(current) {
-        current = parent.get();
-
-        let Ok((transform, computed_size, node, clip)) = clipper_query.get(current) else {
-            continue;
+pub(crate) fn sync_text_render_transforms(
+    mut text_query: Query<
+        (Entity, &mut Transform, Has<TextSelectionHighlightMarker>, Has<Mesh3d>),
+        Or<(With<TextChildMarker>, With<TextSelectionHighlightMarker>)>,
+    >,
+    parents_query: Query<&ChildOf>,
+    root_query: Query<&ResolvedRootUi>,
+    root_stack_query: Query<&ResolvedRootStack>,
+    stacking_query: Query<&crate::layout::components::UiLocalStacking>,
+) {
+    for (entity, mut transform, is_highlight, is_mesh_3d) in text_query.iter_mut() {
+        let world_scale = resolve_world_scale_for_entity(entity, &parents_query, &root_query);
+        let root_stack = text_root_stack_for_entity(entity, &parents_query, &root_stack_query);
+        let parent_stacking = parents_query
+            .get(entity)
+            .ok()
+            .and_then(|parent| stacking_query.get(parent.parent()).ok());
+        // Place selection highlight quads strictly behind glyph pages (offset) and in front of the host node background (0).
+        let base_offset = root_stack.text_child_offset_for_stacking(parent_stacking);
+        let depth_offset = if is_highlight {
+            base_offset * 0.5
+        } else {
+            base_offset
         };
-
-        if !clip.enabled {
-            continue;
+        // World3d Mesh3d glyph/highlight vertices are already pre-scaled into world units;
+        // scaling the Transform again would shrink them by world_scale^2.
+        let transform_scale = if is_mesh_3d { 1.0 } else { world_scale };
+        let desired_transform = text_render_transform(transform_scale, depth_offset);
+        if *transform != desired_transform {
+            *transform = desired_transform;
         }
-
-        let size = Vec2::new(computed_size.width, computed_size.height) * world_scale;
-        if size.x <= 0.0 || size.y <= 0.0 {
-            continue;
-        }
-
-        return MaterialClipInfo {
-            center: transform.translation().truncate(),
-            size,
-            radius: Vec4::new(
-                node.border_radius.top_right,
-                node.border_radius.bottom_right,
-                node.border_radius.top_left,
-                node.border_radius.bottom_left,
-            ) * world_scale,
-            use_clip: 1,
-        };
     }
-
-    MaterialClipInfo::default()
 }
 
 pub(crate) fn sync_text_clipper_materials(
-    mut text_query: Query<
+    text_query: Query<
         (
             Entity,
             Option<&MeshMaterial2d<UTextLabelSdfMaterial>>,
             Option<&MeshMaterial3d<UTextLabelSdfMaterial3d>>,
-            &mut Transform,
         ),
-        With<TextChildMarker>,
+        Or<(With<TextChildMarker>, With<TextSelectionHighlightMarker>)>,
     >,
     parents_query: Query<&ChildOf>,
     clipper_query: Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
     root_query: Query<&ResolvedRootUi>,
-    root_stack_query: Query<&ResolvedRootStack>,
     materials: Option<ResMut<Assets<UTextLabelSdfMaterial>>>,
     materials_3d: Option<ResMut<Assets<UTextLabelSdfMaterial3d>>>,
 ) {
     let mut materials = materials;
     let mut materials_3d = materials_3d;
-    for (entity, material_handle_2d, material_handle_3d, mut transform) in text_query.iter_mut() {
-        let world_scale = text_world_scale_for_entity(entity, &parents_query, &root_query);
-        let root_stack = text_root_stack_for_entity(entity, &parents_query, &root_stack_query);
-        let clip = active_clipper_for_entity(entity, &parents_query, &clipper_query, &root_query);
-        let desired_transform = text_render_transform(world_scale, root_stack.text_child_offset());
-        if *transform != desired_transform {
-            *transform = desired_transform;
-        }
+    for (entity, material_handle_2d, material_handle_3d) in text_query.iter() {
+        let clip_data = collect_clip_stack_for_entity(
+            entity,
+            None,
+            &parents_query,
+            &clipper_query,
+            &root_query,
+        );
 
         if let Some(mat_handle) = material_handle_2d
             && let Some(ref mut materials) = materials
+            && materials.get(&mat_handle.0).is_some_and(|material| {
+                material.edge_softness != DEFAULT_TEXT_EDGE_SOFTNESS
+                    || !material.matches_clip_uniforms(&clip_data)
+            })
             && let Some(mut material) = materials.get_mut(&mat_handle.0)
         {
-            if material.clip_center != clip.center
-                || material.clip_size != clip.size
-                || material.clip_radius != clip.radius
-                || material.use_clip != clip.use_clip
-                || material.edge_softness != DEFAULT_TEXT_EDGE_SOFTNESS
-            {
-                material.clip_center = clip.center;
-                material.clip_size = clip.size;
-                material.clip_radius = clip.radius;
-                material.use_clip = clip.use_clip;
-                material.edge_softness = DEFAULT_TEXT_EDGE_SOFTNESS;
-            }
+            material.edge_softness = DEFAULT_TEXT_EDGE_SOFTNESS;
+            material.apply_clip_uniforms(&clip_data);
         }
 
         if let Some(mat_handle) = material_handle_3d
             && let Some(ref mut materials_3d) = materials_3d
+            && materials_3d.get(&mat_handle.0).is_some_and(|material| {
+                material.edge_softness != DEFAULT_TEXT_EDGE_SOFTNESS
+                    || !material.matches_clip_uniforms(&clip_data)
+            })
             && let Some(mut material) = materials_3d.get_mut(&mat_handle.0)
         {
-            if material.clip_center != clip.center
-                || material.clip_size != clip.size
-                || material.clip_radius != clip.radius
-                || material.use_clip != clip.use_clip
-                || material.edge_softness != DEFAULT_TEXT_EDGE_SOFTNESS
-            {
-                material.clip_center = clip.center;
-                material.clip_size = clip.size;
-                material.clip_radius = clip.radius;
-                material.use_clip = clip.use_clip;
-                material.edge_softness = DEFAULT_TEXT_EDGE_SOFTNESS;
-            }
+            material.edge_softness = DEFAULT_TEXT_EDGE_SOFTNESS;
+            material.apply_clip_uniforms(&clip_data);
         }
     }
 }
