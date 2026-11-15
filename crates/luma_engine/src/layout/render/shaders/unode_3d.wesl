@@ -1,4 +1,7 @@
 import bevy_pbr::render::{
+    mesh_bindings,
+    mesh_functions,
+    mesh_types,
     mesh_view_bindings,
     pbr_types,
     pbr_functions,
@@ -19,8 +22,10 @@ struct UNodeMaterial3d {
     use_texture: u32,
     shape_mode: u32,
     pbr_enabled: u32,
-    _pad0: f32,
-    _pad1: f32,
+    reflectance: f32,
+    lighting_flags: u32,
+
+    bevel_params: vec4<f32>,
 
     grad_colors: array<vec4<f32>, 8>,
     grad_stops: array<vec4<f32>, 2>,
@@ -225,7 +230,7 @@ fn fragment(
     let shadow_margin = select(
         0.0,
         shadow_blur * 2.5 + shadow_spread + max(abs(shadow_offset.x), abs(shadow_offset.y)),
-        shadow_blur > 0.0,
+        shadow_blur > 0.0 || shadow_spread > 0.0,
     );
     let mesh_size = material.size + vec2<f32>(shadow_margin * 2.0);
 
@@ -347,15 +352,18 @@ fn fragment(
     }
 
     // Holographic inner edge glow
+    var inner_glow_emissive = vec3<f32>(0.0);
     if (material.inner_glow_params.y > 0.5) {
         let inner_blur = max(material.inner_glow_params.x, 0.0001);
-        let dist_inward = max(-dist_body, 0.0);
+        let inner_spread = max(material.inner_glow_params.z, 0.0);
+        let dist_inward = max(-dist_body - inner_spread, 0.0);
         let inner_factor = 1.0 - smoothstep(0.0, inner_blur, dist_inward);
         let glow_alpha = inner_factor * material.inner_glow_color.a;
         body_color = vec4<f32>(
             mix(body_color.rgb, material.inner_glow_color.rgb, glow_alpha),
             max(body_color.a, glow_alpha),
         );
+        inner_glow_emissive = material.inner_glow_color.rgb * (glow_alpha * body_alpha * 2.6);
     }
 
     // Shape compositing: Border + Body without seams or neon bleed
@@ -370,37 +378,108 @@ fn fragment(
 
     // Outer shadow (premultiplied independently so shadows never adopt fill/border color)
     var shadow_alpha = 0.0;
-    if (shadow_blur > 0.0) {
+    if (shadow_blur > 0.0 || shadow_spread > 0.0) {
         let p_shadow = p - vec2<f32>(shadow_offset.x, -shadow_offset.y);
         let shadow_radius = material.radius + vec4<f32>(shadow_spread);
         let half_size_shadow = half_size + vec2<f32>(shadow_spread);
         let dist_shadow = sd_box_dynamic(p_shadow, half_size_shadow, shadow_radius, material.shape_mode);
-        let shadow_factor = 1.0 - smoothstep(-aa_inner, shadow_blur, dist_shadow);
+        let shadow_edge = max(shadow_blur, aa_inner);
+        let shadow_factor = 1.0 - smoothstep(-aa_inner, shadow_edge, dist_shadow);
         shadow_alpha = shadow_factor * material.shadow_color.a;
     }
 
+    let double_sided = (material.lighting_flags & 1u) != 0u;
+    let receive_shadows = (material.lighting_flags & 2u) != 0u;
+
     var pbr_input = pbr_types::pbr_input_new();
+@if(VERTEX_OUTPUT_INSTANCE_INDEX) {
+    pbr_input.flags = mesh_bindings::mesh[in.instance_index].flags;
+} @else {
+    pbr_input.flags = mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT;
+}
+    if (!receive_shadows) {
+        pbr_input.flags = pbr_input.flags & (~mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT);
+    }
+
+    let is_logically_front = pbr_functions::winding_corrected_front_facing(pbr_input.flags, is_front);
     pbr_input.frag_coord = in.position;
     pbr_input.world_position = in.world_position;
     pbr_input.is_orthographic = mesh_view_bindings::view.clip_from_view[3].w == 1.0;
-    pbr_input.world_normal = pbr_functions::prepare_world_normal(in.world_normal, false, is_front);
+
+    var world_normal = pbr_functions::prepare_world_normal(
+        in.world_normal,
+        double_sided,
+        is_logically_front,
+    );
+
+    // Procedural 3D SDF edge bevel normals near the panel outer perimeter
+    let bevel_width = material.bevel_params.x;
+    let bevel_strength = clamp(material.bevel_params.y, 0.0, 1.0);
+    if (material.pbr_enabled > 0u && bevel_width > 0.00001 && bevel_strength > 0.001 && dist_outer < bevel_width) {
+        let inward = clamp((bevel_width + dist_outer) / bevel_width, 0.0, 1.0);
+        if (inward > 0.0001) {
+            let eps = max(bevel_width * 0.08, softness);
+            let dx = sd_box_dynamic(p + vec2<f32>(eps, 0.0), half_size, material.radius, material.shape_mode)
+                - sd_box_dynamic(p - vec2<f32>(eps, 0.0), half_size, material.radius, material.shape_mode);
+            let dy = sd_box_dynamic(p + vec2<f32>(0.0, eps), half_size, material.radius, material.shape_mode)
+                - sd_box_dynamic(p - vec2<f32>(0.0, eps), half_size, material.radius, material.shape_mode);
+            let grad_2d = vec2<f32>(dx, dy);
+            let grad_len = length(grad_2d);
+            if (grad_len > 1.0e-5) {
+                let n2d = grad_2d / grad_len;
+                let slope = bevel_strength * inward * 0.85;
+                let z_sign = select(-1.0, 1.0, !double_sided || is_logically_front);
+                let local_n = normalize(vec3<f32>(n2d.x * slope, n2d.y * slope, z_sign));
+@if(VERTEX_OUTPUT_INSTANCE_INDEX) {
+                let world_from_local = mesh_functions::get_world_from_local(in.instance_index);
+                world_normal = normalize((world_from_local * vec4<f32>(local_n, 0.0)).xyz);
+}
+            }
+        }
+    }
+
+    pbr_input.world_normal = world_normal;
     pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
     pbr_input.N = normalize(pbr_input.world_normal);
 
-    var lit_shape_rgb = shape_straight_rgb;
-    if (material.pbr_enabled > 0u) {
-        pbr_input.material.base_color = vec4<f32>(shape_straight_rgb, 1.0);
-        pbr_input.material.metallic = material.metallic;
-        pbr_input.material.perceptual_roughness = material.roughness;
-        pbr_input.material.emissive = material.emissive;
-        lit_shape_rgb = pbr_functions::apply_pbr_lighting(pbr_input).rgb;
+    var mat_flags = pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT;
+    if (double_sided) {
+        mat_flags = mat_flags | pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT;
     }
+    pbr_input.material.flags = mat_flags;
+    pbr_input.material.reflectance = vec3<f32>(material.reflectance);
 
-    let post_shape_rgb = pbr_functions::main_pass_post_lighting_processing(
-        pbr_input,
-        vec4<f32>(lit_shape_rgb, 1.0),
-    ).rgb;
-    let shape_premul = vec4<f32>(post_shape_rgb * shape_alpha, shape_alpha);
+    let geom_alpha = clamp(border_alpha + body_alpha * (1.0 - border_alpha), 0.0, 1.0);
+    let eff_material_alpha = shape_alpha / max(geom_alpha, 0.0001);
+
+    var shape_premul = vec4<f32>(0.0);
+    if (shape_alpha > 0.0001) {
+        var lit_shape_rgb = shape_straight_rgb + inner_glow_emissive * 0.75;
+        var out_rgb_scale = shape_alpha;
+        if (material.pbr_enabled > 0u) {
+            // Scale diffuse/metallic albedo by material opacity while keeping dielectric Fresnel
+            // specular unscaled so translucent glass retains crisp glossy highlights.
+            let weighted_rgb = shape_straight_rgb * select(1.0, eff_material_alpha, eff_material_alpha < 0.999);
+            pbr_input.material.base_color = vec4<f32>(weighted_rgb, 1.0);
+            pbr_input.material.metallic = material.metallic;
+            pbr_input.material.perceptual_roughness = material.roughness;
+            // Bevy PBR stores `emissive_exposure_weight` in `emissive.a` (`0.0` = HDR direct,
+            // `1.0` = attenuated by `view.exposure`). Keep `.a = 0.0` so HDR neon/lamp glows
+            // emit at full strength into Bloom instead of being crushed by ~0.001 default exposure.
+            pbr_input.material.emissive = vec4<f32>(
+                (material.emissive.rgb + inner_glow_emissive) * eff_material_alpha,
+                0.0,
+            );
+            lit_shape_rgb = pbr_functions::apply_pbr_lighting(pbr_input).rgb;
+            out_rgb_scale = geom_alpha;
+        }
+
+        let post_shape_rgb = pbr_functions::main_pass_post_lighting_processing(
+            pbr_input,
+            vec4<f32>(lit_shape_rgb, 1.0),
+        ).rgb;
+        shape_premul = vec4<f32>(post_shape_rgb * out_rgb_scale, shape_alpha);
+    }
 
     var shadow_premul = vec4<f32>(0.0);
     if (shadow_alpha > 0.0001) {

@@ -56,14 +56,26 @@ fn expand_tracks_into(
     for track in template {
         match *track {
             UTrackSize::Px(v) => tracks.push(TrackKind::Px(v.max(0.0))),
-            UTrackSize::Percent(p) => tracks.push(TrackKind::Px((p * available_space).max(0.0))),
+            UTrackSize::Percent(p) => {
+                if available_space.is_finite() {
+                    tracks.push(TrackKind::Px((p * available_space).max(0.0)));
+                } else {
+                    tracks.push(TrackKind::Auto);
+                }
+            }
             UTrackSize::Fr(v) => tracks.push(TrackKind::Fr(v.max(0.0))),
             UTrackSize::Auto => tracks.push(TrackKind::Auto),
             UTrackSize::MinMax { min, max } => match max {
                 UTrackBound::Fr(v) => tracks.push(TrackKind::Fr(v.max(0.0))),
                 UTrackBound::Px(v) => tracks.push(TrackKind::Px(v.max(0.0))),
                 UTrackBound::Percent(p) => {
-                    tracks.push(TrackKind::Px((p * available_space).max(0.0)))
+                    if available_space.is_finite() {
+                        tracks.push(TrackKind::Px((p * available_space).max(0.0)));
+                    } else if let Some(min_px) = min.resolve_px(available_space) {
+                        tracks.push(TrackKind::Px(min_px.max(0.0)));
+                    } else {
+                        tracks.push(TrackKind::Auto);
+                    }
                 }
                 UTrackBound::Auto => {
                     if let Some(min_px) = min.resolve_px(available_space) {
@@ -80,19 +92,20 @@ fn expand_tracks_into(
                 }
             }
             UTrackSize::RepeatFill(repeat) | UTrackSize::RepeatFit(repeat) => {
-                let (min_px, kind) = match repeat {
-                    UTrackRepeat::Px(v) => (v, TrackKind::Px(v)),
-                    UTrackRepeat::Percent(p) => {
-                        (p * available_space, TrackKind::Px(p * available_space))
+                let min_px = if available_space.is_finite() {
+                    match repeat {
+                        UTrackRepeat::Px(v) => v.max(0.0),
+                        UTrackRepeat::Percent(p) => (p * available_space).max(0.0),
+                        UTrackRepeat::MinMax { min, .. } => {
+                            min.resolve_px(available_space).unwrap_or(0.0).max(0.0)
+                        }
+                        UTrackRepeat::Fr(_) | UTrackRepeat::Auto => 0.0,
                     }
-                    UTrackRepeat::Fr(v) => (0.0, TrackKind::Fr(v)),
-                    UTrackRepeat::Auto => (0.0, TrackKind::Auto),
-                    UTrackRepeat::MinMax { min, max: _ } => {
-                        let px = min.resolve_px(available_space).unwrap_or(0.0);
-                        (px, TrackKind::Px(px))
-                    }
+                } else {
+                    0.0
                 };
-                if min_px > 0.0 && available_space > 0.0 {
+                let kind = repeat_to_track_kind(repeat, available_space);
+                if min_px > 0.0 && available_space > 0.0 && available_space.is_finite() {
                     let count =
                         ((available_space + gap) / (min_px + gap)).floor().max(1.0) as usize;
                     for _ in 0..count {
@@ -105,9 +118,8 @@ fn expand_tracks_into(
         }
     }
 
-    if tracks.is_empty() {
-        let count = fallback_count.max(1);
-        for _ in 0..count {
+    if tracks.is_empty() && fallback_count > 0 {
+        for _ in 0..fallback_count {
             tracks.push(TrackKind::Fr(1.0));
         }
     }
@@ -116,13 +128,27 @@ fn expand_tracks_into(
 fn repeat_to_track_kind(repeat: UTrackRepeat, available_space: f32) -> TrackKind {
     match repeat {
         UTrackRepeat::Px(v) => TrackKind::Px(v.max(0.0)),
-        UTrackRepeat::Percent(p) => TrackKind::Px((p * available_space).max(0.0)),
+        UTrackRepeat::Percent(p) => {
+            if available_space.is_finite() {
+                TrackKind::Px((p * available_space).max(0.0))
+            } else {
+                TrackKind::Auto
+            }
+        }
         UTrackRepeat::Fr(v) => TrackKind::Fr(v.max(0.0)),
         UTrackRepeat::Auto => TrackKind::Auto,
         UTrackRepeat::MinMax { min, max } => match max {
             UTrackBound::Fr(v) => TrackKind::Fr(v.max(0.0)),
             UTrackBound::Px(v) => TrackKind::Px(v.max(0.0)),
-            UTrackBound::Percent(p) => TrackKind::Px((p * available_space).max(0.0)),
+            UTrackBound::Percent(p) => {
+                if available_space.is_finite() {
+                    TrackKind::Px((p * available_space).max(0.0))
+                } else if let Some(min_px) = min.resolve_px(available_space) {
+                    TrackKind::Px(min_px.max(0.0))
+                } else {
+                    TrackKind::Auto
+                }
+            }
             UTrackBound::Auto => {
                 if let Some(min_px) = min.resolve_px(available_space) {
                     TrackKind::Px(min_px)
@@ -165,8 +191,16 @@ pub fn solve_grid_layout(
         .normal_indices
         .sort_by_key(|&i| items[i].spec.order);
 
-    let available_content_w = (constraints.max_width - padding.left - padding.right).max(0.0);
-    let available_content_h = (constraints.max_height - padding.top - padding.bottom).max(0.0);
+    let available_content_w = if constraints.max_width.is_finite() {
+        (constraints.max_width - padding.left - padding.right).max(0.0)
+    } else {
+        f32::INFINITY
+    };
+    let available_content_h = if constraints.max_height.is_finite() {
+        (constraints.max_height - padding.top - padding.bottom).max(0.0)
+    } else {
+        f32::INFINITY
+    };
 
     let fallback_cols = config.grid_columns.max(1) as usize;
     expand_tracks_into(
@@ -180,7 +214,7 @@ pub fn solve_grid_layout(
         &config.grid_template_rows,
         available_content_h,
         row_gap,
-        1,
+        0,
         &mut scratch_ref.row_tracks,
     );
 
@@ -589,8 +623,13 @@ fn resolve_track_sizes(
     is_col: bool,
 ) -> Vec<f32> {
     let num_tracks = tracks.len();
+    let finite_space = available_space.is_finite();
     let total_gaps = (num_tracks.saturating_sub(1) as f32) * gap;
-    let space_for_tracks = (available_space - total_gaps).max(0.0);
+    let space_for_tracks = if finite_space {
+        (available_space - total_gaps).max(0.0)
+    } else {
+        0.0
+    };
 
     let mut sizes = vec![0.0; num_tracks];
     let mut total_fixed = 0.0;
@@ -602,10 +641,10 @@ fn resolve_track_sizes(
                 sizes[i] = v;
                 total_fixed += v;
             }
-            TrackKind::Fr(v) => {
+            TrackKind::Fr(v) if finite_space => {
                 total_fr += v;
             }
-            TrackKind::Auto => {
+            TrackKind::Auto | TrackKind::Fr(_) => {
                 let mut max_item: f32 = 0.0;
                 for &(idx, r, c, r_span, c_span) in placements {
                     let (pos, span) = if is_col { (c, c_span) } else { (r, r_span) };
@@ -624,8 +663,8 @@ fn resolve_track_sizes(
         }
     }
 
-    let remaining_space = (space_for_tracks - total_fixed).max(0.0);
-    if total_fr > 0.0 {
+    if finite_space && total_fr > 0.0 {
+        let remaining_space = (space_for_tracks - total_fixed).max(0.0);
         let fr_unit = remaining_space / total_fr;
         for (i, &track) in tracks.iter().enumerate() {
             if let TrackKind::Fr(v) = track {

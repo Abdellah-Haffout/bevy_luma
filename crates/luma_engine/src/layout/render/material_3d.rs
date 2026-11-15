@@ -1,10 +1,11 @@
+use crate::layout::lighting::{LIGHTING_FLAG_DOUBLE_SIDED, LIGHTING_FLAG_RECEIVE_SHADOWS};
 use bevy::mesh::MeshVertexBufferLayoutRef;
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
 use bevy::render::render_resource::{
     AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
 };
-use bevy::shader::ShaderRef;
+use bevy::shader::{ShaderDefVal, ShaderRef};
 
 /// Pipeline specialization key for [`UNodeMaterial3d`] allowing per-node custom fragment shader overrides.
 #[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
@@ -69,12 +70,16 @@ pub struct UNodeMaterial3d {
     /// Enables physical PBR scene lighting (`UPbr`); `0` uses clean self-lit UI rendering.
     #[uniform(0)]
     pub pbr_enabled: u32,
-    /// Padding for 16-byte uniform alignment.
+    /// Dielectric specular reflectance (`0.0..=1.0`, default `0.5`).
     #[uniform(0)]
-    pub _pad0: f32,
-    /// Padding for 16-byte uniform alignment.
+    pub reflectance: f32,
+    /// Lighting feature bitmask (`1` = double sided, `2` = receive shadows, `4` = cast shadows).
     #[uniform(0)]
-    pub _pad1: f32,
+    pub lighting_flags: u32,
+
+    /// Bevel & alpha parameters: `x = bevel_width`, `y = bevel_strength`, `z = alpha_cutoff`, `w = 0.0`.
+    #[uniform(0)]
+    pub bevel_params: Vec4,
 
     // --- visual extensions (16-byte aligned blocks) ---
     /// Up to 8 gradient stop colors (RGBA).
@@ -135,6 +140,9 @@ pub struct UNodeMaterial3d {
 
     /// Optional specialized fragment shader handle compiled by `UShaderCache`.
     pub custom_shader: Option<Handle<Shader>>,
+
+    /// Alpha blending / cutout mode (`AlphaMode::Premultiplied` by default).
+    pub alpha_mode: AlphaMode,
 }
 
 impl Default for UNodeMaterial3d {
@@ -153,8 +161,9 @@ impl Default for UNodeMaterial3d {
             use_texture: 0,
             shape_mode: 0,
             pbr_enabled: 0,
-            _pad0: 0.0,
-            _pad1: 0.0,
+            reflectance: 0.5,
+            lighting_flags: LIGHTING_FLAG_DOUBLE_SIDED | LIGHTING_FLAG_RECEIVE_SHADOWS,
+            bevel_params: Vec4::new(0.0, 0.0, 0.5, 0.0),
             grad_colors: [Vec4::ZERO; 8],
             grad_stops: [Vec4::ZERO; 2],
             grad_params: Vec4::ZERO,
@@ -172,6 +181,7 @@ impl Default for UNodeMaterial3d {
             clip_radius: [Vec4::ZERO; 4],
             texture: None,
             custom_shader: None,
+            alpha_mode: AlphaMode::Premultiplied,
         }
     }
 }
@@ -181,8 +191,12 @@ impl Material for UNodeMaterial3d {
         "embedded://luma_engine/layout/render/shaders/unode_3d.wesl".into()
     }
 
+    fn prepass_fragment_shader() -> ShaderRef {
+        "embedded://luma_engine/layout/render/shaders/unode_prepass_3d.wesl".into()
+    }
+
     fn alpha_mode(&self) -> AlphaMode {
-        AlphaMode::Premultiplied
+        self.alpha_mode
     }
 
     fn specialize(
@@ -192,11 +206,63 @@ impl Material for UNodeMaterial3d {
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.cull_mode = None;
-        if let Some(custom_shader) = &key.bind_group_data.custom_shader
+        // `PrepassPipelineSpecializer` also invokes `Material::specialize` for shadows/prepasses;
+        // keep `prepass_fragment_shader` intact there since forward custom shaders bind PBR lights
+        // at `@group(0) @binding(1)` which is incompatible with the prepass view layout.
+        if !is_prepass_descriptor(descriptor)
+            && let Some(custom_shader) = &key.bind_group_data.custom_shader
             && let Some(fragment) = &mut descriptor.fragment
         {
             fragment.shader = custom_shader.clone();
         }
         Ok(())
+    }
+}
+
+/// Returns `true` when `descriptor` belongs to Bevy's shadow/depth/normal/motion prepass pipeline.
+fn is_prepass_descriptor(descriptor: &RenderPipelineDescriptor) -> bool {
+    descriptor.label.as_deref() == Some("prepass_pipeline")
+        || descriptor.fragment.as_ref().is_some_and(|fragment| {
+            fragment.shader_defs.iter().any(|def| {
+                matches!(def, ShaderDefVal::Bool(name, true) if name == "PREPASS_PIPELINE")
+            })
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::render::render_resource::FragmentState;
+
+    fn dummy_descriptor(
+        label: Option<&'static str>,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> RenderPipelineDescriptor {
+        let mut desc = RenderPipelineDescriptor {
+            label: label.map(Into::into),
+            ..default()
+        };
+        desc.fragment = Some(FragmentState {
+            shader: Handle::default(),
+            shader_defs,
+            ..default()
+        });
+        desc
+    }
+
+    #[test]
+    fn is_prepass_descriptor_detects_label_and_shader_def() {
+        assert!(is_prepass_descriptor(&dummy_descriptor(
+            Some("prepass_pipeline"),
+            vec![],
+        )));
+        assert!(is_prepass_descriptor(&dummy_descriptor(
+            None,
+            vec!["PREPASS_PIPELINE".into()],
+        )));
+        assert!(!is_prepass_descriptor(&dummy_descriptor(
+            Some("pbr_opaque_mesh_pipeline"),
+            vec!["STANDARD_MATERIAL".into()],
+        )));
     }
 }

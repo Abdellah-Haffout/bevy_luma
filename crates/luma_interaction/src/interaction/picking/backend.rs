@@ -1,4 +1,5 @@
 use super::*;
+use luma_engine::layout::lighting::URequiresLight;
 
 pub fn univis_picking_backend(
     pointers: Query<(&PointerId, &PointerLocation)>,
@@ -17,6 +18,7 @@ pub fn univis_picking_backend(
     visibility_query: Query<&Visibility>,
     parents_query: Query<&ChildOf>,
     clipper_query: Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
+    requires_light_query: Query<&URequiresLight>,
     mut profiler: Option<ResMut<LayoutProfiler>>,
     output: Option<MessageWriter<PointerHits>>,
 ) {
@@ -31,6 +33,7 @@ pub fn univis_picking_backend(
         &visibility_query,
         &parents_query,
         &clipper_query,
+        &requires_light_query,
         profiler.as_deref_mut(),
         &mut output,
     );

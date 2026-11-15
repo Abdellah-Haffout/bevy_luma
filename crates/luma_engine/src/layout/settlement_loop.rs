@@ -1,19 +1,19 @@
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
-use crate::layout::components::CachedUiContext;
+use crate::layout::components::{CachedUiContext, IntrinsicSize};
 use crate::layout::core::layout_cache::{
     LayoutCache, collect_layout_children, layout_children_changed,
 };
-use crate::layout::image::UImage;
+use crate::layout::invalidation::UiInvalidateRequestQueue;
 #[allow(deprecated)]
 use crate::layout::layout_system::{
     ResolvedRootUi, URootUi, UScreenRoot, UWorldRoot, UiRootSettlementState,
 };
-use crate::layout::pbr::UPbr;
 use crate::layout::profiling::LayoutProfiler;
-use crate::layout::univis_node::{UBorder, UClip, ULayout, UNode, USelf, UZIndex};
-use crate::layout::visual::{UGradient, UInnerGlow, UShader, UShadow};
+use crate::layout::render::packet::VisualRenderPacket;
+use crate::layout::text::UTextLabel;
+use crate::layout::univis_node::{UClip, ULayout, UNode, USelf, UZIndex};
 use crate::schedule::{
     UiPendingStages, UiSettlementConfig, UiSettlementSchedule, UiWorkStage, UiWorkState,
 };
@@ -37,8 +37,9 @@ pub(crate) fn run_ui_settlement_loop(world: &mut World) {
         let work_state = world.resource::<UiWorkState>();
         let started_generation = work_state.current_generation() != generation_before;
         let settled = work_state.is_settled();
+        let has_external_requests = !world.resource::<UiInvalidateRequestQueue>().is_empty();
 
-        if !had_pending_before && !started_generation && settled {
+        if !had_pending_before && !started_generation && settled && !has_external_requests {
             exhausted = false;
             break;
         }
@@ -65,6 +66,7 @@ pub(crate) fn run_ui_settlement_loop(world: &mut World) {
 pub(super) fn begin_ui_settlement_work(
     mut work_state: ResMut<UiWorkState>,
     cache: Res<LayoutCache>,
+    external_requests: Res<UiInvalidateRequestQueue>,
     root_mutations: Query<
         (),
         Or<(
@@ -97,52 +99,27 @@ pub(super) fn begin_ui_settlement_work(
             Changed<USelf>,
         )>,
     >,
+    text_intrinsic_mutations: Query<
+        (),
+        (
+            With<UTextLabel>,
+            Without<Children>,
+            Or<(Added<IntrinsicSize>, Changed<IntrinsicSize>)>,
+        ),
+    >,
     render_mutations: Query<
         (),
         Or<(
-            Added<UBorder>,
-            Changed<UBorder>,
-            Added<UImage>,
-            Changed<UImage>,
-            Added<UPbr>,
-            Changed<UPbr>,
+            Added<VisualRenderPacket>,
+            Changed<VisualRenderPacket>,
             Added<UClip>,
             Changed<UClip>,
-            Added<UShadow>,
-            Changed<UShadow>,
-            Added<UGradient>,
-            Changed<UGradient>,
-            Or<(
-                Added<UInnerGlow>,
-                Changed<UInnerGlow>,
-                Added<UShader>,
-                Changed<UShader>,
-            )>,
         )>,
     >,
     mut removed_nodes: RemovedComponents<UNode>,
     mut removed_children: RemovedComponents<ChildOf>,
-    removed_render: (
-        RemovedComponents<UBorder>,
-        RemovedComponents<UImage>,
-        RemovedComponents<UPbr>,
-        RemovedComponents<UClip>,
-        RemovedComponents<UShadow>,
-        RemovedComponents<UGradient>,
-        RemovedComponents<UInnerGlow>,
-        RemovedComponents<UShader>,
-    ),
+    mut removed_clips: RemovedComponents<UClip>,
 ) {
-    let (
-        mut removed_borders,
-        mut removed_images,
-        mut removed_pbrs,
-        mut removed_clips,
-        mut removed_shadows,
-        mut removed_gradients,
-        mut removed_inner_glows,
-        mut removed_shaders,
-    ) = removed_render;
     // Window/camera changes (e.g. the compositor resizing the window after the first
     // frame) alter the resolved canvas size and must start a new settlement generation.
     // We only trigger this on the first iteration pass of the frame to avoid infinite loops,
@@ -172,15 +149,10 @@ pub(super) fn begin_ui_settlement_work(
     let layout_changed = !layout_mutations.is_empty()
         || !node_zindex_mutations.is_empty()
         || structure_changed
-        || has_removed_zindex;
-    let removed_render_components = removed_borders.read().count() > 0
-        || removed_images.read().count() > 0
-        || removed_pbrs.read().count() > 0
-        || removed_clips.read().count() > 0
-        || removed_shadows.read().count() > 0
-        || removed_gradients.read().count() > 0
-        || removed_inner_glows.read().count() > 0
-        || removed_shaders.read().count() > 0;
+        || has_removed_zindex
+        || !external_requests.is_empty()
+        || !text_intrinsic_mutations.is_empty();
+    let removed_render_components = removed_clips.read().count() > 0;
     let render_changed = !render_mutations.is_empty() || removed_render_components;
 
     let pending = UiPendingStages {
@@ -190,8 +162,6 @@ pub(super) fn begin_ui_settlement_work(
         solve: roots_changed || layout_changed || cache.solve_dirty_count() > 0,
         render: roots_changed || layout_changed || render_changed || cache.render_dirty_count() > 0,
     };
-
-
 
     work_state.begin_generation(pending);
 }

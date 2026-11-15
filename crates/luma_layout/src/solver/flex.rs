@@ -12,7 +12,9 @@ use crate::solver::helpers::{
     resolved_flex_grow_factor,
 };
 use crate::solver::types::{PlacementContext, SolverConfig, SolverItem, SolverSizeMode};
-use crate::types::{UAlignItemsExt, UAlignSelfExt, UDisplay, UFlexDirection, UPositionType};
+use crate::types::{
+    UAlignItemsExt, UAlignSelfExt, UDisplay, UFlexDirection, UFlexWrap, UPositionType,
+};
 
 /// Solves flex, stack, masonry, or radial layout for a list of items.
 pub fn solve_flex_layout(
@@ -49,7 +51,11 @@ pub fn solve_flex_layout(
 
     let is_flex = matches!(config.display, UDisplay::Flex);
     let is_stack = matches!(config.display, UDisplay::Stack);
-    let available_cross = (max_cross - padding.cross).max(0.0);
+    let available_cross = if max_cross.is_finite() {
+        (max_cross - padding.cross).max(0.0)
+    } else {
+        0.0
+    };
 
     let mut used_main: f32 = 0.0;
 
@@ -191,6 +197,7 @@ pub fn solve_flex_layout(
             }
         }
 
+        let is_wrapped = config.flex_wrap != UFlexWrap::NoWrap;
         let overflow = (used_main - available_main).max(0.0);
         if overflow > 0.0 {
             let mut remaining_overflow = overflow;
@@ -205,6 +212,14 @@ pub fn solve_flex_layout(
                     }
 
                     let current_main = axis.from_world(item.result.size).0;
+                    let (m_start, m_end, _, _) = axis.extract_margin_sides(item.margin);
+                    if is_wrapped
+                        && item.spec.flex_shrink.is_none()
+                        && current_main + m_start + m_end <= available_main + 0.0001
+                    {
+                        return false;
+                    }
+
                     let (min_main, _) = main_bounds_for_spec(&item.spec, &axis);
                     current_main > min_main + 0.0001
                 })
@@ -310,7 +325,7 @@ pub fn solve_flex_layout(
             allows_implicit_stretch(cross_mode)
         };
 
-        if should_stretch && stretch_allowed {
+        if should_stretch && stretch_allowed && config.flex_wrap == UFlexWrap::NoWrap {
             child_cross = (available_cross - m_cross_start - m_cross_end).max(0.0);
         }
         child_cross = clamp_cross_size(&item.spec, &axis, child_cross);

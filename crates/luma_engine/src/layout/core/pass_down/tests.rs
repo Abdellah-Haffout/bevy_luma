@@ -160,7 +160,7 @@ fn build_constraints_respects_min_max_for_content_nodes() {
         ..default()
     };
 
-    let constraints = build_constraints(Vec2::new(500.0, 200.0), &node);
+    let constraints = build_constraints(Vec2::new(500.0, 200.0), &node, &ULayout::default());
 
     assert_eq!(constraints.min_width, 240.0);
     assert_eq!(constraints.max_width, 240.0);

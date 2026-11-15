@@ -27,6 +27,8 @@ pub mod image;
 pub mod invalidation;
 /// The public root model and root-resolution systems.
 pub mod layout_system;
+/// 3D light sources, SDF occluders, optical filters, modulators, and light sensors.
+pub mod lighting;
 /// Physically based material overrides for `World3d` content.
 pub mod pbr;
 #[doc(hidden)]
@@ -69,11 +71,19 @@ pub mod prelude {
     pub use crate::layout::layout_system::{
         URootUi, UVirtualScaleMode, UiCameraRef, UiCanvasSize, UiRootSettlementState, UiSpace,
     };
+    pub use crate::layout::lighting::{
+        ULightAvailabilityChanged, ULightFilter, ULightModulationMode, ULightModulator,
+        ULightOccluder, ULightReactiveVisual, ULightSensor, ULightSource, ULightSourceChild,
+        ULightSourceKind, URequiresLight, UnivisLightingPlugin,
+    };
     pub use crate::layout::motion::*;
-    pub use crate::layout::pbr::UPbr;
+    pub use crate::layout::pbr::{
+        UPbr, UPbrInherit, UPbrKeepUnlit, UPbrPropagate, UPbrSurface,
+    };
     pub use crate::layout::scroll::*;
     pub use crate::layout::text::{
-        UText, UTextLabel, UTextOverflow, UTextTruncateSide, UTextWrapMode,
+        TextFallbackFonts, UText, UTextFallbackFontsTemplate, UTextLabel, UTextOverflow,
+        UTextTruncateSide, UTextWrapMode,
     };
     pub use crate::layout::transition::*;
     pub use crate::layout::univis_node::*;

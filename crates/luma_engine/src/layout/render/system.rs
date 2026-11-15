@@ -200,15 +200,9 @@ pub fn update_materials_optimized(
         Entity,
         &UNode,
         &ComputedSize,
-        Option<&UBorder>,
-        Option<&UImage>,
-        Option<&UPbr>,
+        &VisualRenderPacket,
         Option<&CachedUiContext>,
         Option<&mut MaterialHandles>,
-        Option<&UGradient>,
-        Option<&UShadow>,
-        Option<&UInnerGlow>,
-        Option<&UShader>,
     )>,
     // Clipping queries
     parents_query: Query<&ChildOf>,
@@ -268,15 +262,9 @@ pub fn update_materials_optimized(
             entity,
             node,
             size,
-            border,
-            image,
-            pbr_opt,
+            visual_packet,
             cached_context,
             handles_opt,
-            gradient_opt,
-            shadow_opt,
-            inner_glow_opt,
-            shader_opt,
         )) = nodes.get_mut(entity)
         else {
             continue;
@@ -286,17 +274,11 @@ pub fn update_materials_optimized(
             entity,
             node,
             size,
-            border,
-            image,
-            pbr_opt,
+            visual_packet,
             cached_context,
             use_cached_ui_context,
             use_instanced_batching,
             handles_opt,
-            gradient_opt,
-            shadow_opt,
-            inner_glow_opt,
-            shader_opt,
             elapsed_secs,
             shader_cache.as_deref_mut(),
             shaders.as_deref_mut(),
@@ -328,17 +310,11 @@ fn sync_entity_material(
     entity: Entity,
     node: &UNode,
     size: &ComputedSize,
-    border: Option<&UBorder>,
-    image: Option<&UImage>,
-    pbr_opt: Option<&UPbr>,
+    visual_packet: &VisualRenderPacket,
     cached_context: Option<&CachedUiContext>,
     use_cached_ui_context: bool,
     use_instanced_batching: bool,
     handles_opt: Option<Mut<'_, MaterialHandles>>,
-    gradient_opt: Option<&UGradient>,
-    shadow_opt: Option<&UShadow>,
-    inner_glow_opt: Option<&UInnerGlow>,
-    shader_opt: Option<&UShader>,
     elapsed_secs: f32,
     shader_cache: Option<&mut UShaderCache>,
     shaders: Option<&mut Assets<Shader>>,
@@ -386,15 +362,12 @@ fn sync_entity_material(
         root_query,
     );
 
-    // Fast-path: Pure 2D SDF nodes without textures, gradients, custom shaders, or complex clips
+    // Fast-path: Pure 2D SDF nodes whose visual packet only uses batch-compatible channels
     // are rendered via the single-draw instanced batch pipeline.
     if use_instanced_batching
         && render_context.mode == ResolvedRenderMode::Flat2d
         && !clip_data.is_complex_for_batch
-        && image.is_none()
-        && gradient_opt.is_none()
-        && inner_glow_opt.is_none()
-        && shader_opt.is_none()
+        && visual_packet.flags.can_batch_2d()
     {
         if handles_opt.is_some() {
             if let Ok(mut cmd) = commands.get_entity(entity) {
@@ -414,130 +387,115 @@ fn sync_entity_material(
         minimum_local_softness(world_scale)
     };
 
-    // --- shared material inputs ---
-    let (tex_handle, use_tex, base_color) = if let Some(img) = image {
-        (Some(img.texture.clone()), 1, LinearRgba::from(img.color))
+    // --- shared material inputs resolved from decoupled VisualRenderPacket ---
+    let (tex_handle, use_tex, base_color) = if visual_packet.flags.contains(VisualFlags::TEXTURE) {
+        (
+            visual_packet.texture.clone(),
+            1,
+            visual_packet.texture_tint,
+        )
     } else {
         (None, 0, LinearRgba::from(node.background_color))
     };
 
-    let (b_color, b_offset, b_width) = if let Some(b) = border {
+    let (b_color, b_offset, b_width) = if visual_packet.flags.contains(VisualFlags::BORDER) {
         (
-            LinearRgba::from(b.color),
-            b.offset * world_scale,
-            b.width * world_scale,
+            visual_packet.border_color,
+            visual_packet.border_offset * world_scale,
+            visual_packet.border_width * world_scale,
         )
     } else {
         (LinearRgba::NONE, 0.0, 0.0)
     };
 
-    let effective_radius = if node.border_radius != UCornerRadius::default() {
-        node.border_radius
-    } else if let Some(b) = border && b.radius != UCornerRadius::default() {
-        b.radius
-    } else {
-        node.border_radius
-    };
+    let effective_radius = visual_packet.effective_corner_radius(node.border_radius);
 
-    let radius = Vec4::new(
-        effective_radius.top_right,
-        effective_radius.bottom_right,
-        effective_radius.top_left,
-        effective_radius.bottom_left,
-    ) * world_scale;
+    let radius = crate::layout::render::clip_sync::clamp_corner_radii(
+        Vec4::new(
+            effective_radius.top_right,
+            effective_radius.bottom_right,
+            effective_radius.top_left,
+            effective_radius.bottom_left,
+        ) * world_scale,
+        size_vec * 0.5,
+    );
 
     let shape_mode = match node.shape_mode {
         UShapeMode::Round => 0,
         UShapeMode::Cut => 1,
     };
 
-    // --- visual inputs ---
-    let (grad_colors, grad_stops, grad_params, grad_center) = if let Some(grad) = gradient_opt {
-        let (grad_type, param_y, center) = match grad.kind {
-            UGradientKind::Linear { angle } => (1.0, angle, Vec2::ZERO),
-            UGradientKind::Radial { center, radius } => (2.0, radius, center),
-            UGradientKind::Angular { center } => (3.0, 0.0, center),
+    // --- visual inputs from VisualRenderPacket ---
+    let (grad_colors, grad_stops, grad_params, grad_center) =
+        if visual_packet.flags.contains(VisualFlags::GRADIENT) {
+            (
+                visual_packet.grad_colors,
+                visual_packet.grad_stops,
+                visual_packet.grad_params,
+                visual_packet.grad_center,
+            )
+        } else {
+            ([Vec4::ZERO; 8], [Vec4::ZERO; 2], Vec4::ZERO, Vec4::ZERO)
         };
-        let count = grad.stops.len().min(8);
-        let mut colors = [Vec4::ZERO; 8];
-        let mut positions = [0.0f32; 8];
-        for (i, stop) in grad.stops.iter().take(8).enumerate() {
-            colors[i] = LinearRgba::from(stop.color).to_vec4();
-            positions[i] = stop.position;
-        }
-        let stops = [
-            Vec4::new(positions[0], positions[1], positions[2], positions[3]),
-            Vec4::new(positions[4], positions[5], positions[6], positions[7]),
-        ];
-        let interp_mode = match grad.interpolation {
-            UGradientInterpolation::Smooth => 0.0,
-            UGradientInterpolation::Stepped => 1.0,
-        };
+
+    let (shadow_color, shadow_params) = if visual_packet.flags.contains(VisualFlags::OUTER_SHADOW) {
         (
-            colors,
-            stops,
-            Vec4::new(grad_type, param_y, count as f32, interp_mode),
-            Vec4::new(center.x, center.y, grad.offset, 0.0),
+            visual_packet.shadow_color,
+            Vec4::new(
+                visual_packet.shadow_offset.x * world_scale,
+                visual_packet.shadow_offset.y * world_scale,
+                visual_packet.shadow_blur * world_scale,
+                visual_packet.shadow_spread * world_scale,
+            ),
         )
     } else {
-        ([Vec4::ZERO; 8], [Vec4::ZERO; 2], Vec4::ZERO, Vec4::ZERO)
+        (LinearRgba::NONE, Vec4::ZERO)
     };
 
-    let (shadow_color, shadow_params) = if let Some(s) = shadow_opt {
-        if !s.is_inner {
+    let (inner_glow_color, inner_glow_params) =
+        if visual_packet.flags.contains(VisualFlags::INNER_GLOW) {
             (
-                LinearRgba::from(s.color),
+                visual_packet.inner_glow_color,
                 Vec4::new(
-                    s.offset.x * world_scale,
-                    s.offset.y * world_scale,
-                    s.blur * world_scale,
-                    s.spread * world_scale,
+                    visual_packet.inner_glow_blur * world_scale,
+                    1.0,
+                    visual_packet.inner_glow_spread * world_scale,
+                    0.0,
                 ),
             )
         } else {
             (LinearRgba::NONE, Vec4::ZERO)
-        }
-    } else {
-        (LinearRgba::NONE, Vec4::ZERO)
-    };
-
-    let (inner_glow_color, inner_glow_params) = if let Some(ig) = inner_glow_opt {
-        (
-            LinearRgba::from(ig.color),
-            Vec4::new(ig.blur * world_scale, 1.0, ig.spread * world_scale, 0.0),
-        )
-    } else if let Some(s) = shadow_opt
-        && s.is_inner
-    {
-        (
-            LinearRgba::from(s.color),
-            Vec4::new(s.blur * world_scale, 1.0, s.spread * world_scale, 0.0),
-        )
-    } else {
-        (LinearRgba::NONE, Vec4::ZERO)
-    };
-
-    let (custom_params, custom_meta, custom_shader) = if let Some(shader) = shader_opt {
-        let t = if shader.animate {
-            elapsed_secs * shader.speed + shader.time_offset
-        } else {
-            shader.time_offset
         };
-        let meta = Vec4::new(t, shader.blend_mode.as_f32(), shader.opacity, 1.0);
-        let handle = if let (Some(cache), Some(shader_assets)) = (shader_cache, shaders) {
-            cache.resolve_for_mode(&shader.source, is_world_3d, shader_assets, asset_server)
+
+    let (custom_params, custom_meta, custom_shader) =
+        if visual_packet.flags.contains(VisualFlags::CUSTOM_SHADER) {
+            let t = if visual_packet.custom_animate {
+                elapsed_secs * visual_packet.custom_speed + visual_packet.custom_time_offset
+            } else {
+                visual_packet.custom_time_offset
+            };
+            let meta = Vec4::new(
+                t,
+                visual_packet.custom_blend_mode,
+                visual_packet.custom_opacity,
+                1.0,
+            );
+            let handle = if let (Some(source), Some(cache), Some(shader_assets)) =
+                (visual_packet.shader_source.as_ref(), shader_cache, shaders)
+            {
+                cache.resolve_for_mode(source, is_world_3d, shader_assets, asset_server)
+            } else {
+                None
+            };
+            (visual_packet.custom_params, meta, handle)
         } else {
-            None
+            ([Vec4::ZERO; 4], Vec4::ZERO, None)
         };
-        (shader.params, meta, handle)
-    } else {
-        ([Vec4::ZERO; 4], Vec4::ZERO, None)
-    };
 
     let shadow_blur = shadow_params.z;
     let shadow_spread = shadow_params.w;
     let shadow_offset = shadow_params.xy();
-    let shadow_margin = if shadow_blur > 0.0 {
+    let shadow_margin = if shadow_blur > 0.0 || shadow_spread > 0.0 {
         shadow_blur * 2.5 + shadow_spread + shadow_offset.abs().max_element()
     } else {
         0.0
@@ -552,11 +510,27 @@ fn sync_entity_material(
 
     match render_context.mode {
         ResolvedRenderMode::World3d => {
-            let (pbr_enabled, metallic, roughness, emissive_val) = if let Some(pbr) = pbr_opt {
-                (1u32, pbr.metallic, pbr.roughness, pbr.emissive.to_vec4())
+            let (pbr_enabled, metallic, roughness, emissive_val) =
+                if visual_packet.flags.contains(VisualFlags::PBR) {
+                    (
+                        1u32,
+                        visual_packet.pbr_metallic,
+                        visual_packet.pbr_roughness,
+                        visual_packet.pbr_emissive,
+                    )
+                } else {
+                    (0u32, 0.0, 0.5, Vec4::ZERO)
+                };
+            let reflectance = visual_packet.pbr_reflectance;
+            let lighting_flags = visual_packet.pbr_lighting_flags;
+            let mut bevel_params = visual_packet.pbr_bevel_params;
+            let alpha_mode = visual_packet.pbr_alpha_mode;
+            let ui_scale = if logical_size.x > 0.0 {
+                size_vec.x / logical_size.x
             } else {
-                (0u32, 0.0, 0.5, Vec4::ZERO)
+                1.0
             };
+            bevel_params.x *= ui_scale;
 
             let build_mat_3d = || {
                 create_3d_material(
@@ -573,6 +547,10 @@ fn sync_entity_material(
                     use_tex,
                     shape_mode,
                     pbr_enabled,
+                    reflectance,
+                    lighting_flags,
+                    bevel_params,
+                    alpha_mode,
                     tex_handle.clone(),
                     clip_data,
                     grad_colors,
@@ -605,6 +583,10 @@ fn sync_entity_material(
                         existing_mat.use_texture = use_tex;
                         existing_mat.shape_mode = shape_mode;
                         existing_mat.pbr_enabled = pbr_enabled;
+                        existing_mat.reflectance = reflectance;
+                        existing_mat.lighting_flags = lighting_flags;
+                        existing_mat.bevel_params = bevel_params;
+                        existing_mat.alpha_mode = alpha_mode;
                         existing_mat.texture = tex_handle.clone();
                         existing_mat.grad_colors = grad_colors;
                         existing_mat.grad_stops = grad_stops;
@@ -909,6 +891,10 @@ fn create_3d_material(
     use_tex: u32,
     shape_mode: u32,
     pbr_enabled: u32,
+    reflectance: f32,
+    lighting_flags: u32,
+    bevel_params: Vec4,
+    alpha_mode: AlphaMode,
     tex: Option<Handle<Image>>,
     clip_data: ClipUniformData,
     grad_colors: [Vec4; 8],
@@ -937,6 +923,10 @@ fn create_3d_material(
         use_texture: use_tex,
         shape_mode,
         pbr_enabled,
+        reflectance,
+        lighting_flags,
+        bevel_params,
+        alpha_mode,
         texture: tex,
         grad_colors,
         grad_stops,
@@ -1097,6 +1087,8 @@ pub fn sync_animated_ushaders(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::lighting::{ULightOccluder, resolve_surface_lighting};
+    use crate::layout::pbr::UPbrSurface;
     use bevy::camera::{CameraProjection, ComputedCameraValues, RenderTargetInfo};
     use bevy::time::TimeUpdateStrategy;
     use bevy::window::WindowRef;
@@ -1152,6 +1144,7 @@ mod tests {
             ))
             .id();
 
+        let (def_refl, def_flags, def_bevel, def_alpha) = resolve_surface_lighting(None, None);
         let mat3d_handle = app
             .world_mut()
             .resource_mut::<Assets<UNodeMaterial3d>>()
@@ -1169,6 +1162,10 @@ mod tests {
                 0,
                 0,
                 0,
+                def_refl,
+                def_flags,
+                def_bevel,
+                def_alpha,
                 None,
                 ClipUniformData::default(),
                 [Vec4::ZERO; 8],
@@ -1365,5 +1362,25 @@ mod tests {
         assert!((lit_mat.metallic - 0.8).abs() < 1e-5);
         assert!((lit_mat.roughness - 0.2).abs() < 1e-5);
         assert!(lit_mat.custom_shader.is_none());
+
+        let (refl, flags, bevel, alpha_mode) = resolve_surface_lighting(
+            Some(&UPbrSurface {
+                reflectance: 0.9,
+                double_sided: false,
+                receive_shadows: true,
+                cast_shadows: false,
+                alpha_mode: Some(AlphaMode::Mask(0.45)),
+                alpha_cutoff: 0.45,
+                bevel_width: 8.0,
+                bevel_strength: 0.75,
+            }),
+            Some(&ULightOccluder::solid()),
+        );
+        assert!((refl - 0.9).abs() < 1e-5);
+        assert_eq!(flags, 0b110); // receive_shadows (2) + cast_shadows from occluder (4)
+        assert!((bevel.x - 8.0).abs() < 1e-5);
+        assert!((bevel.y - 0.75).abs() < 1e-5);
+        assert!((bevel.z - 0.45).abs() < 1e-5);
+        assert_eq!(alpha_mode, AlphaMode::Mask(0.45));
     }
 }

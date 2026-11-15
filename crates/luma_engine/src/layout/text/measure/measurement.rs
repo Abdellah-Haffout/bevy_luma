@@ -101,9 +101,46 @@ pub(super) fn label_text_layout(label: &UTextLabel) -> TextLayout {
     }
 }
 
-pub(super) fn label_text_font(label: &UTextLabel) -> TextFont {
+fn font_is_registered(fonts: &Assets<Font>, handle: &Handle<Font>) -> bool {
+    fonts.get(handle).is_some_and(|font| !font.alias.is_empty())
+}
+
+pub(super) fn resolve_text_font_source(
+    primary: &Handle<Font>,
+    label_fallbacks: &[Handle<Font>],
+    global_fallbacks: &[Handle<Font>],
+    fonts: &Assets<Font>,
+) -> FontSource {
+    if label_fallbacks.is_empty() && global_fallbacks.is_empty() {
+        return FontSource::Handle(primary.clone());
+    }
+
+    let mut sources = Vec::with_capacity(1 + label_fallbacks.len() + global_fallbacks.len());
+    sources.push(FontSource::Handle(primary.clone()));
+
+    let mut seen_ids = HashSet::with_capacity(sources.capacity());
+    seen_ids.insert(primary.id());
+
+    for fallback in label_fallbacks.iter().chain(global_fallbacks.iter()) {
+        if seen_ids.insert(fallback.id()) && font_is_registered(fonts, fallback) {
+            sources.push(FontSource::Handle(fallback.clone()));
+        }
+    }
+
+    if sources.len() == 1 {
+        FontSource::Handle(primary.clone())
+    } else {
+        FontSource::List(sources)
+    }
+}
+
+pub(super) fn label_text_font(
+    label: &UTextLabel,
+    global_fallbacks: &[Handle<Font>],
+    fonts: &Assets<Font>,
+) -> TextFont {
     TextFont {
-        font: FontSource::Handle(label.font.clone()),
+        font: resolve_text_font_source(&label.font, &label.fallback_fonts, global_fallbacks, fonts),
         font_size: FontSize::Px(label.font_size),
         ..default()
     }
@@ -214,6 +251,7 @@ pub(super) fn measure_layout_for_label(
     label: &UTextLabel,
     stage: TextMeasureStage,
     text_font: &TextFont,
+    global_fallbacks: &[Handle<Font>],
     text_layout: &TextLayout,
     text_color: Color,
     bounds: TextBounds,
@@ -243,10 +281,18 @@ pub(super) fn measure_layout_for_label(
     let span_fonts: Vec<TextFont> = label
         .spans
         .iter()
-        .map(|span| TextFont {
-            font: FontSource::Handle(span.font.as_ref().unwrap_or(&label.font).clone()),
-            font_size: FontSize::Px(span.font_size.unwrap_or(label.font_size)),
-            ..default()
+        .map(|span| {
+            let primary = span.font.as_ref().unwrap_or(&label.font);
+            TextFont {
+                font: resolve_text_font_source(
+                    primary,
+                    &label.fallback_fonts,
+                    global_fallbacks,
+                    fonts,
+                ),
+                font_size: FontSize::Px(span.font_size.unwrap_or(label.font_size)),
+                ..default()
+            }
         })
         .collect();
 

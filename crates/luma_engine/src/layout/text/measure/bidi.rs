@@ -78,8 +78,13 @@ pub(crate) fn build_truncate_candidate(
             let prefix = &text[..boundaries[keep]];
             let isolated_prefix = isolate_for_direction(prefix, base_direction);
             let mut candidate = String::with_capacity(
-                isolated_prefix.len() + super::truncation::DEFAULT_ELLIPSIS.len(),
+                isolated_prefix.len() + super::truncation::DEFAULT_ELLIPSIS.len() + 3,
             );
+            // UAX #9 P2 skips isolated spans when detecting paragraph base direction, so anchor
+            // RTL candidates with RLM outside the isolate so "..." lands at the visual left end.
+            if matches!(base_direction, TextBaseDirection::Rtl) {
+                candidate.push('\u{200F}');
+            }
             candidate.push_str(&isolated_prefix);
             candidate.push_str(super::truncation::DEFAULT_ELLIPSIS);
             candidate
@@ -89,8 +94,11 @@ pub(crate) fn build_truncate_candidate(
             let suffix = &text[boundaries[total_graphemes - keep]..];
             let isolated_suffix = isolate_for_direction(suffix, base_direction);
             let mut candidate = String::with_capacity(
-                super::truncation::DEFAULT_ELLIPSIS.len() + isolated_suffix.len(),
+                super::truncation::DEFAULT_ELLIPSIS.len() + isolated_suffix.len() + 3,
             );
+            if matches!(base_direction, TextBaseDirection::Rtl) {
+                candidate.push('\u{200F}');
+            }
             candidate.push_str(super::truncation::DEFAULT_ELLIPSIS);
             candidate.push_str(&isolated_suffix);
             candidate
@@ -106,8 +114,12 @@ pub(crate) fn build_truncate_candidate(
             let mut candidate = String::with_capacity(
                 isolated_prefix.len()
                     + super::truncation::DEFAULT_ELLIPSIS.len()
-                    + isolated_suffix.len(),
+                    + isolated_suffix.len()
+                    + 3,
             );
+            if matches!(base_direction, TextBaseDirection::Rtl) {
+                candidate.push('\u{200F}');
+            }
             candidate.push_str(&isolated_prefix);
             candidate.push_str(super::truncation::DEFAULT_ELLIPSIS);
             candidate.push_str(&isolated_suffix);

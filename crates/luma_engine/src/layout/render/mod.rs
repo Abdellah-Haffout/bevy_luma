@@ -12,6 +12,8 @@ pub mod layers;
 pub mod material;
 /// 3D material definitions for the Univis UI engine.
 pub mod material_3d;
+/// Decoupled visual render packet and plugin hooks.
+pub mod packet;
 /// Systems for synchronizing UI node state to render materials and meshes.
 pub mod system;
 
@@ -29,7 +31,8 @@ use crate::schedule::{UiSettlementSchedule, UnivisPostUpdateSet};
 /// Convenience exports for Univis UI rendering.
 pub mod prelude {
     pub use crate::layout::render::{
-        UnivisRenderPlugin, batch::*, clip_sync::*, material::*, material_3d::*, system::*,
+        UnivisRenderPlugin, batch::*, clip_sync::*, material::*, material_3d::*, packet::*,
+        system::*,
     };
 }
 
@@ -41,8 +44,10 @@ impl Plugin for UnivisRenderPlugin {
         embedded_asset!(app, "shaders/unode.wgsl");
         embedded_asset!(app, "shaders/unode_batch.wgsl");
         embedded_asset!(app, "shaders/unode_3d.wesl");
+        embedded_asset!(app, "shaders/unode_prepass_3d.wesl");
         embedded_asset!(app, "shaders/text_label_sdf.wgsl");
         embedded_asset!(app, "shaders/text_label_sdf_3d.wesl");
+        embedded_asset!(app, "shaders/text_prepass_3d.wesl");
 
         app.add_plugins(UnivisBatchPlugin)
             .add_plugins(Material2dPlugin::<UNodeMaterial>::default())

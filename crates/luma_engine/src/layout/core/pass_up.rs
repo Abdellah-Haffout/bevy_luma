@@ -1,6 +1,7 @@
 #![allow(clippy::type_complexity)]
 
 use crate::internal_prelude::*;
+use crate::layout::core::coordinator::TreeCoordinator;
 use bevy::prelude::*;
 
 #[derive(Clone, Copy)]
@@ -18,28 +19,28 @@ struct MeasuredContainerInput {
 }
 
 #[derive(Clone, Copy, Default)]
-struct ChildMeasureItem {
-    min_w: f32,
-    max_w: f32,
-    min_h: f32,
-    max_h: f32,
-    margin: USides,
-    col_start: Option<u32>,
-    col_span: u32,
-    row_start: Option<u32>,
-    row_span: u32,
+pub(crate) struct ChildMeasureItem {
+    pub(crate) min_w: f32,
+    pub(crate) max_w: f32,
+    pub(crate) min_h: f32,
+    pub(crate) max_h: f32,
+    pub(crate) margin: USides,
+    pub(crate) col_start: Option<u32>,
+    pub(crate) col_span: u32,
+    pub(crate) row_start: Option<u32>,
+    pub(crate) row_span: u32,
 }
 
 #[derive(Default)]
 #[doc(hidden)]
 pub struct MeasurePassScratch {
-    child_entities: Vec<Entity>,
-    child_items: Vec<ChildMeasureItem>,
-    placements: Vec<(usize, usize, usize, usize)>,
-    col_min: Vec<f32>,
-    col_max: Vec<f32>,
-    row_min: Vec<f32>,
-    row_max: Vec<f32>,
+    pub(crate) child_entities: Vec<Entity>,
+    pub(crate) child_items: Vec<ChildMeasureItem>,
+    pub(crate) placements: Vec<(usize, usize, usize, usize)>,
+    pub(crate) col_min: Vec<f32>,
+    pub(crate) col_max: Vec<f32>,
+    pub(crate) row_min: Vec<f32>,
+    pub(crate) row_max: Vec<f32>,
 }
 
 /// The Upward Pass (Bottom-Up) of the layout algorithm.
@@ -58,7 +59,13 @@ pub fn upward_measure_pass_cached(
     mut scratch: Local<MeasurePassScratch>,
     mut params: ParamSet<(
         Query<(&IntrinsicSize, &UNode, Option<&USelf>, Option<&ULayout>)>,
-        Query<(Entity, &UNode, Option<&Children>, Option<&ULayout>)>,
+        Query<(
+            Entity,
+            &UNode,
+            Option<&Children>,
+            Option<&ULayout>,
+            Option<&ComputedSize>,
+        )>,
         Query<&mut IntrinsicSize>,
     )>,
 ) {
@@ -85,10 +92,13 @@ pub fn upward_measure_pass_cached(
                 height_bounds,
                 aspect_ratio,
                 layout_clone,
+                computed_size_opt,
                 measure_scratch_grew,
             ) = {
                 let nodes = params.p1();
-                let Ok((_, node_spec, children_opt, layout_opt)) = nodes.get(entity) else {
+                let Ok((_, node_spec, children_opt, layout_opt, computed_opt)) =
+                    nodes.get(entity)
+                else {
                     return None;
                 };
 
@@ -106,6 +116,7 @@ pub fn upward_measure_pass_cached(
                     node_spec.height_bounds(),
                     node_spec.sanitized_aspect_ratio(),
                     layout_opt.cloned(),
+                    computed_opt.copied(),
                     scratch.child_entities.capacity() > measure_scratch_capacity_before,
                 )
             };
@@ -194,13 +205,69 @@ pub fn upward_measure_pass_cached(
                 }
             } else {
                 let layout = layout_clone.unwrap_or_default();
-                match layout.display {
-                    UDisplay::Grid => {
-                        measure_grid_intrinsic(&mut *scratch, &layout, width, padding)
+                let is_row = matches!(
+                    layout.flex_direction,
+                    UFlexDirection::Row | UFlexDirection::RowReverse
+                );
+                let wrap = if layout.flex_wrap != UFlexWrap::NoWrap {
+                    layout.flex_wrap
+                } else {
+                    layout.container_ext.flex.wrap
+                };
+                let use_row_hint = layout.display == UDisplay::Grid || is_row;
+                let (current_main_outer, available_main_hint) = if use_row_hint {
+                    let h_p = padding.width_sum();
+                    if let UVal::Px(w) = width {
+                        (Some(w), Some((w - h_p).max(0.0)))
+                    } else if let Some(comp) = computed_size_opt.filter(|c| c.width > 0.0) {
+                        (Some(comp.width), Some((comp.width - h_p).max(0.0)))
+                    } else if width_bounds.1.is_finite() {
+                        (Some(width_bounds.1), Some((width_bounds.1 - h_p).max(0.0)))
+                    } else {
+                        (None, None)
                     }
-                    UDisplay::Stack => measure_stack_intrinsic(&scratch.child_items),
-                    _ => measure_flex_intrinsic(&scratch.child_items, &layout),
+                } else {
+                    let v_p = padding.height_sum();
+                    if let UVal::Px(h) = height {
+                        (Some(h), Some((h - v_p).max(0.0)))
+                    } else if let Some(comp) = computed_size_opt.filter(|c| c.height > 0.0) {
+                        (Some(comp.height), Some((comp.height - v_p).max(0.0)))
+                    } else if height_bounds.1.is_finite() {
+                        (Some(height_bounds.1), Some((height_bounds.1 - v_p).max(0.0)))
+                    } else {
+                        (None, None)
+                    }
+                };
+                let (mut min_w, mut max_w, mut min_h, mut max_h) =
+                    TreeCoordinator::propose_upward_intrinsic(
+                        &mut *scratch,
+                        &layout,
+                        width,
+                        padding,
+                        available_main_hint,
+                    );
+                if ((wrap != UFlexWrap::NoWrap && layout.display == UDisplay::Flex)
+                    || layout.display == UDisplay::Grid)
+                    && let Some(main_outer) = current_main_outer
+                    && let Some(solved_cross) = cache.get_wrapped_cross_hint(entity, main_outer)
+                {
+                    let cross_val = if use_row_hint { height } else { width };
+                    if matches!(
+                        cross_val,
+                        UVal::Auto | UVal::Content | UVal::MinContent | UVal::MaxContent
+                    ) {
+                        if use_row_hint {
+                            let inner_cross = (solved_cross - padding.height_sum()).max(0.0);
+                            min_h = inner_cross;
+                            max_h = inner_cross;
+                        } else {
+                            let inner_cross = (solved_cross - padding.width_sum()).max(0.0);
+                            min_w = inner_cross;
+                            max_w = inner_cross;
+                        }
+                    }
                 }
+                (min_w, max_w, min_h, max_h)
             };
 
             Some(MeasuredContainerInput {
@@ -221,112 +288,39 @@ pub fn upward_measure_pass_cached(
         };
 
         calculated_count += 1;
-        let h_pad = measured_input.padding.width_sum();
-        let v_pad = measured_input.padding.height_sum();
 
         if let Ok(mut intrinsic) = params.p2().get_mut(entity) {
-            let mut raw_min_width = match measured_input.width {
-                UVal::Px(v) => v,
-                _ => measured_input.calculated_min_width + h_pad,
-            };
-            let mut raw_max_width = match measured_input.width {
-                UVal::Px(v) => v,
-                _ => measured_input.calculated_max_width + h_pad,
-            };
-            let mut raw_min_height = match measured_input.height {
-                UVal::Px(v) => v,
-                _ => measured_input.calculated_min_height + v_pad,
-            };
-            let mut raw_max_height = match measured_input.height {
-                UVal::Px(v) => v,
-                _ => measured_input.calculated_max_height + v_pad,
-            };
-
-            if let Some(ratio) = measured_input.aspect_ratio {
-                let w_is_px = matches!(measured_input.width, UVal::Px(_));
-                let h_is_px = matches!(measured_input.height, UVal::Px(_));
-
-                if w_is_px && !h_is_px {
-                    raw_min_height = raw_min_width / ratio;
-                    raw_max_height = raw_max_width / ratio;
-                } else if h_is_px && !w_is_px {
-                    raw_min_width = raw_min_height * ratio;
-                    raw_max_width = raw_max_height * ratio;
-                } else if !w_is_px && !h_is_px {
-                    if raw_max_width > h_pad && raw_max_height <= v_pad {
-                        raw_min_height = v_pad + (raw_min_width - h_pad).max(0.0) / ratio;
-                        raw_max_height = v_pad + (raw_max_width - h_pad).max(0.0) / ratio;
-                    } else if raw_max_height > v_pad && raw_max_width <= h_pad {
-                        raw_min_width = h_pad + (raw_min_height - v_pad).max(0.0) * ratio;
-                        raw_max_width = h_pad + (raw_max_height - v_pad).max(0.0) * ratio;
-                    }
-                }
-            }
-
-            let min_width =
-                raw_min_width.clamp(measured_input.width_bounds.0, measured_input.width_bounds.1);
-            let max_width = raw_max_width
-                .clamp(measured_input.width_bounds.0, measured_input.width_bounds.1)
-                .max(min_width);
-            let min_height = raw_min_height.clamp(
-                measured_input.height_bounds.0,
-                measured_input.height_bounds.1,
+            let resolved = TreeCoordinator::resolve_upward_intrinsic(
+                measured_input.width,
+                measured_input.height,
+                measured_input.padding,
+                measured_input.width_bounds,
+                measured_input.height_bounds,
+                measured_input.aspect_ratio,
+                measured_input.calculated_min_width,
+                measured_input.calculated_max_width,
+                measured_input.calculated_min_height,
+                measured_input.calculated_max_height,
             );
-            let max_height = raw_max_height
-                .clamp(
-                    measured_input.height_bounds.0,
-                    measured_input.height_bounds.1,
-                )
-                .max(min_height);
 
-            let mut new_width = match measured_input.width {
-                UVal::MinContent => min_width,
-                _ => max_width,
-            };
-            let mut new_height = match measured_input.height {
-                UVal::MinContent => min_height,
-                _ => max_height,
-            };
-
-            if let Some(ratio) = measured_input.aspect_ratio {
-                let w_is_px = matches!(measured_input.width, UVal::Px(_));
-                let h_is_px = matches!(measured_input.height, UVal::Px(_));
-                if w_is_px && !h_is_px {
-                    new_height = (new_width / ratio).clamp(min_height, max_height);
-                } else if h_is_px && !w_is_px {
-                    new_width = (new_height * ratio).clamp(min_width, max_width);
-                }
-            }
-
-            if (intrinsic.width - new_width).abs() > 0.001
-                || (intrinsic.height - new_height).abs() > 0.001
-                || (intrinsic.min_width - min_width).abs() > 0.001
-                || (intrinsic.max_width - max_width).abs() > 0.001
-                || (intrinsic.min_height - min_height).abs() > 0.001
-                || (intrinsic.max_height - max_height).abs() > 0.001
+            if (intrinsic.width - resolved.width).abs() > 0.001
+                || (intrinsic.height - resolved.height).abs() > 0.001
+                || (intrinsic.min_width - resolved.min_width).abs() > 0.001
+                || (intrinsic.max_width - resolved.max_width).abs() > 0.001
+                || (intrinsic.min_height - resolved.min_height).abs() > 0.001
+                || (intrinsic.max_height - resolved.max_height).abs() > 0.001
             {
-                intrinsic.width = new_width;
-                intrinsic.height = new_height;
-                intrinsic.min_width = min_width;
-                intrinsic.max_width = max_width;
-                intrinsic.min_height = min_height;
-                intrinsic.max_height = max_height;
+                *intrinsic = resolved;
             }
 
-            cache.cache_intrinsic(
-                entity,
-                IntrinsicSize {
-                    width: new_width,
-                    height: new_height,
-                    min_width,
-                    max_width,
-                    min_height,
-                    max_height,
-                },
-            );
+            cache.cache_intrinsic(entity, resolved);
             cache.complete_measure(entity);
             cache.clear_dirty(entity);
         }
+    }
+
+    if use_incremental_measure && cache.measure_dirty_count() == 0 {
+        cache.clear_all_dirty();
     }
 
     cache.increment_frame();
@@ -338,7 +332,121 @@ pub fn upward_measure_pass_cached(
 }
 
 #[allow(deprecated)]
-fn measure_flex_intrinsic(items: &[ChildMeasureItem], layout: &ULayout) -> (f32, f32, f32, f32) {
+pub(crate) fn measure_flex_intrinsic_with_hint(
+    items: &[ChildMeasureItem],
+    layout: &ULayout,
+    available_main_hint: Option<f32>,
+) -> (f32, f32, f32, f32) {
+    let wrap = if layout.flex_wrap != UFlexWrap::NoWrap {
+        layout.flex_wrap
+    } else {
+        layout.container_ext.flex.wrap
+    };
+    let Some(avail_main) =
+        available_main_hint.filter(|&v| wrap != UFlexWrap::NoWrap && v > 0.0 && v.is_finite())
+    else {
+        return measure_flex_intrinsic(items, layout);
+    };
+    if items.is_empty() {
+        return (0.0, 0.0, 0.0, 0.0);
+    }
+
+    let direction = layout.flex_direction;
+    let legacy_gap = layout.gap;
+    let row_gap = layout.row_gap.or(layout.container_ext.box_align.row_gap);
+    let column_gap = layout
+        .column_gap
+        .or(layout.container_ext.box_align.column_gap);
+
+    let (main_gap, cross_gap) =
+        if matches!(direction, UFlexDirection::Row | UFlexDirection::RowReverse) {
+            (column_gap.unwrap_or(legacy_gap), row_gap.unwrap_or(legacy_gap))
+        } else {
+            (row_gap.unwrap_or(legacy_gap), column_gap.unwrap_or(legacy_gap))
+        };
+
+    let mut min_main_single: f32 = 0.0;
+    let mut accum_main_unwrapped: f32 = 0.0;
+    let mut line_main: f32 = 0.0;
+    let mut line_cross_min: f32 = 0.0;
+    let mut line_cross_max: f32 = 0.0;
+    let mut total_cross_min: f32 = 0.0;
+    let mut total_cross_max: f32 = 0.0;
+    let mut line_count: usize = 0;
+    let mut items_in_line: usize = 0;
+
+    for (idx, item) in items.iter().enumerate() {
+        let margin = item.margin;
+        let (item_main_min, item_main_max, item_cross_min, item_cross_max) = match direction {
+            UFlexDirection::Row | UFlexDirection::RowReverse => (
+                item.min_w + margin.left + margin.right,
+                item.max_w + margin.left + margin.right,
+                item.min_h + margin.top + margin.bottom,
+                item.max_h + margin.top + margin.bottom,
+            ),
+            UFlexDirection::Column | UFlexDirection::ColumnReverse => (
+                item.min_h + margin.top + margin.bottom,
+                item.max_h + margin.top + margin.bottom,
+                item.min_w + margin.left + margin.right,
+                item.max_w + margin.left + margin.right,
+            ),
+        };
+
+        min_main_single = min_main_single.max(item_main_min);
+        accum_main_unwrapped += item_main_max + if idx > 0 { main_gap } else { 0.0 };
+
+        let tentative = if items_in_line == 0 {
+            item_main_max
+        } else {
+            line_main + main_gap + item_main_max
+        };
+
+        if items_in_line > 0 && tentative > avail_main {
+            total_cross_min += line_cross_min;
+            total_cross_max += line_cross_max;
+            line_count += 1;
+            line_main = item_main_max;
+            line_cross_min = item_cross_min;
+            line_cross_max = item_cross_max;
+            items_in_line = 1;
+        } else {
+            line_main = tentative;
+            line_cross_min = line_cross_min.max(item_cross_min);
+            line_cross_max = line_cross_max.max(item_cross_max);
+            items_in_line += 1;
+        }
+    }
+
+    if items_in_line > 0 {
+        total_cross_min += line_cross_min;
+        total_cross_max += line_cross_max;
+        line_count += 1;
+    }
+
+    if line_count > 1 {
+        let gap_total = (line_count - 1) as f32 * cross_gap;
+        total_cross_min += gap_total;
+        total_cross_max += gap_total;
+    }
+
+    match direction {
+        UFlexDirection::Row | UFlexDirection::RowReverse => (
+            min_main_single,
+            accum_main_unwrapped,
+            total_cross_min,
+            total_cross_max,
+        ),
+        UFlexDirection::Column | UFlexDirection::ColumnReverse => (
+            total_cross_min,
+            total_cross_max,
+            min_main_single,
+            accum_main_unwrapped,
+        ),
+    }
+}
+
+#[allow(deprecated)]
+pub(crate) fn measure_flex_intrinsic(items: &[ChildMeasureItem], layout: &ULayout) -> (f32, f32, f32, f32) {
     let direction = layout.flex_direction;
     let legacy_gap = layout.gap;
     let row_gap = layout.row_gap.or(layout.container_ext.box_align.row_gap);
@@ -398,7 +506,7 @@ fn measure_flex_intrinsic(items: &[ChildMeasureItem], layout: &ULayout) -> (f32,
     }
 }
 
-fn measure_stack_intrinsic(items: &[ChildMeasureItem]) -> (f32, f32, f32, f32) {
+pub(crate) fn measure_stack_intrinsic(items: &[ChildMeasureItem]) -> (f32, f32, f32, f32) {
     let mut min_w = 0.0f32;
     let mut max_w = 0.0f32;
     let mut min_h = 0.0f32;
@@ -446,12 +554,24 @@ fn can_place_item(
     true
 }
 
+#[cfg(test)]
 #[allow(deprecated)]
-fn measure_grid_intrinsic(
+pub(crate) fn measure_grid_intrinsic(
     scratch: &mut MeasurePassScratch,
     layout: &ULayout,
     width: UVal,
     padding: USides,
+) -> (f32, f32, f32, f32) {
+    measure_grid_intrinsic_with_hint(scratch, layout, width, padding, None)
+}
+
+#[allow(deprecated)]
+pub(crate) fn measure_grid_intrinsic_with_hint(
+    scratch: &mut MeasurePassScratch,
+    layout: &ULayout,
+    width: UVal,
+    padding: USides,
+    available_main_hint: Option<f32>,
 ) -> (f32, f32, f32, f32) {
     let fallback_cols = layout.grid_columns.max(1) as usize;
     let col_gap = layout
@@ -487,13 +607,18 @@ fn measure_grid_intrinsic(
     } else {
         layout.container_ext.grid.auto_rows
     };
+    let avail_w_opt = match width {
+        UVal::Px(w) => Some((w - padding.left - padding.right).max(0.0)),
+        _ => available_main_hint.filter(|&w| w > 0.0 && w.is_finite()),
+    };
+    let mut used_auto_repeat_cols = false;
     let template_cols_len: usize = template_columns
         .iter()
         .map(|t| match *t {
             UTrackSize::Repeat(count, _) => count as usize,
             UTrackSize::RepeatFit(track_repeat) | UTrackSize::RepeatFill(track_repeat) => {
-                if let UVal::Px(w) = width {
-                    let avail = (w - padding.left - padding.right).max(0.0);
+                used_auto_repeat_cols = true;
+                if let Some(avail) = avail_w_opt {
                     let min_bound = match track_repeat {
                         UTrackRepeat::Px(px) => px,
                         UTrackRepeat::Percent(p) => p * avail,
@@ -859,7 +984,11 @@ fn measure_grid_intrinsic(
         0.0
     };
 
-    let calc_min_w = scratch.col_min.iter().sum::<f32>() + total_col_gap;
+    let calc_min_w = if used_auto_repeat_cols && !matches!(width, UVal::Px(_)) {
+        scratch.col_min.iter().copied().fold(0.0_f32, f32::max)
+    } else {
+        scratch.col_min.iter().sum::<f32>() + total_col_gap
+    };
     let calc_max_w = scratch.col_max.iter().sum::<f32>() + total_col_gap;
     let calc_min_h = scratch.row_min.iter().sum::<f32>() + total_row_gap;
     let calc_max_h = scratch.row_max.iter().sum::<f32>() + total_row_gap;

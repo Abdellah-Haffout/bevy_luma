@@ -47,10 +47,14 @@ Luma is built on three simple, predictable concepts:
 | **Create a 3D in-game panel** | `URootUi::world_3d(Vec2::new(w, h))` | Places UI into the physical 3D scene |
 | **Size & position a box** | `UNode` | `width`, `height`, `padding`, `margin`, `background_color` |
 | **Layout direction & alignment** | `ULayout` | `display`, `flex_direction`, `justify_content`, `align_items`, `gap` |
-| **Render rounded corners** | `corner_radius: UCornerRadius::all(12.0)` | Independent corners or uniform radius |
-| **Render borders** | `UBorder { width, color, radius }` | Crisp SDF anti-aliased border |
-| **Render shadows** | `shadow: UShadow { ... }` | Offset, blur, spread, color |
-| **Render glowing HUD edges** | `glow: UGlow { ... }` | Inner/outer holographic glows |
+| **Render rounded corners** | `border_radius: UCornerRadius::all(12.0)` | Independent corners or uniform radius |
+| **Render borders** | `UBorder { width, color, radius, ..default() }` | Crisp SDF anti-aliased border |
+| **Render shadows** | `UShadow { offset, blur, spread, color, ..default() }` | Drop shadows & glows around nodes |
+| **Render glowing HUD edges** | `UShadow::glow(color, blur)` / `UInnerGlow` | Inner/outer holographic glows |
+| **3D PBR material on UI & text** | `UPbr` + `UPbrSurface` | Matte, wood, stone, chrome, gold, glass, bevels, shadows |
+| **UI / Text as a light source** | `ULightSource::lamp(...)` / `bulb` / `spotlight` | Syncs Bevy `RectLight` / `PointLight` / `SpotLight` & HDR glow |
+| **Block or tint scene light** | `ULightOccluder` / `ULightFilter` | SDF shadow cutout casting & optical gel filtering |
+| **Animate or gate UI by light** | `ULightModulator`, `ULightSensor`, `URequiresLight` | Waveforms, real irradiance telemetry, light-locked interaction |
 | **Display text or Lucide icons** | `UText` | `text`, `font_size`, `font`, `color` |
 | **Make a node clickable/hoverable** | `UInteraction::default()` | Responds to cursor hover, press, release |
 | **Auto-color on hover/press** | `UInteractionColors { normal, hovered, pressed }` | Automatic tinting without writing extra systems |
@@ -332,3 +336,12 @@ commands.spawn_scene(bsn! {
 - `cargo run --example luma_editorial_typography`: Editorial Magazine & Arabic RTL.
 - `cargo run --example luma_scroll_social_feed`: Kinetic Momentum Scroll Feed.
 - `cargo run --example luma_focus_game_menu`: Gamepad & Keyboard Focus Navigation.
+
+### 3D Lighting Suite (`examples/lighting/`):
+- `cargo run --example lighting_receiving_light`: PBR materials, bevel edge highlights, double-sided cards/text & shadows.
+- `cargo run --example lighting_emitting_and_sources`: `UNode` and `UText` panels acting as real Bevy `RectLight` / `PointLight` / `SpotLight` sources.
+- `cargo run --example lighting_blocking_light`: SDF node & text cutout shadows and `ULightOccluder` ray blocking.
+- `cargo run --example lighting_changing_light`: Optical `ULightFilter` gel sliding and `ULightModulator` light waveforms.
+- `cargo run --example lighting_light_dependent_ui`: `URequiresLight` interactive controls disabled in darkness and active under light.
+- `cargo run --example lighting_wood_in_darkness`: Zero-ambient non-emissive `UPbr::wood()` panels and carved typography invisible until lit.
+- `cargo run --example lighting_cyberpunk_plaza`: Zero-ambient free-roam 3D Cyberpunk Night Plaza with illuminated UI screens in every direction (`UShader`, `UGrid`, `UDisplay::Radial`, `UTextInput`, `UScrollContainer`, `ULightSource`, `ULightOccluder`, `ULightFilter`, `URequiresLight`, Arabic/Latin typography).

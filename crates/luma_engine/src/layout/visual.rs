@@ -69,6 +69,10 @@ pub enum UGradientInterpolation {
 /// Linear or radial gradient fill with multi-stop color blending.
 #[derive(Component, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component)]
+#[component(
+    on_insert = crate::layout::render::packet::on_gradient_insert,
+    on_remove = crate::layout::render::packet::on_gradient_remove
+)]
 pub struct UGradient {
     /// Ordered list of color stops (up to 8 stops).
     pub stops: Vec<UGradientStop>,
@@ -312,6 +316,10 @@ impl UGradient {
 /// Outer glow, drop shadow, or inner holographic glow for a [`crate::layout::univis_node::UNode`].
 #[derive(Component, Clone, Copy, Debug, PartialEq, Reflect)]
 #[reflect(Component)]
+#[component(
+    on_insert = crate::layout::render::packet::on_shadow_insert,
+    on_remove = crate::layout::render::packet::on_shadow_remove
+)]
 pub struct UShadow {
     /// Color and opacity of the shadow or glow.
     pub color: Color,
@@ -375,6 +383,10 @@ impl UShadow {
 /// Holographic inner edge glow radiating inward from the border.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Reflect)]
 #[reflect(Component)]
+#[component(
+    on_insert = crate::layout::render::packet::on_inner_glow_insert,
+    on_remove = crate::layout::render::packet::on_inner_glow_remove
+)]
 pub struct UInnerGlow {
     /// Color and opacity of the inner glow.
     pub color: Color,
@@ -482,6 +494,10 @@ impl UShaderBlendMode {
 /// ```
 #[derive(Component, Reflect, Clone, Debug, PartialEq)]
 #[reflect(Component, Default)]
+#[component(
+    on_insert = crate::layout::render::packet::on_shader_insert,
+    on_remove = crate::layout::render::packet::on_shader_remove
+)]
 pub struct UShader {
     /// Shader code or asset source.
     pub source: UShaderSource,

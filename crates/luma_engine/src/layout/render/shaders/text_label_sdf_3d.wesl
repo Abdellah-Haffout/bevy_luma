@@ -1,16 +1,26 @@
 import bevy_pbr::render::{
-    pbr_types,
-    pbr_functions,
     forward_io::VertexOutput,
+    mesh_bindings,
+    mesh_functions,
+    mesh_types,
+    mesh_view_bindings::view,
+    pbr_functions,
+    pbr_types,
 };
 
 struct UTextLabelSdfMaterial3d {
     color: vec4<f32>,
     outline_color: vec4<f32>,
+    emissive: vec4<f32>,
     edge_softness: f32,
     outline_width: f32,
-    _pad0: f32,
-    _pad1: f32,
+    metallic: f32,
+    roughness: f32,
+    reflectance: f32,
+    pbr_enabled: u32,
+    lighting_flags: u32,
+    _pad_lighting: f32,
+    bevel_params: vec4<f32>,
     clip_inv_x: array<vec4<f32>, 4>,
     clip_inv_y: array<vec4<f32>, 4>,
     clip_bounds: array<vec4<f32>, 4>,
@@ -22,11 +32,14 @@ struct UTextLabelSdfMaterial3d {
 @group(3) @binding(2) var text_sampler: sampler;
 
 fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
+    let limit = max(min(b.x, b.y), 0.0);
+    let r_clamped = min(max(r, vec4<f32>(0.0)), vec4<f32>(limit));
+
     let is_right = p.x > 0.0;
     let is_top = p.y > 0.0;
 
-    let r_top = select(r.z, r.x, is_right);
-    let r_bottom = select(r.w, r.y, is_right);
+    let r_top = select(r_clamped.z, r_clamped.x, is_right);
+    let r_bottom = select(r_clamped.w, r_clamped.y, is_right);
     let radius = select(r_bottom, r_top, is_top);
 
     let q = abs(p) - b + radius;
@@ -34,11 +47,14 @@ fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
 }
 
 fn sd_cut_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
+    let limit = max(min(b.x, b.y), 0.0);
+    let r_clamped = min(max(r, vec4<f32>(0.0)), vec4<f32>(limit));
+
     let is_right = p.x > 0.0;
     let is_top = p.y > 0.0;
 
-    let r_top = select(r.z, r.x, is_right);
-    let r_bottom = select(r.w, r.y, is_right);
+    let r_top = select(r_clamped.z, r_clamped.x, is_right);
+    let r_bottom = select(r_clamped.w, r_clamped.y, is_right);
     let radius = select(r_bottom, r_top, is_top);
 
     let q = abs(p) - b;
@@ -48,7 +64,10 @@ fn sd_cut_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(
+    in: VertexOutput,
+    @builtin(front_facing) is_front: bool,
+) -> @location(0) vec4<f32> {
     let tex_size = vec2<f32>(textureDimensions(text_texture));
     let uv_dx = dpdx(in.uv);
     let uv_dy = dpdy(in.uv);
@@ -92,6 +111,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let fill_color = material.color;
 
     var shape_premul: vec4<f32>;
+    var geom_alpha = fill_alpha;
 
     if (material.outline_width > 0.0 && material.outline_color.a > 0.0) {
         let out_a0 = smoothstep(-edge, edge, dist0 + material.outline_width);
@@ -100,6 +120,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let out_a3 = smoothstep(-edge, edge, dist3 + material.outline_width);
         let outline_alpha = (out_a0 + out_a1 + out_a2 + out_a3) * 0.25;
 
+        geom_alpha = clamp(fill_alpha + outline_alpha * (1.0 - fill_alpha), 0.0, 1.0);
         let fill_cov = fill_alpha * fill_color.a;
         let outline_cov = outline_alpha * (1.0 - fill_alpha) * material.outline_color.a;
         let alpha = clamp(fill_cov + outline_cov, 0.0, 1.0);
@@ -129,19 +150,91 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         clip_alpha = clip_alpha * (1.0 - smoothstep(-clip_edge, clip_edge, clip_distance));
     }
     let final_alpha = shape_premul.a * clip_alpha;
-
-    var pbr_input = pbr_types::pbr_input_new();
-    pbr_input.frag_coord = in.position;
-    pbr_input.world_position = in.world_position;
-
-    // Self-lit UI text preserves 2D sharpness/contrast while matching Bevy 3D tonemapping and exposure.
-    let processed = pbr_functions::main_pass_post_lighting_processing(
-        pbr_input,
-        vec4<f32>(shape_premul.rgb, 1.0),
-    );
     if (final_alpha <= 0.001) {
         discard;
     }
 
-    return vec4<f32>(processed.rgb * final_alpha, final_alpha);
+    var pbr_input = pbr_types::pbr_input_new();
+    pbr_input.frag_coord = in.position;
+    pbr_input.world_position = in.world_position;
+    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
+
+    let double_sided = (material.lighting_flags & 1u) != 0u;
+    let receive_shadows = (material.lighting_flags & 2u) != 0u;
+
+    var mesh_flags = 0u;
+@if(VERTEX_OUTPUT_INSTANCE_INDEX) {
+    mesh_flags = mesh_bindings::mesh[in.instance_index].flags;
+    if (receive_shadows) {
+        pbr_input.flags = mesh_flags;
+    } else {
+        pbr_input.flags = mesh_flags & (~mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT);
+    }
+}
+
+    let is_logically_front = pbr_functions::winding_corrected_front_facing(mesh_flags, is_front);
+    var world_normal = pbr_functions::prepare_world_normal(
+        in.world_normal,
+        double_sided,
+        is_logically_front,
+    );
+
+    let bevel_width = material.bevel_params.x;
+    let bevel_strength = material.bevel_params.y;
+    if (material.pbr_enabled > 0u && bevel_width > 0.0 && bevel_strength > 0.0) {
+        let s_avg = (s0 + s1 + s2 + s3) * 0.25;
+        let bevel_range = clamp(bevel_width * 0.035, 0.015, 0.45);
+        let dist_in = s_avg - 0.5;
+        if (dist_in >= -0.02 && dist_in < bevel_range) {
+            let inward = smoothstep(bevel_range, 0.0, max(dist_in, 0.0));
+            let texel = 0.75 / max(tex_size, vec2<f32>(1.0));
+            let sx_p = textureSampleLevel(text_texture, text_sampler, in.uv + vec2<f32>(texel.x, 0.0), 0.0).a;
+            let sx_n = textureSampleLevel(text_texture, text_sampler, in.uv - vec2<f32>(texel.x, 0.0), 0.0).a;
+            let sy_p = textureSampleLevel(text_texture, text_sampler, in.uv + vec2<f32>(0.0, texel.y), 0.0).a;
+            let sy_n = textureSampleLevel(text_texture, text_sampler, in.uv - vec2<f32>(0.0, texel.y), 0.0).a;
+            let grad_2d = vec2<f32>(-(sx_p - sx_n), sy_p - sy_n);
+            let grad_len = length(grad_2d);
+            if (grad_len > 1.0e-5) {
+                let n2d = grad_2d / grad_len;
+                let slope = bevel_strength * inward * 0.85;
+                let z_sign = select(-1.0, 1.0, !double_sided || is_logically_front);
+                let local_n = normalize(vec3<f32>(n2d.x * slope, n2d.y * slope, z_sign));
+@if(VERTEX_OUTPUT_INSTANCE_INDEX) {
+                let world_from_local = mesh_functions::get_world_from_local(in.instance_index);
+                world_normal = normalize((world_from_local * vec4<f32>(local_n, 0.0)).xyz);
+}
+            }
+        }
+    }
+
+    pbr_input.world_normal = world_normal;
+    pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
+    pbr_input.N = normalize(pbr_input.world_normal);
+
+    var mat_flags = pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT;
+    if (double_sided) {
+        mat_flags = mat_flags | pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT;
+    }
+    pbr_input.material.flags = mat_flags;
+    pbr_input.material.reflectance = vec3<f32>(material.reflectance);
+
+    let eff_material_alpha = clamp(shape_premul.a / max(geom_alpha, 0.0001), 0.0, 1.0);
+    var lit_rgb = shape_premul.rgb;
+    var out_rgb_scale = final_alpha;
+    if (material.pbr_enabled > 0u) {
+        let weighted_rgb = shape_premul.rgb * select(1.0, eff_material_alpha, eff_material_alpha < 0.999);
+        pbr_input.material.base_color = vec4<f32>(weighted_rgb, 1.0);
+        pbr_input.material.metallic = material.metallic;
+        pbr_input.material.perceptual_roughness = material.roughness;
+        // Keep `emissive.a = 0.0` (`emissive_exposure_weight`) so HDR text glow isn't dimmed by view exposure.
+        pbr_input.material.emissive = vec4<f32>(material.emissive.rgb * eff_material_alpha, 0.0);
+        lit_rgb = pbr_functions::apply_pbr_lighting(pbr_input).rgb;
+        out_rgb_scale = clamp(geom_alpha * clip_alpha, 0.0, 1.0);
+    }
+
+    let processed = pbr_functions::main_pass_post_lighting_processing(
+        pbr_input,
+        vec4<f32>(lit_rgb, 1.0),
+    );
+    return vec4<f32>(processed.rgb * out_rgb_scale, final_alpha);
 }

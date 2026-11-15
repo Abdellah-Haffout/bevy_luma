@@ -43,6 +43,17 @@ pub(super) fn resolved_render_scale_for_font(render_scale: f32, font_size: f32) 
     }
 }
 
+fn label_text_base_direction(label: &UTextLabel) -> super::super::measure::bidi::TextBaseDirection {
+    if !label.text.is_empty() {
+        super::super::measure::bidi::base_direction_for_text(&label.text)
+    } else if !label.spans.is_empty() {
+        let joined: String = label.spans.iter().map(|s| s.text.as_str()).collect();
+        super::super::measure::bidi::base_direction_for_text(&joined)
+    } else {
+        super::super::measure::bidi::TextBaseDirection::Ltr
+    }
+}
+
 pub(crate) fn text_horizontal_offset(
     label: &UTextLabel,
     node: &UNode,
@@ -50,11 +61,21 @@ pub(crate) fn text_horizontal_offset(
     text_size: Vec2,
 ) -> f32 {
     let content_width = (computed_size.width - node.padding.width_sum()).max(0.0);
+    let left_aligned = (-content_width * 0.5) + (text_size.x * 0.5);
+    let right_aligned = (content_width * 0.5) - (text_size.x * 0.5);
 
     match label.justify {
-        Justify::Left | Justify::Start => (-content_width * 0.5) + (text_size.x * 0.5),
+        Justify::Left => left_aligned,
+        Justify::Right => right_aligned,
+        Justify::Start => match label_text_base_direction(label) {
+            super::super::measure::bidi::TextBaseDirection::Rtl => right_aligned,
+            super::super::measure::bidi::TextBaseDirection::Ltr => left_aligned,
+        },
+        Justify::End => match label_text_base_direction(label) {
+            super::super::measure::bidi::TextBaseDirection::Rtl => left_aligned,
+            super::super::measure::bidi::TextBaseDirection::Ltr => right_aligned,
+        },
         Justify::Center | Justify::Justified => 0.0,
-        Justify::Right | Justify::End => (content_width * 0.5) - (text_size.x * 0.5),
     }
 }
 
@@ -150,15 +171,22 @@ fn build_sdf_material_3d(
     UTextLabelSdfMaterial3d {
         color,
         outline_color,
+        emissive: LinearRgba::NONE,
         edge_softness: DEFAULT_TEXT_EDGE_SOFTNESS,
         outline_width,
-        _pad0: 0.0,
-        _pad1: 0.0,
+        metallic: 0.0,
+        roughness: 0.5,
+        reflectance: 0.5,
+        pbr_enabled: 0,
+        lighting_flags: 0,
+        _pad_lighting: 0.0,
+        bevel_params: Vec4::ZERO,
         clip_inv_x: [Vec4::ZERO; 4],
         clip_inv_y: [Vec4::ZERO; 4],
         clip_bounds: [Vec4::ZERO; 4],
         clip_radius: [Vec4::ZERO; 4],
         texture,
+        alpha_mode: AlphaMode::Premultiplied,
     }
 }
 

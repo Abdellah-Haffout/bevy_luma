@@ -67,7 +67,14 @@ pub enum UShapeMode {
 /// }
 /// ```
 #[derive(Component, Clone, PartialEq, Reflect)]
-#[require(Transform, Visibility, ComputedSize, ULayout, IntrinsicSize)]
+#[require(
+    Transform,
+    Visibility,
+    ComputedSize,
+    ULayout,
+    IntrinsicSize,
+    crate::layout::render::packet::VisualRenderPacket
+)]
 pub struct UNode {
     /// Preferred width of the node.
     pub width: UVal,
@@ -189,6 +196,10 @@ fn sanitize_bounds(min: f32, max: f32) -> (f32, f32) {
 
 /// Defines a border rendered around a [`UNode`].
 #[derive(Component, Clone)]
+#[component(
+    on_insert = crate::layout::render::packet::on_border_insert,
+    on_remove = crate::layout::render::packet::on_border_remove
+)]
 pub struct UBorder {
     /// The color of the border.
     pub color: Color,

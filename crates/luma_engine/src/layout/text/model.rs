@@ -134,6 +134,41 @@ impl From<Vec<UTextSpan>> for UTextSpansTemplate {
     }
 }
 
+/// Ordered fallback font handles applied globally when primary glyph lookup misses.
+#[derive(Resource, Reflect, Default, Clone, Debug, PartialEq)]
+#[reflect(Resource)]
+pub struct TextFallbackFonts(pub Vec<Handle<Font>>);
+
+/// Custom BSN template wrapper for per-label fallback font handles.
+#[derive(Clone, Default, Debug)]
+pub struct UTextFallbackFontsTemplate(pub Vec<Handle<Font>>);
+
+impl Unpin for UTextFallbackFontsTemplate where
+    for<'a> [()]: bevy::ecs::template::SpecializeFromTemplate
+{
+}
+
+impl bevy::prelude::Template for UTextFallbackFontsTemplate {
+    type Output = Vec<Handle<Font>>;
+
+    fn build_template(
+        &self,
+        _context: &mut bevy::ecs::template::TemplateContext,
+    ) -> bevy::ecs::error::Result<Self::Output> {
+        Ok(self.0.clone())
+    }
+
+    fn clone_template(&self) -> Self {
+        self.clone()
+    }
+}
+
+impl From<Vec<Handle<Font>>> for UTextFallbackFontsTemplate {
+    fn from(fonts: Vec<Handle<Font>>) -> Self {
+        Self(fonts)
+    }
+}
+
 /// Core text primitive backed by Bevy text measurement and Univis SDF rendering.
 #[derive(Component, Clone, Reflect, FromTemplate)]
 #[reflect(Component)]
@@ -146,6 +181,9 @@ pub struct UTextLabel {
     pub font_size: f32,
     pub color: Color,
     pub font: Handle<Font>,
+    /// Per-label fallback fonts tried after `font` and before global `TextFallbackFonts`.
+    #[template(UTextFallbackFontsTemplate)]
+    pub fallback_fonts: Vec<Handle<Font>>,
     pub justify: Justify,
     pub linebreak: LineBreak,
     /// Text wrap mode controlling whether lines wrap at word boundaries or clamp.
@@ -270,7 +308,8 @@ impl Default for UTextLabel {
             font_size: 16.0,
             color: Color::WHITE,
             font: Handle::default(),
-            justify: Justify::Left,
+            fallback_fonts: Vec::new(),
+            justify: Justify::Start,
             linebreak: LineBreak::NoWrap,
             wrap_mode: UTextWrapMode::SingleLine,
             autosize: true,

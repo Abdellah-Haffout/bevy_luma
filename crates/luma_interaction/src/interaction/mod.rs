@@ -74,6 +74,7 @@ impl Plugin for LumaInteractionPlugin {
             .add_systems(
                 Update,
                 (
+                    feedback::sync_light_locked_interactions,
                     focus::focus_cleanup_system,
                     focus::focus_keyboard_navigation_system,
                     focus::focus_gamepad_navigation_system,

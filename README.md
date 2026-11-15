@@ -27,8 +27,14 @@
 
 - **Pure GPU Signed Distance Field (SDF) Rendering**:
   - Pixel-perfect, anti-aliased rounded corners (`UCornerRadius`), dynamic borders (`UBorder`), and box shadows (`UShadow`).
-  - Real-time inner and outer holographic glows (`UGlow`) rendered in optimized shader passes.
+  - Real-time outer glows (`UShadow::glow`) and inner holographic glows (`UInnerGlow`) rendered in optimized shader passes.
   - Zero-cost resolution scaling: crisp at 720p, 4K, or in VR headsets.
+
+- **3D Physically Based Lighting & Optical Interaction (for both `UNode` and `UText`)**:
+  - **Receiving & Reflecting Light**: Real PBR materials (`UPbr::wood()`, `matte()`, `stone()`, `brushed_metal()`, `chrome()`, `gold()`, `glass()`) with procedural SDF edge bevel normals (`UPbrSurface`) and shadow receiving.
+  - **Emissive UI & Light Sources**: Turn any `World3d` `UNode` or `UText` into an HDR emissive fixture and real Bevy light emitter (`ULightSource::lamp`, `bulb`, `spotlight`).
+  - **SDF Occlusion, Optical Filtering & Modulation**: Block real shadow rays (`ULightOccluder`) from UI cards and glyph silhouettes, tint beams with optical gels (`ULightFilter`), and animate lights (`ULightModulator`).
+  - **Light Sensors & Light-Gated UI**: Sense irradiance (`ULightSensor`) and require physical light (`URequiresLight`) to enable pointer/focus interaction.
 
 - **Native Layout Engine (`luma_layout`)**:
   - Independent layout engine written in pure Rust with zero Web engine dependencies.
@@ -266,6 +272,18 @@ cargo run --example luma_fantasy_rpg_hud         # Fantasy RPG Game HUD
 cargo run --example luma_editorial_typography    # Editorial Magazine & Arabic RTL
 cargo run --example luma_scroll_social_feed      # Kinetic Momentum Scroll Feed
 cargo run --example luma_focus_game_menu         # Gamepad & Keyboard Focus Navigation
+```
+
+### 3D Lighting Suite (`examples/lighting/`)
+
+```bash
+cargo run --example lighting_receiving_light      # PBR materials, bevel normals, double-sided & shadows
+cargo run --example lighting_emitting_and_sources  # UNode & UText as real RectLight / PointLight / SpotLight
+cargo run --example lighting_blocking_light       # SDF node & text cutout shadow casting + occlusion sensors
+cargo run --example lighting_changing_light       # Optical ULightFilter gels & ULightModulator waveforms
+cargo run --example lighting_light_dependent_ui   # URequiresLight widgets locked in darkness, active when lit
+cargo run --example lighting_wood_in_darkness     # Zero-ambient non-emissive wood revealed only by light beams
+cargo run --example lighting_cyberpunk_plaza      # Free-roam 3D zero-ambient Cyberpunk Plaza with 4 UI towers
 ```
 
 ---

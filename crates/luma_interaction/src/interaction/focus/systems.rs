@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use core::time::Duration;
 use luma_engine::layout::{
     geometry::ComputedSize,
+    lighting::URequiresLight,
     univis_node::{UDisplay, ULayout},
 };
 
@@ -15,21 +16,30 @@ use super::{
     },
 };
 
+fn is_light_enabled(req: Option<&URequiresLight>) -> bool {
+    req.is_none_or(URequiresLight::allows_interaction)
+}
+
 /// Cleanup system verifying that the currently focused entity remains valid and enabled.
 pub fn focus_cleanup_system(
     mut commands: Commands,
     mut focus_state: Option<ResMut<UFocusState>>,
-    query: Query<(&UFocusable, Option<&ULayout>, Option<&Visibility>)>,
+    query: Query<(
+        &UFocusable,
+        Option<&ULayout>,
+        Option<&Visibility>,
+        Option<&URequiresLight>,
+    )>,
 ) {
     let Some(ref mut focus_state) = focus_state else {
         return;
     };
     if let Some(focused) = focus_state.focused {
-        if let Ok((focusable, layout_opt, vis_opt)) = query.get(focused) {
+        if let Ok((focusable, layout_opt, vis_opt, req_opt)) = query.get(focused) {
             let is_visible = vis_opt.is_none_or(|v| *v != Visibility::Hidden)
                 && layout_opt.is_none_or(|l| l.display != UDisplay::None);
 
-            if !focusable.enabled || !is_visible {
+            if !focusable.enabled || !is_visible || !is_light_enabled(req_opt) {
                 let modality = focus_state.modality;
                 set_focus(&mut commands, focus_state, None, modality);
             }
@@ -54,6 +64,7 @@ pub fn focus_keyboard_navigation_system(
         Option<&ComputedSize>,
         Option<&ULayout>,
         Option<&Visibility>,
+        Option<&URequiresLight>,
     )>,
 ) {
     let (Some(keyboard), Some(settings), Some(ref mut focus_state)) =
@@ -71,6 +82,9 @@ pub fn focus_keyboard_navigation_system(
             || keyboard.just_pressed(KeyCode::NumpadEnter)
             || keyboard.just_pressed(KeyCode::Space))
         && let Some(focused) = focus_state.focused
+        && focusable_query
+            .get(focused)
+            .is_ok_and(|(_, f, _, _, _, _, req_opt)| f.enabled && is_light_enabled(req_opt))
     {
         if let Ok(mut cmd) = commands.get_entity(focused) {
             cmd.trigger(|entity| UFocusActivate { entity });
@@ -94,12 +108,13 @@ pub fn focus_keyboard_navigation_system(
             keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
         let candidates: Vec<(Entity, Option<i32>, Vec2)> = focusable_query
             .iter()
-            .filter(|(_, focusable, _, _, layout_opt, vis_opt)| {
+            .filter(|(_, focusable, _, _, layout_opt, vis_opt, req_opt)| {
                 focusable.enabled
                     && vis_opt.is_none_or(|v| *v != Visibility::Hidden)
                     && layout_opt.is_none_or(|l| l.display != UDisplay::None)
+                    && is_light_enabled(*req_opt)
             })
-            .map(|(e, f, t, _, _, _)| (e, f.tab_index, t.translation().xy()))
+            .map(|(e, f, t, _, _, _, _)| (e, f.tab_index, t.translation().xy()))
             .collect();
 
         if let Some(target) = find_next_tab_candidate(focus_state.focused, backward, &candidates) {
@@ -204,6 +219,7 @@ pub fn focus_gamepad_navigation_system(
         Option<&ComputedSize>,
         Option<&ULayout>,
         Option<&Visibility>,
+        Option<&URequiresLight>,
     )>,
 ) {
     let (Some(settings), Some(ref mut focus_state)) = (settings, focus_state) else {
@@ -218,6 +234,9 @@ pub fn focus_gamepad_navigation_system(
         if settings.activation
             && gamepad.just_pressed(GamepadButton::South)
             && let Some(focused) = focus_state.focused
+            && focusable_query
+                .get(focused)
+                .is_ok_and(|(_, f, _, _, _, _, req_opt)| f.enabled && is_light_enabled(req_opt))
         {
             if let Ok(mut cmd) = commands.get_entity(focused) {
                 cmd.trigger(|entity| UFocusActivate { entity });
@@ -345,20 +364,24 @@ fn execute_spatial_navigation(
         Option<&ComputedSize>,
         Option<&ULayout>,
         Option<&Visibility>,
+        Option<&URequiresLight>,
     )>,
 ) {
-    let is_node_active = |layout_opt: Option<&ULayout>, vis_opt: Option<&Visibility>| {
+    let is_node_active = |layout_opt: Option<&ULayout>,
+                          vis_opt: Option<&Visibility>,
+                          req_opt: Option<&URequiresLight>| {
         vis_opt.is_none_or(|v| *v != Visibility::Hidden)
             && layout_opt.is_none_or(|l| l.display != UDisplay::None)
+            && is_light_enabled(req_opt)
     };
 
     let Some(current_entity) = focus_state.focused else {
         let initial_candidates: Vec<(Entity, Option<i32>, Vec2)> = query
             .iter()
-            .filter(|(_, focusable, _, _, layout_opt, vis_opt)| {
-                focusable.enabled && is_node_active(*layout_opt, *vis_opt)
+            .filter(|(_, focusable, _, _, layout_opt, vis_opt, req_opt)| {
+                focusable.enabled && is_node_active(*layout_opt, *vis_opt, *req_opt)
             })
-            .map(|(e, f, t, _, _, _)| (e, f.tab_index, t.translation().xy()))
+            .map(|(e, f, t, _, _, _, _)| (e, f.tab_index, t.translation().xy()))
             .collect();
 
         if let Some(target) = find_initial_focus_candidate(&initial_candidates) {
@@ -367,7 +390,7 @@ fn execute_spatial_navigation(
         return;
     };
 
-    let Ok((_, current_focusable, current_transform, current_size_opt, _, _)) =
+    let Ok((_, current_focusable, current_transform, current_size_opt, _, _, _)) =
         query.get(current_entity)
     else {
         return;
@@ -382,9 +405,10 @@ fn execute_spatial_navigation(
     };
 
     if let Some(target) = explicit_target
-        && let Ok((_, target_focusable, _, _, target_layout, target_vis)) = query.get(target)
+        && let Ok((_, target_focusable, _, _, target_layout, target_vis, target_req)) =
+            query.get(target)
         && target_focusable.enabled
-        && is_node_active(target_layout, target_vis)
+        && is_node_active(target_layout, target_vis, target_req)
     {
         set_focus(commands, focus_state, Some(target), modality);
         return;
@@ -398,10 +422,12 @@ fn execute_spatial_navigation(
 
     let candidates: Vec<(Entity, Vec2, Vec2)> = query
         .iter()
-        .filter(|(entity, focusable, _, _, layout_opt, vis_opt)| {
-            *entity != current_entity && focusable.enabled && is_node_active(*layout_opt, *vis_opt)
+        .filter(|(entity, focusable, _, _, layout_opt, vis_opt, req_opt)| {
+            *entity != current_entity
+                && focusable.enabled
+                && is_node_active(*layout_opt, *vis_opt, *req_opt)
         })
-        .map(|(entity, _, transform, size_opt, _, _)| {
+        .map(|(entity, _, transform, size_opt, _, _, _)| {
             let pos = transform.translation().xy();
             let size = size_opt.map(|c| c.size()).unwrap_or(Vec2::new(100.0, 40.0));
             (entity, pos, size)

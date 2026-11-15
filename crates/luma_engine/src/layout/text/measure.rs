@@ -1,4 +1,4 @@
-pub(super) mod bidi;
+pub(crate) mod bidi;
 pub(super) mod bounds;
 pub(super) mod invalidation;
 mod measurement;
@@ -20,8 +20,8 @@ use bevy::asset::{AssetEvent, Assets};
 use bevy::ecs::relationship::Relationship;
 use bevy::prelude::*;
 use bevy::text::{
-    ComputedTextBlock, FontCx, LayoutCx, LetterSpacing, LineBreak, LineHeight, RemSize, TextBounds,
-    TextElement, TextFont, TextLayout, TextPipeline,
+    ComputedTextBlock, FontCx, FontSource, LayoutCx, LetterSpacing, LineBreak, LineHeight, RemSize,
+    TextBounds, TextElement, TextFont, TextLayout, TextPipeline,
 };
 use std::collections::{HashMap, HashSet};
 use unicode_bidi::BidiInfo;
@@ -42,12 +42,15 @@ use self::measurement::{
     measure_layout_for_label, measure_layout_for_text, resolve_final_measured_text,
 };
 use super::model::{
-    UTextLabel, UTextLabelLayoutCache, UTextOverflow, UTextTruncateSide, UTextWrapMode,
+    TextFallbackFonts, UTextLabel, UTextLabelLayoutCache, UTextOverflow, UTextTruncateSide,
+    UTextWrapMode,
 };
 
 pub fn measure_text_label_layout(
     font_events: Option<MessageReader<AssetEvent<Font>>>,
     fonts: Option<Res<Assets<Font>>>,
+    global_fallbacks: Option<Res<TextFallbackFonts>>,
+    mut known_ready_fonts: Local<HashSet<AssetId<Font>>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
@@ -81,8 +84,29 @@ pub fn measure_text_label_layout(
         }
     }
 
+    // Bevy's TextPlugin populates `font.alias` via untracked mutation when adding fonts to
+    // `FontCx`; also re-measure any label whose primary/fallback font becomes ready this frame.
+    for (id, font) in fonts.iter() {
+        if !font.alias.is_empty() && known_ready_fonts.insert(id) {
+            changed_fonts.insert(id);
+        }
+    }
+    known_ready_fonts.retain(|id| fonts.contains(*id));
+
+    let fallbacks_slice: &[Handle<Font>] = global_fallbacks
+        .as_ref()
+        .map_or(&[], |fb| fb.0.as_slice());
+    let fallbacks_res_changed = global_fallbacks
+        .as_ref()
+        .is_some_and(|fb| fb.is_changed() || fallbacks_slice.iter().any(|h| changed_fonts.contains(&h.id())));
+
     for (entity, label, node, computed_size, mut computed, mut cache) in query.iter_mut() {
-        let font_changed = changed_fonts.contains(&label.font.id())
+        let font_changed = fallbacks_res_changed
+            || changed_fonts.contains(&label.font.id())
+            || label
+                .fallback_fonts
+                .iter()
+                .any(|f| changed_fonts.contains(&f.id()))
             || label.spans.iter().any(|s| {
                 s.font
                     .as_ref()
@@ -102,7 +126,7 @@ pub fn measure_text_label_layout(
             continue;
         }
 
-        let text_font = label_text_font(&label);
+        let text_font = label_text_font(&label, fallbacks_slice, &fonts);
         let text_layout = label_text_layout(&label);
         let text_color = label.color;
         let bounds = label_measure_bounds(&label, &node, Some(&computed_size), parent_bounds);
@@ -112,6 +136,7 @@ pub fn measure_text_label_layout(
             &label,
             TextMeasureStage::FullText,
             &text_font,
+            fallbacks_slice,
             &text_layout,
             text_color,
             bounds,
@@ -306,6 +331,146 @@ pub fn sync_text_label_intrinsic_size(
             || (intrinsic.height - target.height).abs() > 0.1
         {
             *intrinsic = target;
+        }
+    }
+}
+
+/// Re-applies single-line ellipsis truncation when `LayoutSolve` shrinks a label's `ComputedSize`
+/// narrower than its intrinsic measured width, without mutating `IntrinsicSize` (avoiding loops).
+pub(super) fn constrain_text_labels_to_computed_size(
+    fonts: Option<Res<Assets<Font>>>,
+    global_fallbacks: Option<Res<TextFallbackFonts>>,
+    mut text_pipeline: ResMut<TextPipeline>,
+    mut font_cx: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+    mut removed_labels: RemovedComponents<UTextLabel>,
+    mut last_constrained_width: Local<HashMap<Entity, f32>>,
+    parents_query: Query<&ChildOf>,
+    parent_query: Query<(&UNode, &ComputedSize)>,
+    mut query: Query<
+        (
+            Entity,
+            Ref<UTextLabel>,
+            Ref<UNode>,
+            Ref<ComputedSize>,
+            &mut ComputedTextBlock,
+            &mut UTextLabelLayoutCache,
+        ),
+        Or<(Changed<ComputedSize>, Changed<UTextLabelLayoutCache>)>,
+    >,
+) {
+    for entity in removed_labels.read() {
+        last_constrained_width.remove(&entity);
+    }
+
+    let Some(fonts) = fonts else {
+        return;
+    };
+    let fallbacks_slice: &[Handle<Font>] = global_fallbacks
+        .as_ref()
+        .map_or(&[], |fb| fb.0.as_slice());
+
+    for (entity, label, node, computed_size, mut computed, mut cache) in query.iter_mut() {
+        if cache.dirty
+            || label.is_wrapping()
+            || label.overflow != UTextOverflow::Ellipsis
+            || !label.spans.is_empty()
+            || computed_size.width <= 0.5
+        {
+            last_constrained_width.remove(&entity);
+            continue;
+        }
+
+        let avail_w = (computed_size.width - node.padding.width_sum()).max(0.0);
+        if avail_w <= 0.5 {
+            continue;
+        }
+
+        let needs_shrink = cache.measured_size.x > avail_w + 0.5;
+        let expanded_after_shrink = last_constrained_width
+            .get(&entity)
+            .is_some_and(|&prev_w| avail_w > prev_w + 0.5 && cache.overflowed);
+
+        if !needs_shrink && !expanded_after_shrink {
+            if !cache.overflowed {
+                last_constrained_width.remove(&entity);
+            }
+            continue;
+        }
+
+        if let Some(&prev_w) = last_constrained_width.get(&entity)
+            && !needs_shrink
+            && (avail_w - prev_w).abs() <= 0.5
+        {
+            continue;
+        }
+
+        let parent_bounds =
+            parent_label_bounds(entity, &label, &node, &parents_query, &parent_query);
+        let mut bounds = label_measure_bounds(&label, &node, Some(&computed_size), parent_bounds);
+        bounds.width = Some(bounds.width.map_or(avail_w, |bw| bw.min(avail_w)));
+        if label.effective_max_lines().is_none() {
+            bounds.height = None;
+        }
+
+        let text_font = label_text_font(&label, fallbacks_slice, &fonts);
+        let text_layout = label_text_layout(&label);
+        let text_color = label.color;
+
+        let Ok(measured) = measure_layout_for_label(
+            entity,
+            &label,
+            TextMeasureStage::FullText,
+            &text_font,
+            fallbacks_slice,
+            &text_layout,
+            text_color,
+            bounds,
+            &fonts,
+            &mut text_pipeline,
+            &mut computed,
+            &mut font_cx,
+            &mut layout_cx,
+        ) else {
+            continue;
+        };
+
+        let Ok((final_text, final_measured, overflowed)) = resolve_final_measured_text(
+            entity,
+            &label,
+            &text_font,
+            &text_layout,
+            text_color,
+            bounds,
+            &fonts,
+            &mut text_pipeline,
+            &mut computed,
+            &mut font_cx,
+            &mut layout_cx,
+            measured,
+        ) else {
+            continue;
+        };
+
+        let preserved_min = cache.min_content_size;
+        let preserved_max = cache.max_content_size;
+        if cache.measured_size != final_measured.size
+            || cache.displayed_text != final_text
+            || cache.line_count != final_measured.line_count
+            || cache.overflowed != overflowed
+        {
+            cache.measured_size = final_measured.size;
+            cache.displayed_text = final_text;
+            cache.line_count = final_measured.line_count;
+            cache.overflowed = overflowed;
+            cache.min_content_size = preserved_min;
+            cache.max_content_size = preserved_max;
+        }
+
+        if avail_w + 0.5 >= preserved_max.x && !overflowed {
+            last_constrained_width.remove(&entity);
+        } else {
+            last_constrained_width.insert(entity, avail_w);
         }
     }
 }

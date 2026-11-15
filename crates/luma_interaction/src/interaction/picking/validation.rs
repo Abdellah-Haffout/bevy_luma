@@ -1,4 +1,5 @@
 use super::*;
+use luma_engine::layout::lighting::URequiresLight;
 use luma_engine::schedule::UiPickingRuntimeState;
 
 pub fn post_settle_picking_backend(
@@ -19,6 +20,7 @@ pub fn post_settle_picking_backend(
     visibility_query: Query<&Visibility>,
     parents_query: Query<&ChildOf>,
     clipper_query: Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
+    requires_light_query: Query<&URequiresLight>,
     mut validation_state: ResMut<PickingValidationState>,
     mut sync_state: ResMut<PickingSyncState>,
     mut profiler: Option<ResMut<LayoutProfiler>>,
@@ -55,6 +57,7 @@ pub fn post_settle_picking_backend(
         &visibility_query,
         &parents_query,
         &clipper_query,
+        &requires_light_query,
         profiler.as_deref_mut(),
     );
 

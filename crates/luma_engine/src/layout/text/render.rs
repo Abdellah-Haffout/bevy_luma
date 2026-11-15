@@ -3,6 +3,8 @@ pub(super) mod clip_sync;
 pub(crate) mod mesh;
 mod sdf;
 
+use crate::layout::lighting::{ULightOccluder, resolve_surface_lighting};
+use crate::layout::pbr::{UPbr, UPbrSurface};
 use crate::layout::query::{CachedUiContext, UI3d};
 use crate::layout::query::{ComputedSize, ResolvedRootStack, ResolvedRootUi};
 use crate::layout::univis_node::{UClip, UNode};
@@ -94,13 +96,25 @@ pub(crate) struct UTextLabelSdfMaterial3d {
     #[uniform(0)]
     pub(crate) outline_color: LinearRgba,
     #[uniform(0)]
+    pub(crate) emissive: LinearRgba,
+    #[uniform(0)]
     pub(crate) edge_softness: f32,
     #[uniform(0)]
     pub(crate) outline_width: f32,
     #[uniform(0)]
-    pub(crate) _pad0: f32,
+    pub(crate) metallic: f32,
     #[uniform(0)]
-    pub(crate) _pad1: f32,
+    pub(crate) roughness: f32,
+    #[uniform(0)]
+    pub(crate) reflectance: f32,
+    #[uniform(0)]
+    pub(crate) pbr_enabled: u32,
+    #[uniform(0)]
+    pub(crate) lighting_flags: u32,
+    #[uniform(0)]
+    pub(crate) _pad_lighting: f32,
+    #[uniform(0)]
+    pub(crate) bevel_params: Vec4,
     #[uniform(0)]
     pub(crate) clip_inv_x: [Vec4; 4],
     #[uniform(0)]
@@ -112,6 +126,7 @@ pub(crate) struct UTextLabelSdfMaterial3d {
     #[texture(1)]
     #[sampler(2)]
     pub(crate) texture: Handle<Image>,
+    pub(crate) alpha_mode: AlphaMode,
 }
 
 impl Material for UTextLabelSdfMaterial3d {
@@ -119,8 +134,12 @@ impl Material for UTextLabelSdfMaterial3d {
         "embedded://luma_engine/layout/render/shaders/text_label_sdf_3d.wesl".into()
     }
 
+    fn prepass_fragment_shader() -> ShaderRef {
+        "embedded://luma_engine/layout/render/shaders/text_prepass_3d.wesl".into()
+    }
+
     fn alpha_mode(&self) -> AlphaMode {
-        AlphaMode::Premultiplied
+        self.alpha_mode
     }
 
     fn specialize(
@@ -162,6 +181,29 @@ fn resolve_text_mesh_world_scale(
     0.01
 }
 
+fn apply_text_lighting(
+    mat: &mut UTextLabelSdfMaterial3d,
+    pbr_opt: Option<&UPbr>,
+    surface_opt: Option<&UPbrSurface>,
+    occluder_opt: Option<&ULightOccluder>,
+) {
+    let (pbr_enabled, metallic, roughness, emissive) = if let Some(pbr) = pbr_opt {
+        (1u32, pbr.metallic, pbr.roughness, pbr.emissive)
+    } else {
+        (0u32, 0.0, 0.5, LinearRgba::NONE)
+    };
+    let (reflectance, lighting_flags, bevel_params, alpha_mode) =
+        resolve_surface_lighting(surface_opt, occluder_opt);
+    mat.emissive = emissive;
+    mat.metallic = metallic;
+    mat.roughness = roughness;
+    mat.reflectance = reflectance;
+    mat.pbr_enabled = pbr_enabled;
+    mat.lighting_flags = lighting_flags;
+    mat.bevel_params = bevel_params;
+    mat.alpha_mode = alpha_mode;
+}
+
 pub(super) fn sync_text_label_meshes(
     mut commands: Commands,
     mut atlas_cache: ResMut<UTextLabelAtlasCache>,
@@ -185,17 +227,45 @@ pub(super) fn sync_text_label_meshes(
             Option<&Children>,
             Has<UI3d>,
             Option<&CachedUiContext>,
+            Option<&UPbr>,
+            Option<&UPbrSurface>,
+            Option<&ULightOccluder>,
         ),
         Or<(
-            Added<UTextLabel>,
-            Changed<UTextLabel>,
-            Changed<UNode>,
-            Changed<ComputedSize>,
-            Changed<ComputedTextBlock>,
-            Changed<UTextLabelLayoutCache>,
-            Added<UI3d>,
-            Changed<CachedUiContext>,
+            Or<(
+                Added<UTextLabel>,
+                Changed<UTextLabel>,
+                Changed<UNode>,
+                Changed<ComputedSize>,
+                Changed<ComputedTextBlock>,
+                Changed<UTextLabelLayoutCache>,
+                Added<UI3d>,
+                Changed<CachedUiContext>,
+            )>,
+            Or<(
+                Added<UPbr>,
+                Changed<UPbr>,
+                Added<UPbrSurface>,
+                Changed<UPbrSurface>,
+                Added<ULightOccluder>,
+                Changed<ULightOccluder>,
+            )>,
         )>,
+    >,
+    mut removed_lighting: (
+        RemovedComponents<UPbr>,
+        RemovedComponents<UPbrSurface>,
+        RemovedComponents<ULightOccluder>,
+    ),
+    text_lighting_sync_query: Query<
+        (
+            &UNode,
+            Option<&UPbr>,
+            Option<&UPbrSurface>,
+            Option<&ULightOccluder>,
+            &Children,
+        ),
+        (With<UTextLabel>, With<UI3d>),
     >,
     child_query: Query<
         (
@@ -221,6 +291,31 @@ pub(super) fn sync_text_label_meshes(
         return;
     };
 
+    for entity in removed_lighting
+        .0
+        .read()
+        .chain(removed_lighting.1.read())
+        .chain(removed_lighting.2.read())
+    {
+        if let Ok((_node, pbr_opt, surface_opt, occluder_opt, children)) =
+            text_lighting_sync_query.get(entity)
+        {
+            for child in children.iter() {
+                if let Ok((_ce, _co, _page, _m2, _m3, _mat2, Some(mat_3d))) =
+                    child_query.get(child)
+                    && let Some(mut existing_material) = materials_3d.get_mut(&mat_3d.0)
+                {
+                    apply_text_lighting(
+                        &mut existing_material,
+                        pbr_opt,
+                        surface_opt,
+                        occluder_opt,
+                    );
+                }
+            }
+        }
+    }
+
     for (
         entity,
         label,
@@ -231,6 +326,9 @@ pub(super) fn sync_text_label_meshes(
         children,
         is_3d,
         cached_context,
+        pbr_opt,
+        surface_opt,
+        occluder_opt,
     ) in label_query.iter()
     {
         let mut existing_children = HashMap::new();
@@ -529,8 +627,9 @@ pub(super) fn sync_text_label_meshes(
                     if is_3d {
                         if let Some(h) = mat_handle_3d {
                             if let Some(mut existing_material) = materials_3d.get_mut(&h) {
-                                *existing_material =
-                                    build_text_material_3d(&label, batch.texture.clone());
+                                let mut mat = build_text_material_3d(&label, batch.texture.clone());
+                                apply_text_lighting(&mut mat, pbr_opt, surface_opt, occluder_opt);
+                                *existing_material = mat;
                             }
                         }
                     } else {
@@ -555,12 +654,11 @@ pub(super) fn sync_text_label_meshes(
                                 Visibility::Inherited,
                             ));
                             if is_3d {
+                                let mut mat = build_text_material_3d(&label, batch.texture.clone());
+                                apply_text_lighting(&mut mat, pbr_opt, surface_opt, occluder_opt);
                                 child_cmd.insert((
                                     Mesh3d(meshes.add(mesh)),
-                                    MeshMaterial3d(
-                                        materials_3d
-                                            .add(build_text_material_3d(&label, batch.texture.clone())),
-                                    ),
+                                    MeshMaterial3d(materials_3d.add(mat)),
                                 ));
                             } else {
                                 child_cmd.insert((

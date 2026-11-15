@@ -43,8 +43,8 @@ pub mod render {
 /// Advanced layout access for roots, node primitives, text, and layout-specific systems.
 pub mod layout {
     pub use luma_engine::layout::{
-        LumaLayoutPlugin, UnivisLayoutPlugin, geometry, image, invalidation, layout_system, pbr,
-        profiling, query, render, text, transition, univis_node, visual,
+        LumaLayoutPlugin, UnivisLayoutPlugin, geometry, image, invalidation, layout_system,
+        lighting, pbr, profiling, query, render, text, transition, univis_node, visual,
     };
 
     /// Common layout-facing imports such as roots, nodes, and geometry helpers.
@@ -84,6 +84,20 @@ impl Plugin for LumaPlugin {
         app.add_plugins(LumaStylePlugin)
             .add_plugins(LumaEnginePlugin)
             .add_plugins(LumaInteractionPlugin);
+
+        let fallback_fonts = {
+            let fonts = &app.world().resource::<luma_style::style::Theme>().text.font;
+            vec![
+                fonts.inter_regular.clone(),
+                fonts.noto_sans_arabic_regular.clone(),
+                fonts.free_serif.clone(),
+                fonts.adwaita_sans_regular.clone(),
+                fonts.fira_sans_regular.clone(),
+            ]
+        };
+        app.insert_resource(luma_engine::layout::text::TextFallbackFonts(
+            fallback_fonts,
+        ));
     }
 }
 

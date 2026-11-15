@@ -142,6 +142,7 @@ pub(super) fn emit_pointer_hits(
     visibility_query: &Query<&Visibility>,
     parents_query: &Query<&ChildOf>,
     clipper_query: &Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
+    requires_light_query: &Query<&luma_engine::layout::lighting::URequiresLight>,
     profiler: Option<&mut LayoutProfiler>,
     output: &mut MessageWriter<PointerHits>,
 ) {
@@ -153,6 +154,7 @@ pub(super) fn emit_pointer_hits(
         visibility_query,
         parents_query,
         clipper_query,
+        requires_light_query,
         profiler,
     );
     write_pointer_hits(&hits, output);
@@ -244,6 +246,7 @@ pub(super) fn collect_pointer_hits(
     visibility_query: &Query<&Visibility>,
     parents_query: &Query<&ChildOf>,
     clipper_query: &Query<(&GlobalTransform, &ComputedSize, &UNode, &UClip)>,
+    requires_light_query: &Query<&luma_engine::layout::lighting::URequiresLight>,
     profiler: Option<&mut LayoutProfiler>,
 ) -> Vec<(PointerId, Vec<(Entity, HitData)>, f32)> {
     let candidate_buckets =
@@ -290,6 +293,12 @@ pub(super) fn collect_pointer_hits(
             };
 
             for candidate in bucket.candidates.iter() {
+                if requires_light_query
+                    .get(candidate.entity)
+                    .is_ok_and(|req| !req.allows_interaction())
+                {
+                    continue;
+                }
                 let Some((hit_world, cursor_pos_local, hit_normal, hit_distance)) =
                     intersect_ray_with_node_plane(ray, &candidate.global_transform)
                 else {

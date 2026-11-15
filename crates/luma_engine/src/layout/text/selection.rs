@@ -365,7 +365,9 @@ pub fn selectable_text_extracted_copy(
 
     let cleaned: String = text[start..end]
         .chars()
-        .filter(|&c| c != LTR_ISOLATE_START && c != RTL_ISOLATE_START && c != ISOLATE_END)
+        .filter(|&c| {
+            c != LTR_ISOLATE_START && c != RTL_ISOLATE_START && c != ISOLATE_END && c != '\u{200F}'
+        })
         .collect();
     if cleaned.is_empty() {
         None

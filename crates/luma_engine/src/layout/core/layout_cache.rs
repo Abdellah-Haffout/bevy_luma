@@ -9,14 +9,12 @@ use bevy::{ecs::relationship::Relationship, platform::collections::*, prelude::*
 use crate::internal::MaterialPool;
 use crate::layout::components::*;
 use crate::layout::geometry::ComputedSize;
-use crate::layout::image::UImage;
 use crate::layout::invalidation::{
     UiInvalidateRequestQueue, UiLayoutInvalidation as LayoutInvalidation,
 };
 use crate::layout::layout_system::*;
-use crate::layout::pbr::UPbr;
+use crate::layout::render::packet::VisualRenderPacket;
 use crate::layout::univis_node::*;
-use crate::layout::visual::{UGradient, UInnerGlow, UShader, UShadow};
 use crate::schedule::*;
 
 use self::invalidation::{
@@ -66,6 +64,10 @@ pub struct LayoutCache {
 
     /// Frontier queue for render/material sync.
     render_frontier: HashMap<Entity, u64>,
+
+    /// Cached `(main_size, cross_size)` settled for wrapped flex containers (`UFlexWrap != NoWrap`),
+    /// allowing the upward pass to keep exact cross sizing once downward solve resolves wrapping.
+    wrapped_solved_cross: HashMap<Entity, (f32, f32)>,
 
     /// Entities grouped by tree depth.
     entities_by_depth: HashMap<usize, Vec<Entity>>,
@@ -128,6 +130,8 @@ impl LayoutCache {
         self.solve_frontier
             .retain(|entity, _| alive_entities.contains(entity));
         self.render_frontier
+            .retain(|entity, _| alive_entities.contains(entity));
+        self.wrapped_solved_cross
             .retain(|entity, _| alive_entities.contains(entity));
 
         self.last_max_depth = max_depth;
@@ -252,6 +256,57 @@ impl LayoutCache {
     /// Returns the cached intrinsic size for an entity, if present.
     pub fn get_cached_intrinsic(&self, entity: Entity) -> Option<IntrinsicSize> {
         self.intrinsic_sizes.get(&entity).copied()
+    }
+
+    pub(crate) fn get_wrapped_cross_hint(&self, entity: Entity, current_main: f32) -> Option<f32> {
+        let (solved_main, solved_cross) = self.wrapped_solved_cross.get(&entity).copied()?;
+        ((solved_main - current_main).abs() <= 0.01).then_some(solved_cross)
+    }
+
+    pub(crate) fn record_wrapped_cross_if_changed(
+        &mut self,
+        entity: Entity,
+        solved_main: f32,
+        solved_cross: f32,
+    ) -> bool {
+        if let Some(&(prev_main, prev_cross)) = self.wrapped_solved_cross.get(&entity)
+            && (prev_main - solved_main).abs() <= 0.001
+            && (prev_cross - solved_cross).abs() <= 0.001
+        {
+            return false;
+        }
+        self.wrapped_solved_cross
+            .insert(entity, (solved_main, solved_cross));
+        true
+    }
+
+    pub(crate) fn clear_wrapped_cross(&mut self, entity: Entity) {
+        self.wrapped_solved_cross.remove(&entity);
+    }
+
+    pub(crate) fn clear_wrapped_cross_ancestors(
+        &mut self,
+        entity: Entity,
+        parents_query: &Query<&ChildOf>,
+    ) {
+        let mut current = entity;
+        while let Ok(parent) = parents_query.get(current) {
+            current = parent.get();
+            self.wrapped_solved_cross.remove(&current);
+        }
+    }
+
+    pub(crate) fn clear_wrapped_cross_recursive(
+        &mut self,
+        entity: Entity,
+        children_query: &Query<&Children>,
+    ) {
+        self.wrapped_solved_cross.remove(&entity);
+        if let Ok(children) = children_query.get(entity) {
+            for child in children.iter() {
+                self.clear_wrapped_cross_recursive(child, children_query);
+            }
+        }
     }
 
     /// Returns the tracked stage versions for an entity, if any.
@@ -693,6 +748,13 @@ pub fn track_layout_changes(
             invalidation.render_self = false;
         }
 
+        if invalidation.measure_self {
+            cache.clear_wrapped_cross(entity);
+        }
+        if invalidation.measure_ancestors {
+            cache.clear_wrapped_cross_ancestors(entity, &parents_query);
+        }
+
         apply_layout_invalidation(
             &mut cache,
             entity,
@@ -710,6 +772,8 @@ pub fn track_layout_changes(
             entity,
             collect_layout_children(children_query.get(entity).ok(), &layout_nodes),
         );
+        cache.clear_wrapped_cross(entity);
+        cache.clear_wrapped_cross_ancestors(entity, &parents_query);
         cache.mark_dirty(entity);
         cache.mark_dirty_ancestors(entity, &parents_query);
         cache.mark_measure_dirty(entity, current_generation);
@@ -722,6 +786,7 @@ pub fn track_layout_changes(
 /// Applies external invalidation requests emitted by crates outside the engine.
 #[doc(hidden)]
 pub fn apply_external_invalidation_requests(
+    material_pool: Option<Res<MaterialPool>>,
     work_state: Option<Res<UiWorkState>>,
     mut cache: ResMut<LayoutCache>,
     mut requests: ResMut<UiInvalidateRequestQueue>,
@@ -739,7 +804,14 @@ pub fn apply_external_invalidation_requests(
         }
     });
 
-    for (entity, invalidation) in requests.drain() {
+    let has_renderer = material_pool.is_some();
+    for (entity, mut invalidation) in requests.drain() {
+        if !has_renderer {
+            invalidation.render_self = false;
+        }
+        if invalidation.measure_ancestors {
+            cache.clear_wrapped_cross_ancestors(entity, &parents_query);
+        }
         apply_layout_invalidation(
             &mut cache,
             entity,
@@ -821,6 +893,7 @@ pub fn track_root_layout_changes(
         }
 
         if measure_subtree {
+            cache.clear_wrapped_cross_recursive(entity, &children_query);
             cache.mark_measure_dirty_recursive(
                 entity,
                 current_generation,
@@ -857,49 +930,16 @@ pub fn track_render_stage_changes(
             Or<(
                 Added<UNode>,
                 Changed<ComputedSize>,
-                Added<UBorder>,
-                Changed<UBorder>,
-                Added<UImage>,
-                Changed<UImage>,
-                Added<UPbr>,
-                Changed<UPbr>,
-                Added<UShadow>,
-                Changed<UShadow>,
-                Added<UGradient>,
-                Changed<UGradient>,
-                Or<(
-                    Added<UInnerGlow>,
-                    Changed<UInnerGlow>,
-                    Added<UShader>,
-                    Changed<UShader>,
-                    Changed<ChildOf>,
-                )>,
+                Added<VisualRenderPacket>,
+                Changed<VisualRenderPacket>,
+                Changed<ChildOf>,
             )>,
         ),
     >,
     changed_clips: Query<(Entity, Ref<UClip>), Or<(Added<UClip>, Changed<UClip>)>>,
     children_query: Query<&Children>,
-    removed_components: (
-        RemovedComponents<UClip>,
-        RemovedComponents<UBorder>,
-        RemovedComponents<UImage>,
-        RemovedComponents<UPbr>,
-        RemovedComponents<UShadow>,
-        RemovedComponents<UGradient>,
-        RemovedComponents<UInnerGlow>,
-        RemovedComponents<UShader>,
-    ),
+    mut removed_clips: RemovedComponents<UClip>,
 ) {
-    let (
-        mut removed_clips,
-        mut removed_borders,
-        mut removed_images,
-        mut removed_pbrs,
-        mut removed_shadows,
-        mut removed_gradients,
-        mut removed_inner_glows,
-        mut removed_shaders,
-    ) = removed_components;
     if material_pool.is_none() {
         return;
     }
@@ -916,48 +956,6 @@ pub fn track_render_stage_changes(
             cache.mark_render_dirty(entity, current_generation);
         }
         return;
-    }
-
-    for entity in removed_borders.read() {
-        if all_nodes.get(entity).is_ok() {
-            cache.mark_render_dirty(entity, current_generation);
-        }
-    }
-
-    for entity in removed_images.read() {
-        if all_nodes.get(entity).is_ok() {
-            cache.mark_render_dirty(entity, current_generation);
-        }
-    }
-
-    for entity in removed_pbrs.read() {
-        if all_nodes.get(entity).is_ok() {
-            cache.mark_render_dirty(entity, current_generation);
-        }
-    }
-
-    for entity in removed_shadows.read() {
-        if all_nodes.get(entity).is_ok() {
-            cache.mark_render_dirty(entity, current_generation);
-        }
-    }
-
-    for entity in removed_gradients.read() {
-        if all_nodes.get(entity).is_ok() {
-            cache.mark_render_dirty(entity, current_generation);
-        }
-    }
-
-    for entity in removed_inner_glows.read() {
-        if all_nodes.get(entity).is_ok() {
-            cache.mark_render_dirty(entity, current_generation);
-        }
-    }
-
-    for entity in removed_shaders.read() {
-        if all_nodes.get(entity).is_ok() {
-            cache.mark_render_dirty(entity, current_generation);
-        }
     }
 
     for (entity, clip) in changed_clips.iter() {

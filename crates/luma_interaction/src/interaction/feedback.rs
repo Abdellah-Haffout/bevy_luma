@@ -1,8 +1,60 @@
 use bevy::prelude::*;
 use luma_engine::layout::{
+    lighting::URequiresLight,
     transition::{UTransition, UTransitionState},
     univis_node::UNode,
 };
+
+fn reset_interaction_to_normal(
+    interaction: &mut UInteraction,
+    mut node: Option<&mut UNode>,
+    colors: Option<&UInteractionColors>,
+    scale: Option<&UInteractionScale>,
+    mut transition_state: Option<&mut UTransitionState>,
+) {
+    if *interaction != UInteraction::Normal {
+        *interaction = UInteraction::Normal;
+    }
+    if let (Some(node), Some(color)) = (node.as_deref_mut(), colors) {
+        if node.background_color != color.normal {
+            node.background_color = color.normal;
+        }
+    }
+    if let (Some(scale), Some(state)) = (scale, transition_state.as_deref_mut()) {
+        let target = Vec2::splat(scale.normal);
+        if state.target_scale != target {
+            state.target_scale = target;
+        }
+    }
+}
+
+/// Automatically resets interactive UI state back to [`UInteraction::Normal`] when a
+/// [`URequiresLight`] element loses required scene illumination or gets occluded.
+pub fn sync_light_locked_interactions(
+    mut query: Query<
+        (
+            &mut UInteraction,
+            &URequiresLight,
+            Option<&mut UNode>,
+            Option<&UInteractionColors>,
+            Option<&UInteractionScale>,
+            Option<&mut UTransitionState>,
+        ),
+        Or<(Changed<URequiresLight>, Changed<UInteraction>)>,
+    >,
+) {
+    for (mut interaction, req, mut node, colors, scale, mut transition_state) in query.iter_mut() {
+        if !req.allows_interaction() {
+            reset_interaction_to_normal(
+                &mut interaction,
+                node.as_deref_mut(),
+                colors,
+                scale,
+                transition_state.as_deref_mut(),
+            );
+        }
+    }
+}
 
 /// Component defining interaction colors.
 ///
@@ -330,15 +382,26 @@ pub fn on_pointer_press(
             Option<&UInteractionColors>,
             Option<&UInteractionScale>,
             Option<&mut UTransitionState>,
+            Option<&URequiresLight>,
         ),
         With<UInteraction>,
     >,
 ) {
     let entity = trigger.entity;
 
-    if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
+    if let Ok((mut interaction, mut node, colors, scale, mut transition_state, req_opt)) =
         query.get_mut(entity)
     {
+        if req_opt.is_some_and(|r| !r.allows_interaction()) {
+            reset_interaction_to_normal(
+                &mut interaction,
+                node.as_deref_mut(),
+                colors,
+                scale,
+                transition_state.as_deref_mut(),
+            );
+            return;
+        }
         if *interaction != UInteraction::Pressed {
             *interaction = UInteraction::Pressed;
         }
@@ -369,15 +432,26 @@ pub fn on_pointer_release(
             Option<&UInteractionColors>,
             Option<&UInteractionScale>,
             Option<&mut UTransitionState>,
+            Option<&URequiresLight>,
         ),
         With<UInteraction>,
     >,
 ) {
     let entity = trigger.entity;
 
-    if let Ok((mut interaction, mut node, colors, scale, mut transition_state)) =
+    if let Ok((mut interaction, mut node, colors, scale, mut transition_state, req_opt)) =
         query.get_mut(entity)
     {
+        if req_opt.is_some_and(|r| !r.allows_interaction()) {
+            reset_interaction_to_normal(
+                &mut interaction,
+                node.as_deref_mut(),
+                colors,
+                scale,
+                transition_state.as_deref_mut(),
+            );
+            return;
+        }
         if *interaction != UInteraction::Released {
             *interaction = UInteraction::Released;
         }
@@ -416,5 +490,43 @@ mod tests {
         assert_eq!(custom.normal, 1.0);
         assert_eq!(custom.hovered, 1.2);
         assert_eq!(custom.pressed, 0.9);
+    }
+
+    #[test]
+    fn unlit_requires_light_resets_interaction_and_visuals() {
+        let mut app = App::new();
+        app.add_systems(Update, sync_light_locked_interactions);
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                UNode {
+                    background_color: Color::srgb(0.9, 0.2, 0.2),
+                    ..default()
+                },
+                UInteraction::Hovered,
+                UInteractionColors {
+                    normal: Color::srgb(0.1, 0.1, 0.1),
+                    hovered: Color::srgb(0.9, 0.2, 0.2),
+                    pressed: Color::srgb(0.5, 0.1, 0.1),
+                },
+                URequiresLight {
+                    is_active: false,
+                    disable_picking_when_unlit: true,
+                    ..default()
+                },
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            *app.world().entity(entity).get::<UInteraction>().unwrap(),
+            UInteraction::Normal
+        );
+        assert_eq!(
+            app.world().entity(entity).get::<UNode>().unwrap().background_color,
+            Color::srgb(0.1, 0.1, 0.1)
+        );
     }
 }

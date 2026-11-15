@@ -24,11 +24,14 @@ struct UTextLabelSdfMaterial {
 @group(2) @binding(2) var text_sampler: sampler;
 
 fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
+    let limit = max(min(b.x, b.y), 0.0);
+    let r_clamped = min(max(r, vec4<f32>(0.0)), vec4<f32>(limit));
+
     let is_right = p.x > 0.0;
     let is_top = p.y > 0.0;
 
-    let r_top = select(r.z, r.x, is_right);
-    let r_bottom = select(r.w, r.y, is_right);
+    let r_top = select(r_clamped.z, r_clamped.x, is_right);
+    let r_bottom = select(r_clamped.w, r_clamped.y, is_right);
     let radius = select(r_bottom, r_top, is_top);
 
     let q = abs(p) - b + radius;
@@ -36,11 +39,14 @@ fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
 }
 
 fn sd_cut_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
+    let limit = max(min(b.x, b.y), 0.0);
+    let r_clamped = min(max(r, vec4<f32>(0.0)), vec4<f32>(limit));
+
     let is_right = p.x > 0.0;
     let is_top = p.y > 0.0;
 
-    let r_top = select(r.z, r.x, is_right);
-    let r_bottom = select(r.w, r.y, is_right);
+    let r_top = select(r_clamped.z, r_clamped.x, is_right);
+    let r_bottom = select(r_clamped.w, r_clamped.y, is_right);
     let radius = select(r_bottom, r_top, is_top);
 
     let q = abs(p) - b;

@@ -7,6 +7,10 @@ use crate::layout::univis_node::{ULayout, UNode};
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
 #[require(UNode, ULayout, Visibility)]
+#[component(
+    on_insert = crate::layout::render::packet::on_image_insert,
+    on_remove = crate::layout::render::packet::on_image_remove
+)]
 pub struct UImage {
     /// The image texture handle.
     pub texture: Handle<Image>,

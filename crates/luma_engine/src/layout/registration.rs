@@ -84,6 +84,7 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
         .init_resource::<layout_system::RootSpawnRankCounter>()
         .init_schedule(UiSettlementSchedule)
         .add_plugins(core::layout_cache::UnivisLayoutCachePlugin)
+        .add_plugins(render::packet::UnivisVisualEffectsPlugin)
         .configure_sets(
             UiSettlementSchedule,
             (
@@ -101,8 +102,8 @@ pub(super) fn install_layout_pipeline(app: &mut App) {
         .add_systems(
             UiSettlementSchedule,
             (
-                core::layout_cache::apply_external_invalidation_requests,
                 settlement_loop::begin_ui_settlement_work,
+                core::layout_cache::apply_external_invalidation_requests,
                 layout_system::resolve_root_ui,
                 layout_system::assign_root_spawn_ranks,
                 layout_system::resolve_root_stacking,

@@ -376,3 +376,172 @@ fn updating_node_zindex_immediately_updates_child_depth_without_resize() {
         "child_a should now be higher than child_b without window resize (z_a={z_a_after}, z_b={z_b_after})"
     );
 }
+
+#[test]
+fn wrapped_flex_container_with_visual_plugins_settles_and_idles_cleanly() {
+    use crate::layout::geometry::USides;
+    use crate::layout::univis_node::{UBorder, UFlexWrap};
+    use crate::layout::visual::{UGradient, UInnerGlow, UShadow};
+
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, UnivisLayoutPlugin));
+
+    let root = app
+        .world_mut()
+        .spawn((
+            URootUi::world_2d(Vec2::new(400.0, 600.0)),
+            UNode {
+                width: UVal::Percent(1.0),
+                height: UVal::Percent(1.0),
+                ..default()
+            },
+            ULayout::default(),
+        ))
+        .id();
+
+    let card = app
+        .world_mut()
+        .spawn((
+            ChildOf(root),
+            UNode {
+                width: UVal::Percent(1.0),
+                padding: USides::all(10.0),
+                ..default()
+            },
+            ULayout {
+                display: crate::layout::univis_node::UDisplay::Flex,
+                flex_direction: crate::layout::univis_node::UFlexDirection::Column,
+                gap: 10.0,
+                ..default()
+            },
+        ))
+        .id();
+
+    let wrap_row = app
+        .world_mut()
+        .spawn((
+            ChildOf(card),
+            UNode {
+                width: UVal::Percent(1.0),
+                ..default()
+            },
+            UBorder::default(),
+            UGradient::linear(Color::WHITE, Color::BLACK, 0.0),
+            UInnerGlow::default(),
+            UShadow::default(),
+            ULayout {
+                display: crate::layout::univis_node::UDisplay::Flex,
+                flex_direction: crate::layout::univis_node::UFlexDirection::Row,
+                flex_wrap: UFlexWrap::Wrap,
+                gap: 10.0,
+                row_gap: Some(10.0),
+                column_gap: Some(10.0),
+                ..default()
+            },
+        ))
+        .id();
+
+    for _ in 0..5 {
+        app.world_mut().spawn((
+            ChildOf(wrap_row),
+            UNode {
+                width: UVal::Px(120.0),
+                height: UVal::Px(30.0),
+                ..default()
+            },
+        ));
+    }
+
+    let sibling = app
+        .world_mut()
+        .spawn((
+            ChildOf(card),
+            UNode {
+                width: UVal::Px(100.0),
+                height: UVal::Px(20.0),
+                ..default()
+            },
+        ))
+        .id();
+
+    // Frame 1: Initial layout settles (even with multi-line wrap propagation into `card`).
+    app.update();
+    {
+        let work_state = app.world().resource::<UiWorkState>();
+        assert!(
+            work_state.is_settled(),
+            "Wrapped container must settle on frame 1 (pending={:?})",
+            work_state.pending()
+        );
+        assert!(!work_state.budget_exhausted());
+    }
+
+    let wrap_size = app.world().entity(wrap_row).get::<ComputedSize>().copied().unwrap();
+    let card_size = app.world().entity(card).get::<ComputedSize>().copied().unwrap();
+    assert!(
+        wrap_size.height >= 70.0,
+        "5x120px children inside 380px row must wrap to at least 2 lines, got height={}",
+        wrap_size.height
+    );
+    assert!(
+        card_size.height >= wrap_size.height + 20.0 + 10.0,
+        "Parent card height ({}) must include wrapped row height ({}) plus sibling/padding",
+        card_size.height,
+        wrap_size.height
+    );
+    let _ = sibling;
+
+    // Frames 2..=4: Steady idle frames must finish in 1 pass without bumping generation.
+    let gen_after_f1 = app.world().resource::<UiWorkState>().current_generation();
+    for frame in 2..=4 {
+        app.update();
+        let work_state = app.world().resource::<UiWorkState>();
+        assert!(work_state.is_settled(), "Frame {frame} must stay settled");
+        assert!(!work_state.budget_exhausted(), "Frame {frame} must not exhaust budget");
+        assert_eq!(
+            work_state.last_frame_iterations(),
+            1,
+            "Idle frame {frame} must take exactly 1 settlement pass"
+        );
+        assert_eq!(
+            work_state.current_generation(),
+            gen_after_f1,
+            "Idle frame {frame} must not start a new generation"
+        );
+    }
+
+    // Mutate visual plugins and confirm settlement converges immediately.
+    app.world_mut()
+        .entity_mut(wrap_row)
+        .get_mut::<UBorder>()
+        .unwrap()
+        .width = 2.0;
+    app.update();
+    assert!(app.world().resource::<UiWorkState>().is_settled());
+    assert!(!app.world().resource::<UiWorkState>().budget_exhausted());
+
+    app.update();
+    assert_eq!(app.world().resource::<UiWorkState>().last_frame_iterations(), 1);
+
+    // Resize root wider so wrapped items collapse back to 1 line cleanly.
+    app.world_mut()
+        .entity_mut(root)
+        .get_mut::<URootUi>()
+        .unwrap()
+        .canvas = UiCanvasSize::Fixed(Vec2::new(800.0, 600.0));
+    app.update();
+    {
+        let work_state = app.world().resource::<UiWorkState>();
+        assert!(work_state.is_settled());
+        assert!(!work_state.budget_exhausted());
+    }
+    let unwrapped_size = app.world().entity(wrap_row).get::<ComputedSize>().copied().unwrap();
+    assert!(
+        (unwrapped_size.height - 30.0).abs() < 0.01,
+        "Resized 800px row should collapse back to 1 line height 30.0, got {}",
+        unwrapped_size.height
+    );
+
+    app.update();
+    assert_eq!(app.world().resource::<UiWorkState>().last_frame_iterations(), 1);
+}

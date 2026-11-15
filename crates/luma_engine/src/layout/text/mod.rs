@@ -17,10 +17,11 @@ use self::measure::invalidation::mark_text_label_layout_dirty;
 pub use self::measure::{
     fit_node_to_text_size, measure_text_label_layout, sync_text_label_intrinsic_size,
 };
+use self::measure::constrain_text_labels_to_computed_size;
 pub use self::model::{
-    TextChildMarker, TextSelectionHighlightMarker, UCopyText, USelectableText, UText, UTextLabel,
-    UTextLabelLayoutCache, UTextOverflow, UTextSpan, UTextSpansTemplate, UTextTruncateSide,
-    UTextWrapMode,
+    TextChildMarker, TextFallbackFonts, TextSelectionHighlightMarker, UCopyText, USelectableText,
+    UText, UTextFallbackFontsTemplate, UTextLabel, UTextLabelLayoutCache, UTextOverflow,
+    UTextSpan, UTextSpansTemplate, UTextTruncateSide, UTextWrapMode,
 };
 pub use self::selection::{
     UTextSelectionRect, compute_text_selection_rects, local_logical_to_parley,
@@ -71,6 +72,8 @@ impl Plugin for UnivisTextPlugin {
             .register_type::<UTextOverflow>()
             .register_type::<UTextTruncateSide>()
             .register_type::<UTextLabelLayoutCache>()
+            .register_type::<TextFallbackFonts>()
+            .init_resource::<TextFallbackFonts>()
             .init_resource::<UTextLabelAtlasCache>()
             .add_plugins(Material2dPlugin::<UTextLabelSdfMaterial>::default())
             .add_plugins(MaterialPlugin::<UTextLabelSdfMaterial3d>::default());
@@ -107,6 +110,7 @@ impl Plugin for UnivisTextPlugin {
             .add_systems(
                 UiSettlementSchedule,
                 (
+                    constrain_text_labels_to_computed_size,
                     sync_text_label_meshes,
                     sync_selectable_text_highlights,
                     sync_text_render_transforms,
@@ -1173,5 +1177,106 @@ mod tests {
             AlphaMode::Premultiplied,
             "UTextLabelSdfMaterial3d must use AlphaMode::Premultiplied"
         );
+    }
+
+    #[test]
+    fn world3d_text_applies_and_updates_pbr_surface_and_occluder() {
+        use crate::layout::lighting::ULightOccluder;
+        use crate::layout::pbr::{UPbr, UPbrSurface};
+
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            TransformPlugin,
+            bevy::asset::AssetPlugin::default(),
+            bevy::text::TextPlugin,
+            crate::LumaEnginePlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<Image>()
+        .init_asset::<TextureAtlasLayout>();
+        app.world_mut()
+            .spawn((Window::default(), bevy::window::PrimaryWindow));
+        app.world_mut().spawn((Camera::default(), Camera3d::default()));
+
+        let font = app.world_mut().resource_mut::<Assets<Font>>().add(
+            Font::from_bytes(
+                include_bytes!("../../../../luma_style/src/style/assets/fonts/Inter-Regular.ttf")
+                    .to_vec(),
+            ),
+        );
+
+        let mut root_ui =
+            crate::layout::layout_system::URootUi::world_3d(Vec2::new(400.0, 200.0));
+        root_ui.meters_per_unit = 0.01;
+        let root = app
+            .world_mut()
+            .spawn((
+                root_ui,
+                UNode {
+                    width: UVal::Percent(1.0),
+                    height: UVal::Percent(1.0),
+                    ..default()
+                },
+            ))
+            .id();
+
+        let text_entity = app
+            .world_mut()
+            .spawn((
+                UTextLabel {
+                    text: "LIT".to_string(),
+                    font,
+                    font_size: 24.0,
+                    color: Color::WHITE,
+                    ..default()
+                },
+                UNode::default(),
+                UPbr::lamp(Color::srgb(1.0, 0.8, 0.4), 5.0),
+                UPbrSurface::solid().with_bevel(4.0, 0.7),
+                ULightOccluder::solid(),
+                ChildOf(root),
+            ))
+            .id();
+
+        for _ in 0..6 {
+            app.update();
+        }
+
+        let children = app.world().entity(text_entity).get::<Children>().unwrap().to_vec();
+        let page_mat_handle = children
+            .iter()
+            .find_map(|c| {
+                app.world()
+                    .entity(*c)
+                    .get::<MeshMaterial3d<UTextLabelSdfMaterial3d>>()
+                    .map(|m| m.0.clone())
+            })
+            .expect("3D text should spawn glyph page material");
+
+        let mat = app
+            .world()
+            .resource::<Assets<UTextLabelSdfMaterial3d>>()
+            .get(&page_mat_handle)
+            .expect("material should exist");
+        assert_eq!(mat.pbr_enabled, 1);
+        assert!(mat.emissive.red > 4.0);
+        assert_eq!(mat.lighting_flags, 0b111); // double_sided + receive + cast shadows
+        assert!((mat.bevel_params.x - 4.0).abs() < 1e-5);
+
+        // Removing UPbr & ULightOccluder should return material to unlit & non-shadow-casting cleanly.
+        app.world_mut()
+            .entity_mut(text_entity)
+            .remove::<(UPbr, ULightOccluder)>();
+        app.update();
+        app.update();
+
+        let updated_mat = app
+            .world()
+            .resource::<Assets<UTextLabelSdfMaterial3d>>()
+            .get(&page_mat_handle)
+            .expect("material should still exist");
+        assert_eq!(updated_mat.pbr_enabled, 0);
+        assert_eq!(updated_mat.emissive, LinearRgba::NONE);
     }
 }

@@ -1,3 +1,4 @@
+pub(crate) mod coordinator;
 pub mod hierarchy;
 pub mod layout_cache;
 pub mod pass_down;

@@ -8,6 +8,7 @@ mod tests;
 use bevy::prelude::*;
 
 use crate::layout::components::*;
+use crate::layout::core::coordinator::TreeCoordinator;
 use crate::layout::core::layout_cache::LayoutCache;
 use crate::layout::core::solver::*;
 use crate::layout::geometry::*;
@@ -20,10 +21,6 @@ use crate::layout::univis_node::*;
 use crate::schedule::UiRolloutConfig;
 
 const LAYOUT_WRITE_EPSILON: f32 = 0.001;
-
-fn z_translation_changed(current: f32, next: f32) -> bool {
-    current.to_bits() != next.to_bits()
-}
 
 struct SolverScratchItem {
     entity: Entity,
@@ -71,6 +68,7 @@ pub fn downward_solve_pass_safe(
     root_query: Query<&ResolvedRootUi>,
     root_stack_query: Query<&ResolvedRootStack>,
     parents_query: Query<&ChildOf>,
+    mut invalidation_requests: Option<ResMut<crate::layout::invalidation::UiInvalidateRequestQueue>>,
 ) {
     let start = std::time::Instant::now();
     let mut solved_count = 0;
@@ -170,7 +168,7 @@ pub fn downward_solve_pass_safe(
                     if depth == 0 {
                         BoxConstraints::tight(container_size)
                     } else {
-                        build_constraints(container_size, node)
+                        build_constraints(container_size, node, layout)
                     },
                     translate_config(layout, node),
                     cached_context.copied(),
@@ -247,11 +245,12 @@ pub fn downward_solve_pass_safe(
                     }
                     prof.solve_ref_peak = prof.solve_ref_peak.max(items.len());
                 }
-                let size = if solver_config.display == UDisplay::Grid {
-                    solve_grid_layout(&solver_config, constraints, items, Some(grid_scratch))
-                } else {
-                    solve_flex_layout(&solver_config, constraints, items)
-                };
+                let size = TreeCoordinator::propose_container_distribution(
+                    &solver_config,
+                    constraints,
+                    items,
+                    grid_scratch,
+                );
                 for (entry, solved_item) in solver_items.iter_mut().zip(items.iter()) {
                     entry.item = *solved_item;
                 }
@@ -330,6 +329,54 @@ pub fn downward_solve_pass_safe(
 
             if use_incremental_solve {
                 cache.clear_solve_dirty(entity);
+            }
+
+            let is_wrapped_flex = solver_config.display == UDisplay::Flex
+                && solver_config.flex_wrap != UFlexWrap::NoWrap;
+            let is_grid = solver_config.display == UDisplay::Grid;
+            if depth > 0 && (is_wrapped_flex || is_grid) {
+                let is_row = is_grid
+                    || matches!(
+                        solver_config.flex_direction,
+                        UFlexDirection::Row | UFlexDirection::RowReverse
+                    );
+                let cross_is_intrinsic = if is_row {
+                    matches!(
+                        solver_config.height_mode,
+                        SolverSizeMode::Auto | SolverSizeMode::Content | SolverSizeMode::MinContent
+                    )
+                } else {
+                    matches!(
+                        solver_config.width_mode,
+                        SolverSizeMode::Auto | SolverSizeMode::Content | SolverSizeMode::MinContent
+                    )
+                };
+                if cross_is_intrinsic {
+                    let (solved_main, solved_cross) = if is_row {
+                        (final_size.x, final_size.y)
+                    } else {
+                        (final_size.y, final_size.x)
+                    };
+                    let changed_wrapped =
+                        cache.record_wrapped_cross_if_changed(entity, solved_main, solved_cross);
+                    if changed_wrapped
+                        && (final_size - container_size).abs().max_element() > LAYOUT_WRITE_EPSILON
+                        && let Some(ref mut queue) = invalidation_requests
+                    {
+                        queue.request(
+                            entity,
+                            crate::layout::invalidation::UiLayoutInvalidation {
+                                dirty_self: true,
+                                dirty_ancestors: true,
+                                measure_self: true,
+                                measure_ancestors: true,
+                                solve_self: false,
+                                solve_ancestors: true,
+                                render_self: false,
+                            },
+                        );
+                    }
+                }
             }
         }
 
@@ -500,12 +547,64 @@ fn collect_solver_items_into(
     }
 }
 
-fn build_constraints(container_size: Vec2, node_spec: &UNode) -> BoxConstraints {
+#[allow(deprecated)]
+fn build_constraints(container_size: Vec2, node_spec: &UNode, layout: &ULayout) -> BoxConstraints {
     let (min_width, max_width) = node_spec.width_bounds();
     let (min_height, max_height) = node_spec.height_bounds();
 
     let clamped_width = container_size.x.clamp(min_width, max_width);
     let clamped_height = container_size.y.clamp(min_height, max_height);
+
+    let wrap = if layout.flex_wrap != UFlexWrap::NoWrap {
+        layout.flex_wrap
+    } else {
+        layout.container_ext.flex.wrap
+    };
+    if wrap != UFlexWrap::NoWrap && layout.display == UDisplay::Flex {
+        let is_row = matches!(
+            layout.flex_direction,
+            UFlexDirection::Row | UFlexDirection::RowReverse
+        );
+        if is_row
+            && matches!(
+                node_spec.height,
+                UVal::Auto | UVal::Content | UVal::MinContent | UVal::MaxContent
+            )
+        {
+            return BoxConstraints {
+                min_width: clamped_width,
+                max_width: clamped_width,
+                min_height,
+                max_height,
+            };
+        } else if !is_row
+            && matches!(
+                node_spec.width,
+                UVal::Auto | UVal::Content | UVal::MinContent | UVal::MaxContent
+            )
+        {
+            return BoxConstraints {
+                min_width,
+                max_width,
+                min_height: clamped_height,
+                max_height: clamped_height,
+            };
+        }
+    }
+
+    if layout.display == UDisplay::Grid
+        && matches!(
+            node_spec.height,
+            UVal::Auto | UVal::Content | UVal::MinContent | UVal::MaxContent
+        )
+    {
+        return BoxConstraints {
+            min_width: clamped_width,
+            max_width: clamped_width,
+            min_height,
+            max_height,
+        };
+    }
 
     BoxConstraints::tight(Vec2::new(clamped_width, clamped_height))
 }
@@ -538,120 +637,20 @@ fn apply_results_to_children(
     scrollbar_thumbs: &mut Query<&mut UScrollbarThumb>,
 ) {
     for solved in solved_children.iter() {
-        if let Ok((
-            _,
-            _,
-            _,
-            layout_depth,
-            children,
-            uself,
-            _,
-            local_stacking,
-            mut computed,
-            mut transform,
-            mut vis_opt,
-            _transition_opt,
-            transition_state_opt,
-        )) = nodes_query.get_mut(solved.entity)
-        {
-            let size_changed = (computed.width - solved.item.result.size.x).abs()
-                > LAYOUT_WRITE_EPSILON
-                || (computed.height - solved.item.result.size.y).abs() > LAYOUT_WRITE_EPSILON;
-
-            if size_changed {
-                computed.width = solved.item.result.size.x;
-                computed.height = solved.item.result.size.y;
-            }
-
-            let child_w = solved.item.result.size.x;
-            let child_h = solved.item.result.size.y;
-
-            let next_x =
-                ((-parent_size.x / 2.0) + solved.item.result.pos.x + (child_w / 2.0)) * world_scale;
-            let next_y =
-                ((parent_size.y / 2.0) - solved.item.result.pos.y - (child_h / 2.0)) * world_scale;
-
-            #[allow(deprecated)]
-            let order = uself.map(|value| value.order).unwrap_or(0);
-            let child_target_z = local_stacking.map_or_else(
-                || root_stack.local_depth_offset(layout_depth.0, order),
-                |stack| root_stack.local_depth_offset_for_fraction(stack.normalized),
-            );
-            let next_z = if (child_target_z - parent_target_z).abs() > f32::EPSILON {
-                child_target_z - parent_target_z
-            } else {
-                root_stack.capsule_band_step
-            };
-
-            let scroll_content_opt = scroll_contents.get_mut(solved.entity).ok();
-            let scrollbar_thumb_opt = scrollbar_thumbs.get_mut(solved.entity).ok();
-            if let Some(mut scroll_content) = scroll_content_opt {
-                scroll_content.base_translation = Vec2::new(next_x, next_y);
-                if !scroll_content.initialized {
-                    scroll_content.initialized = true;
-                    if (transform.translation.x - next_x).abs() > LAYOUT_WRITE_EPSILON {
-                        transform.translation.x = next_x;
-                    }
-                    if (transform.translation.y - next_y).abs() > LAYOUT_WRITE_EPSILON {
-                        transform.translation.y = next_y;
-                    }
-                }
-            } else if let Some(mut thumb) = scrollbar_thumb_opt {
-                thumb.base_translation = Vec2::new(next_x, next_y);
-                if !thumb.initialized {
-                    thumb.initialized = true;
-                    if (transform.translation.x - next_x).abs() > LAYOUT_WRITE_EPSILON {
-                        transform.translation.x = next_x;
-                    }
-                    if (transform.translation.y - next_y).abs() > LAYOUT_WRITE_EPSILON {
-                        transform.translation.y = next_y;
-                    }
-                }
-            } else if let Some(mut state) = transition_state_opt {
-                if !state.initialized {
-                    state.target_translation = Vec2::new(next_x, next_y);
-                    state.velocity = Vec2::ZERO;
-                    state.initialized = true;
-                    if (transform.translation.x - next_x).abs() > LAYOUT_WRITE_EPSILON {
-                        transform.translation.x = next_x;
-                    }
-                    if (transform.translation.y - next_y).abs() > LAYOUT_WRITE_EPSILON {
-                        transform.translation.y = next_y;
-                    }
-                } else {
-                    state.target_translation = Vec2::new(next_x, next_y);
-                }
-            } else {
-                if (transform.translation.x - next_x).abs() > LAYOUT_WRITE_EPSILON {
-                    transform.translation.x = next_x;
-                }
-                if (transform.translation.y - next_y).abs() > LAYOUT_WRITE_EPSILON {
-                    transform.translation.y = next_y;
-                }
-            }
-            if z_translation_changed(transform.translation.z, next_z) {
-                transform.translation.z = next_z;
-            }
-            if transform.scale == Vec3::ZERO {
-                transform.scale = Vec3::ONE;
-                if let Some(ref mut vis) = vis_opt
-                    && **vis == Visibility::Hidden
-                {
-                    **vis = Visibility::Inherited;
-                }
-            }
-
-            if use_incremental_solve
-                && size_changed
-                && children.is_some_and(|value| !value.is_empty())
-            {
-                cache.mark_solve_dirty_generation(solved.entity, solve_generation);
-            }
-
-            if children.is_none_or(|value| value.is_empty()) {
-                cache.complete_solve(solved.entity);
-            }
-        }
+        TreeCoordinator::apply_coordinated_child(
+            solved.entity,
+            &solved.item,
+            parent_size,
+            solve_generation,
+            world_scale,
+            root_stack,
+            parent_target_z,
+            use_incremental_solve,
+            cache,
+            nodes_query,
+            scroll_contents,
+            scrollbar_thumbs,
+        );
     }
 }
 

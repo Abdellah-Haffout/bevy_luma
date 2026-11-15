@@ -33,12 +33,11 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use crate::layout::components::{CachedUiContext, UI3d};
-use crate::layout::image::UImage;
 use crate::layout::query::ComputedSize;
 use crate::layout::render::clip_sync::UActiveClip;
-use crate::layout::univis_node::{UBorder, UClip, UNode};
-use crate::layout::visual::{UGradient, UInnerGlow, UShader, UShadow};
-use crate::prelude::{UCornerRadius, UShapeMode};
+use crate::layout::render::packet::{VisualFlags, VisualRenderPacket};
+use crate::layout::univis_node::{UClip, UNode};
+use crate::prelude::UShapeMode;
 use crate::schedule::UiRolloutConfig;
 
 /// 160-byte GPU representation of a 2D Univis UI node, sent directly to VRAM in batches.
@@ -292,19 +291,12 @@ fn extract_univis_nodes(
                 &UNode,
                 &ComputedSize,
                 &GlobalTransform,
-                Option<&UBorder>,
-                Option<&UShadow>,
+                &VisualRenderPacket,
                 Option<&UClip>,
                 Option<&UActiveClip>,
                 Option<&CachedUiContext>,
             ),
-            (
-                Without<UI3d>,
-                Without<UImage>,
-                Without<UGradient>,
-                Without<UInnerGlow>,
-                Without<UShader>,
-            ),
+            Without<UI3d>,
         >,
     >,
 ) {
@@ -322,8 +314,7 @@ fn extract_univis_nodes(
         node,
         size,
         transform,
-        border_opt,
-        shadow_opt,
+        visual_packet,
         clip_opt,
         active_clip_opt,
         cached_context_opt,
@@ -332,12 +323,18 @@ fn extract_univis_nodes(
         if !visibility.get() || size.width <= 0.0 || size.height <= 0.0 {
             continue;
         }
+        // Only batch nodes whose visual packet uses 2D batch-compatible channels.
+        if !visual_packet.flags.can_batch_2d() {
+            continue;
+        }
 
         // Skip completely invisible nodes (transparent background, no border, no shadow)
         let bg_alpha = node.background_color.alpha();
-        let has_visible_border =
-            border_opt.is_some_and(|b| b.width > 0.0 && b.color.alpha() > 0.0001);
-        let has_visible_shadow = shadow_opt.is_some_and(|s| s.blur > 0.0 || s.spread > 0.0);
+        let has_visible_border = visual_packet.flags.contains(VisualFlags::BORDER)
+            && visual_packet.border_width > 0.0
+            && visual_packet.border_color.alpha > 0.0001;
+        let has_visible_shadow = visual_packet.flags.contains(VisualFlags::OUTER_SHADOW)
+            && (visual_packet.shadow_blur > 0.0 || visual_packet.shadow_spread > 0.0);
         if bg_alpha <= 0.0001 && !has_visible_border && !has_visible_shadow {
             continue;
         }
@@ -345,20 +342,31 @@ fn extract_univis_nodes(
         let translation = transform.translation();
         let logical_size = Vec2::new(size.width, size.height);
 
-        let (border_width, border_offset, border_color) = if let Some(b) = border_opt {
-            (b.width, b.offset, LinearRgba::from(b.color).to_f32_array())
-        } else {
-            (0.0, 0.0, [0.0; 4])
-        };
+        let (border_width, border_offset, border_color) =
+            if visual_packet.flags.contains(VisualFlags::BORDER) {
+                (
+                    visual_packet.border_width,
+                    visual_packet.border_offset,
+                    visual_packet.border_color.to_f32_array(),
+                )
+            } else {
+                (0.0, 0.0, [0.0; 4])
+            };
 
-        let (shadow_color, shadow_params) = if let Some(s) = shadow_opt {
-            (
-                LinearRgba::from(s.color).to_f32_array(),
-                [s.offset.x, s.offset.y, s.blur, s.spread],
-            )
-        } else {
-            ([0.0; 4], [0.0; 4])
-        };
+        let (shadow_color, shadow_params) =
+            if visual_packet.flags.contains(VisualFlags::OUTER_SHADOW) {
+                (
+                    visual_packet.shadow_color.to_f32_array(),
+                    [
+                        visual_packet.shadow_offset.x,
+                        visual_packet.shadow_offset.y,
+                        visual_packet.shadow_blur,
+                        visual_packet.shadow_spread,
+                    ],
+                )
+            } else {
+                ([0.0; 4], [0.0; 4])
+            };
 
         let (clip_rect, clip_radius, use_clip) = if let Some(active_clip) = active_clip_opt {
             if active_clip.is_complex {
@@ -384,12 +392,16 @@ fn extract_univis_nodes(
                 ([0.0; 4], [0.0; 4], 0.0f32)
             }
         } else if let Some(clip) = clip_opt {
-            let radius = [
-                node.border_radius.top_right,
-                node.border_radius.bottom_right,
-                node.border_radius.top_left,
-                node.border_radius.bottom_left,
-            ];
+            let radius = crate::layout::render::clip_sync::clamp_corner_radii(
+                Vec4::new(
+                    node.border_radius.top_right,
+                    node.border_radius.bottom_right,
+                    node.border_radius.top_left,
+                    node.border_radius.bottom_left,
+                ),
+                logical_size * 0.5,
+            )
+            .to_array();
             (
                 [translation.x, translation.y, logical_size.x, logical_size.y],
                 radius,
@@ -404,24 +416,23 @@ fn extract_univis_nodes(
             UShapeMode::Cut => 1.0,
         };
 
-        let effective_radius = if node.border_radius != UCornerRadius::default() {
-            node.border_radius
-        } else if let Some(b) = border_opt && b.radius != UCornerRadius::default() {
-            b.radius
-        } else {
-            node.border_radius
-        };
+        let effective_radius = visual_packet.effective_corner_radius(node.border_radius);
+        let clamped_radius = crate::layout::render::clip_sync::clamp_corner_radii(
+            Vec4::new(
+                effective_radius.top_right,
+                effective_radius.bottom_right,
+                effective_radius.top_left,
+                effective_radius.bottom_left,
+            ),
+            logical_size * 0.5,
+        )
+        .to_array();
 
         let instance = GpuNodeInstance {
             pos_size: [translation.x, translation.y, logical_size.x, logical_size.y],
             color: LinearRgba::from(node.background_color).to_f32_array(),
             border_color,
-            radius: [
-                effective_radius.top_right,
-                effective_radius.bottom_right,
-                effective_radius.top_left,
-                effective_radius.bottom_left,
-            ],
+            radius: clamped_radius,
             border_params: [border_width, border_offset, 0.75, shape_mode_f],
             clip_rect,
             clip_radius,

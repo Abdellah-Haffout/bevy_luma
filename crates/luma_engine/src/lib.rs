@@ -33,6 +33,7 @@ pub(crate) mod internal_prelude {
     pub use crate::layout::geometry::*;
     pub use crate::layout::image::*;
     pub use crate::layout::layout_system::*;
+    pub use crate::layout::lighting::*;
     pub use crate::layout::pbr::*;
     pub use crate::layout::pipeline::prelude::*;
     pub use crate::layout::profiling::*;
@@ -56,10 +57,18 @@ pub mod prelude {
     pub use crate::layout::layout_system::{
         URootUi, UVirtualScaleMode, UiCameraRef, UiCanvasSize, UiRootSettlementState, UiSpace,
     };
-    pub use crate::layout::pbr::UPbr;
+    pub use crate::layout::lighting::{
+        ULightAvailabilityChanged, ULightFilter, ULightModulationMode, ULightModulator,
+        ULightOccluder, ULightReactiveVisual, ULightSensor, ULightSource, ULightSourceKind,
+        URequiresLight, UnivisLightingPlugin,
+    };
+    pub use crate::layout::pbr::{
+        UPbr, UPbrInherit, UPbrKeepUnlit, UPbrPropagate, UPbrSurface,
+    };
     pub use crate::layout::text::{
-        UCopyText, USelectableText, UText, UTextLabel, UTextLabelLayoutCache, UTextOverflow,
-        UTextSpan, UTextSpansTemplate, UTextTruncateSide, UTextWrapMode,
+        TextFallbackFonts, UCopyText, USelectableText, UText, UTextFallbackFontsTemplate,
+        UTextLabel, UTextLabelLayoutCache, UTextOverflow, UTextSpan, UTextSpansTemplate,
+        UTextTruncateSide, UTextWrapMode,
     };
     pub use crate::schedule::{
         UiPickingRuntimeState, UiRolloutConfig, UiSettlementConfig, UiSettlementRuntimeState,
@@ -81,6 +90,7 @@ impl Plugin for LumaEnginePlugin {
                 layout::univis_node::UnivisNodePlugin,
                 layout::UnivisLayoutPlugin,
                 layout::render::UnivisRenderPlugin,
+                layout::lighting::UnivisLightingPlugin,
                 layout::text::UnivisTextPlugin,
             ));
     }

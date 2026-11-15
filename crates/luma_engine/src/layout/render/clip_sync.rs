@@ -469,6 +469,39 @@ pub fn collect_active_cursor_windows(
     active
 }
 
+/// Normalizes corner radii `[top_right, bottom_right, top_left, bottom_left]`
+/// against half-extents using CSS proportional scaling so large pill radii
+/// (such as `999.0`) clamp cleanly to half the shorter side.
+pub(crate) fn clamp_corner_radii(radius: Vec4, half_size: Vec2) -> Vec4 {
+    let w = (half_size.x * 2.0).max(0.0);
+    let h = (half_size.y * 2.0).max(0.0);
+    if w <= 0.0 || h <= 0.0 {
+        return Vec4::ZERO;
+    }
+    let tr = radius.x.max(0.0);
+    let br = radius.y.max(0.0);
+    let tl = radius.z.max(0.0);
+    let bl = radius.w.max(0.0);
+    let mut scale = 1.0_f32;
+    let top = tl + tr;
+    let bottom = bl + br;
+    let left = tl + bl;
+    let right = tr + br;
+    if top > w {
+        scale = scale.min(w / top);
+    }
+    if bottom > w {
+        scale = scale.min(w / bottom);
+    }
+    if left > h {
+        scale = scale.min(h / left);
+    }
+    if right > h {
+        scale = scale.min(h / right);
+    }
+    Vec4::new(tr, br, tl, bl) * scale
+}
+
 fn node_radius_vec(node: &UNode) -> Vec4 {
     Vec4::new(
         node.border_radius.top_right,
@@ -493,7 +526,7 @@ pub fn is_point_clipped_by_clipper(
 
     let cursor_in_clipper_space = matrix.inverse().transform_point3(world_pos).truncate();
     let half_size = Vec2::new(size.width, size.height) * 0.5 * world_scale;
-    let radius = node_radius_vec(node) * world_scale;
+    let radius = clamp_corner_radii(node_radius_vec(node) * world_scale, half_size);
     sd_node_shape(cursor_in_clipper_space, half_size, radius, node.shape_mode) > 0.0
 }
 
@@ -614,7 +647,7 @@ pub fn collect_clip_stack_for_entity(
 
         let inv = matrix.inverse();
         let half_size = Vec2::new(clip_computed.width, clip_computed.height) * 0.5 * world_scale;
-        let radius = node_radius_vec(clip_node) * world_scale;
+        let radius = clamp_corner_radii(node_radius_vec(clip_node) * world_scale, half_size);
         let shape_mode_f = match clip_node.shape_mode {
             UShapeMode::Round => 0.0,
             UShapeMode::Cut => 1.0,

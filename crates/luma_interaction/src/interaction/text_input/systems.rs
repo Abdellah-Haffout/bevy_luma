@@ -325,7 +325,7 @@ pub fn text_input_caret_blink_system(
             if caret.timer.just_finished() {
                 caret.visible = !caret.visible;
             }
-        } else {
+        } else if caret.visible {
             caret.visible = false;
         }
     }
@@ -476,9 +476,9 @@ fn parley_local_rect_to_top_left(
 }
 
 fn apply_overlay_rect(
-    node: &mut UNode,
-    self_style: &mut USelf,
-    visibility: &mut Visibility,
+    mut node: Mut<'_, UNode>,
+    mut self_style: Mut<'_, USelf>,
+    mut visibility: Mut<'_, Visibility>,
     left: f32,
     top: f32,
     width: f32,
@@ -791,8 +791,7 @@ pub fn text_input_sync_visual_system(
 
         // 5. Update caret node position and visibility
         if let Some(caret_entity) = caret.caret_entity
-            && let Ok((mut caret_node, mut caret_self, mut visibility)) =
-                caret_query.get_mut(caret_entity)
+            && let Ok((caret_node, caret_self, visibility)) = caret_query.get_mut(caret_entity)
         {
             let target_vis = if is_focused && caret.visible && input.enabled {
                 Visibility::Inherited
@@ -800,9 +799,9 @@ pub fn text_input_sync_visual_system(
                 Visibility::Hidden
             };
             apply_overlay_rect(
-                &mut caret_node,
-                &mut caret_self,
-                &mut visibility,
+                caret_node,
+                caret_self,
+                visibility,
                 text_origin_x + caret_in_text.0,
                 text_origin_y + caret_in_text.1,
                 caret.width,
@@ -815,13 +814,12 @@ pub fn text_input_sync_visual_system(
         // 6. Update primary and extra multiline selection highlight quads
         if let Some(first_rect) = sel_rects_in_text.first().copied() {
             if let Some(sel_entity) = caret.selection_entity
-                && let Ok((mut sel_node, mut sel_self, mut sel_vis)) =
-                    selection_query.get_mut(sel_entity)
+                && let Ok((sel_node, sel_self, sel_vis)) = selection_query.get_mut(sel_entity)
             {
                 apply_overlay_rect(
-                    &mut sel_node,
-                    &mut sel_self,
-                    &mut sel_vis,
+                    sel_node,
+                    sel_self,
+                    sel_vis,
                     text_origin_x + first_rect.0,
                     text_origin_y + first_rect.1,
                     first_rect.2.max(2.0),
@@ -838,13 +836,13 @@ pub fn text_input_sync_visual_system(
                 let width = rect.2.max(2.0);
                 let height = rect.3.max(1.0);
                 if let Some(&extra_entity) = caret.extra_selection_entities.get(idx) {
-                    if let Ok((mut sel_node, mut sel_self, mut sel_vis)) =
+                    if let Ok((sel_node, sel_self, sel_vis)) =
                         selection_query.get_mut(extra_entity)
                     {
                         apply_overlay_rect(
-                            &mut sel_node,
-                            &mut sel_self,
-                            &mut sel_vis,
+                            sel_node,
+                            sel_self,
+                            sel_vis,
                             left,
                             top,
                             width,

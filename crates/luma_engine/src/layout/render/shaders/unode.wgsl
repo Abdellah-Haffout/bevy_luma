@@ -49,11 +49,14 @@ struct UNodeMaterial {
 // -----------------------------------------------------------------------------
 
 fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
+    let limit = max(min(b.x, b.y), 0.0);
+    let r_clamped = min(max(r, vec4<f32>(0.0)), vec4<f32>(limit));
+
     let is_right = p.x > 0.0;
     let is_top   = p.y > 0.0;
     
-    let r_top = select(r.z, r.x, is_right);
-    let r_bot = select(r.w, r.y, is_right);
+    let r_top = select(r_clamped.z, r_clamped.x, is_right);
+    let r_bot = select(r_clamped.w, r_clamped.y, is_right);
     let radius = select(r_bot, r_top, is_top);
     
     let q = abs(p) - b + radius;
@@ -61,11 +64,14 @@ fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
 }
 
 fn sd_cut_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
+    let limit = max(min(b.x, b.y), 0.0);
+    let r_clamped = min(max(r, vec4<f32>(0.0)), vec4<f32>(limit));
+
     let is_right = p.x > 0.0;
     let is_top   = p.y > 0.0;
 
-    let r_top = select(r.z, r.x, is_right);
-    let r_bot = select(r.w, r.y, is_right);
+    let r_top = select(r_clamped.z, r_clamped.x, is_right);
+    let r_bot = select(r_clamped.w, r_clamped.y, is_right);
     let radius = select(r_bot, r_top, is_top);
 
     let q = abs(p) - b;
@@ -360,7 +366,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // Holographic inner edge glow along chamfers and rounded edges
     if (material.inner_glow_params.y > 0.5) {
         let inner_blur = max(material.inner_glow_params.x, 0.001);
-        let dist_inward = max(-dist_body, 0.0);
+        let inner_spread = max(material.inner_glow_params.z, 0.0);
+        let dist_inward = max(-dist_body - inner_spread, 0.0);
         let inner_factor = 1.0 - smoothstep(0.0, inner_blur, dist_inward);
         let glow_alpha = inner_factor * material.inner_glow_color.a;
         body_color = vec4<f32>(
@@ -371,7 +378,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Outer shadow
     var shadow_premul = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-    if (shadow_blur > 0.0) {
+    if (shadow_blur > 0.0 || shadow_spread > 0.0) {
         let p_shadow = p - vec2<f32>(shadow_offset.x, -shadow_offset.y);
         let shadow_radius = material.radius + vec4<f32>(shadow_spread);
         let half_size_shadow = half_size + vec2<f32>(shadow_spread);
@@ -381,7 +388,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         } else {
             dist_shadow = sd_rounded_box(p_shadow, half_size_shadow, shadow_radius);
         }
-        let shadow_factor = 1.0 - smoothstep(-aa_inner, shadow_blur, dist_shadow);
+        let shadow_edge = max(shadow_blur, aa_inner);
+        let shadow_factor = 1.0 - smoothstep(-aa_inner, shadow_edge, dist_shadow);
         let shadow_alpha = shadow_factor * material.shadow_color.a;
         shadow_premul = vec4<f32>(material.shadow_color.rgb * shadow_alpha, shadow_alpha);
     }

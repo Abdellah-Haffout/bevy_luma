@@ -52,6 +52,7 @@ bevy = { version = "0.20.0", default-features = false, features = [
     "bevy_sprite_render",
     "bevy_gizmos_render",
     "bevy_pbr",
+    "area_light_luts",
     "bevy_picking",
     "mesh_picking",
     "zstd_rust",
@@ -183,3 +184,31 @@ path = "examples/luma_focus_showcase.rs"
 [[example]]
 name = "luma_multicam_text_showcase"
 path = "examples/luma_multicam_text_showcase.rs"
+
+[[example]]
+name = "lighting_receiving_light"
+path = "examples/lighting/receiving_light.rs"
+
+[[example]]
+name = "lighting_emitting_and_sources"
+path = "examples/lighting/emitting_and_sources.rs"
+
+[[example]]
+name = "lighting_blocking_light"
+path = "examples/lighting/blocking_light.rs"
+
+[[example]]
+name = "lighting_changing_light"
+path = "examples/lighting/changing_light.rs"
+
+[[example]]
+name = "lighting_light_dependent_ui"
+path = "examples/lighting/light_dependent_ui.rs"
+
+[[example]]
+name = "lighting_wood_in_darkness"
+path = "examples/lighting/wood_in_darkness.rs"
+
+[[example]]
+name = "lighting_cyberpunk_plaza"
+path = "examples/lighting/cyberpunk_plaza.rs"
